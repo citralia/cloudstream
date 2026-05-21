@@ -27,7 +27,6 @@ build/
 
 # macOS
 .DS_Store
-*.md
 fqmacros/
 
 # Test coverage
@@ -37,3 +36,5 @@ coverage/
 **/google-services.json
 **/GoogleService-Info.plist
 **/firebase_options.dart
+
+# Note: *.md is NOT globally ignored — README, SPEC, PROJECT_PLAN, CONTRIBUTING are committed
