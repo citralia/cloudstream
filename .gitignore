@@ -1,0 +1,39 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-session*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+*.md
+fqmacros/
+
+# Test coverage
+coverage/
+
+# Firebase (credentials — never commit)
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
