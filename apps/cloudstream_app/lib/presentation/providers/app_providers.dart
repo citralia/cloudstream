@@ -47,7 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Restore session from secure storage on app startup.
   Future<void> _restoreSession() async {
     try {
-      final creds = await _store.loadCredentials();
+      final creds = await _store.loadActiveConnection();
       if (creds == null) {
         state = const AuthState(status: AuthStatus.unauthenticated);
         return;
@@ -62,13 +62,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
       // Stored credentials are invalid — clear them
-      await _store.clearCredentials();
+      await _store.clearAll();
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
 
   /// Login with Xtream credentials.
   Future<void> login({
+    required String name,
     required String serverUrl,
     required String username,
     required String password,
@@ -84,9 +85,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       final user = await _client.login();
-      // Save credentials
+      // Save credentials as a named connection profile
       await _store.saveConnection(
-        name: serverUrl,
+        name: name,
         serverUrl: serverUrl,
         username: username,
         password: password,
@@ -106,8 +107,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Logout and clear stored credentials.
   Future<void> logout() async {
-    await _store.clearCredentials();
+    await _store.clearAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// Update auth state directly (used when switching connections).
+  void setUser(XtreamLoginResult user) {
+    state = AuthState(status: AuthStatus.authenticated, user: user);
   }
 }
 
@@ -157,3 +163,12 @@ final streamUrlProvider = Provider.family<String, int>((ref, streamId) {
 // ── Selected channel ─────────────────────────────────────────────────────
 
 final selectedStreamProvider = StateProvider<XtreamStream?>((ref) => null);
+
+// ── Connections (Playlist) ────────────────────────────────────────────────
+
+final connectionsListProvider = FutureProvider<List<XtreamCredentials>>((ref) async {
+  final store = ref.watch(credentialsStoreProvider);
+  return await store.listConnections();
+});
+
+final activeConnectionNameProvider = StateProvider<String?>((ref) => null);

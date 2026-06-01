@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
+import 'playlist_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -72,6 +73,21 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'View on GitHub',
             trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
             onTap: () {}, // TODO: url_launcher
+          ),
+
+          // ── Connections ───────────────────────────────────
+          _SectionHeader(title: 'Connections'),
+          _SettingsTile(
+            icon: Icons.dns_outlined,
+            title: 'Manage connections',
+            subtitle: 'Add, edit, or remove Xtream servers',
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PlaylistScreen()),
+              );
+            },
           ),
 
           const SizedBox(height: AppSpacing.xl),

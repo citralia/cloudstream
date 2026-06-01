@@ -46,9 +46,9 @@
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
-| C01 | Strip backend proxy from Xtream client | Next | agent | App → Xtream direct, no backend in middle |
-| C02 | flutter_secure_storage integration | Next | agent | Store Xtream URL + creds on-device |
-| C03 | Add Playlist screen | Next | agent | Xtream URL + username + password input |
+| C01 | Strip backend proxy from Xtream client | Done | agent | App → Xtream direct, no backend in middle — XtreamApiClient via Riverpod, CloudStreamRemoteDataSource dead code |
+| C02 | flutter_secure_storage integration | Done | agent | CredentialsStore with flutter_secure_storage — done |
+| C03 | Add Playlist screen | In Progress | agent | Connection list, add/edit/delete profiles |
 | C04 | Connection management | Next | agent | Multiple profiles, set active connection |
 | C05 | Rebuild APK with direct Xtream | Next | agent | GitHub Release, Downloader URL |
 | C06 | Smoke test on Firestick | Blocked | josh | Verify login, channels, playback |
