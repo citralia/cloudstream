@@ -19,13 +19,13 @@
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
-| B01 | SPEC.md architecture update | In Progress | agent | |
-| B02 | FastAPI project scaffold | Next | agent | |
-| B03 | Xtream auth router + models | Next | agent | |
-| B04 | Channel list router | Next | agent | |
-| B05 | EPG aggregator router | Next | agent | |
-| B06 | Stream proxy endpoint | Next | agent | |
-| B07 | Dockerise + deploy script | Next | agent | |
+| B01 | SPEC.md architecture update | Done | agent | Backend proxy architecture locked |
+| B02 | FastAPI project scaffold | Done | agent | Docker + uvicorn + SQLite |
+| B03 | Xtream auth router + models | Done | agent | Login/logout/me + Bearer token |
+| B04 | Channel list router | Done | agent | /api/channels with category filter |
+| B05 | EPG aggregator router | Done | agent | XMLTV parse + SQLite cache |
+| B06 | Stream proxy endpoint | Done | agent | /api/stream/{id} redirects to Xtream |
+| B07 | Dockerise + deploy script | Next | agent | docker-compose + deploy notes |
 | B08 | VPS deployment + smoke test | Blocked | josh | needs VPS access |
 
 ### Flutter — Android App (Phase 0)

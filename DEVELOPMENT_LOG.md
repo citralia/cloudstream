@@ -15,12 +15,13 @@
 - Backend before frontend — get API solid before hooking Flutter to it
 - Xtream test fixtures for development, real server pointed in on deploy
 - Firebase credentials deferred (env vars at deploy time)
+- Backend sessions stored in-memory (upgrade to Redis when scaling)
 
 ### Architecture locked:
 ```
 Firestick (Flutter) → FastAPI Proxy (VPS) → Xtream Server (IPTV)
                               ↓
-                       EPG Aggregator
+                       EPG Aggregator (XMLTV → SQLite cache)
 ```
 
 ### Environment:
@@ -29,14 +30,22 @@ Firestick (Flutter) → FastAPI Proxy (VPS) → Xtream Server (IPTV)
 - Branches: main (protected) + develop (integration)
 - CI: GitHub Actions — analyze, test, build iOS/Android/macOS
 
-### What's been done:
+### What's been done today:
 - [x] Repaired CI workflows (FLUTTER_VERSION 4.0.0→3.44.0, cd paths, artifact paths)
 - [x] Scaffolded Flutter project at apps/cloudstream_app/
 - [x] Set up ops infrastructure (board, log, workflow)
-- [x] Updated SPEC.md architecture section
+- [x] Backend FastAPI complete (B02-B06):
+  - Xtream async client with full auth
+  - /api/auth/* (login/logout/me)
+  - /api/channels/* (list, get by id, category filter)
+  - /api/categories/* (live/vod/series)
+  - /api/epg/* (XMLTV parse, SQLite cache, refresh)
+  - /api/stream/* (redirect to Xtream m3u8, manifest endpoint)
+  - Docker + docker-compose ready
+  - README with full API docs
 
 ### What's next:
-- Backend: FastAPI scaffold → auth → channels → EPG → stream proxy
+- B07: Deploy script (write + test when VPS access available)
 - Flutter: design tokens → Xtream client → login → channel list → player
 - VPS deployment when josh gets home access
 
