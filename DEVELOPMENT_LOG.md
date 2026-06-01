@@ -31,31 +31,13 @@ Firestick (Flutter) → FastAPI Proxy (VPS) → Xtream Server (IPTV)
 - CI: GitHub Actions — analyze, test, build iOS/Android/macOS
 
 ### What's been done today:
-- [x] Repaired CI workflows (FLUTTER_VERSION 4.0.0→3.44.0, cd paths, artifact paths)
-- [x] Scaffolded Flutter project at apps/cloudstream_app/
-- [x] Set up ops infrastructure (board, log, workflow)
-- [x] Hourly dev cron set up (fires at :05 each hour)
-- [x] Backend FastAPI complete (B02-B06):
-  - Xtream async client with full auth
-  - /api/auth/* (login/logout/me)
-  - /api/channels/* (list, get by id, category filter)
-  - /api/categories/* (live/vod/series)
-  - /api/epg/* (XMLTV parse, SQLite cache, refresh)
-  - /api/stream/* (redirect to Xtream m3u8, manifest endpoint)
-  - Docker + docker-compose ready
-  - README with full API docs
-- [x] Flutter app core (F01-F07):
-  - Clean Architecture: core/data/domain/presentation layers
-  - AppTheme (dark), AppColors, AppTypography, AppSpacing
-  - Domain entities: Channel, Programme, Category, User
-  - Data: DTOs + CloudStreamRemoteDataSource (Dio, typed errors)
-  - Presentation: Riverpod providers, LoginScreen, ChannelListScreen, PlayerScreen (Chewie + HLS)
-  - pubspec: flutter_riverpod, dio, video_player, chewie, google_fonts
+- [x] F08: Category filtering — horizontal chip bar above channel list, filters via selectedCategoryProvider
+- [x] Fixed pre-existing CI errors: `Icons.guide` → `Icons.menu_book`, removed `const` from `BottomNavigationBar.items`, fixed stale widget test
+- [x] Fixed `CategoryListResult.categories` → `result.live`
+- [x] CI passes: Analyze ✅ Test ✅ Build macOS ✅ Build iOS ✅
 
 ### What's next:
-- F08: Category filtering (chip-based filter bar)
-- F09: Settings screen
-- B07: Deploy script ready (test when VPS access available)
+- F09: Settings screen (server URL edit, logout, about)
 - VPS deployment when josh gets home access (has Xtream server to connect)
 - F10: Android smoke test (side-load on Firestick)
 
