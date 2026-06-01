@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/channel_entity.dart';
+import '../../domain/entities/category_entity.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 
@@ -10,7 +11,8 @@ class ChannelListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final channelsAsync = ref.watch(channelsProvider(null));
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+    final channelsAsync = ref.watch(channelsProvider(selectedCategory));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -19,97 +21,106 @@ class ChannelListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(channelsProvider(null)),
+            onPressed: () => ref.invalidate(channelsProvider(selectedCategory)),
           ),
         ],
       ),
-      body: channelsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Failed to load channels',
-                  style: AppTypography.h3,
+      body: Column(
+        children: [
+          // Category filter chips
+          const CategoryFilterChips(),
+          // Channel list
+          Expanded(
+            child: channelsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (error, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        'Failed to load channels',
+                        style: AppTypography.h3,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        error.toString(),
+                        style: AppTypography.caption,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      ElevatedButton(
+                        onPressed: () => ref.invalidate(channelsProvider(selectedCategory)),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  error.toString(),
-                  style: AppTypography.caption,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                ElevatedButton(
-                  onPressed: () => ref.invalidate(channelsProvider(null)),
-                  child: const Text('Retry'),
-                ),
-              ],
+              ),
+              data: (channels) {
+                if (channels.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.live_tv_outlined, color: AppColors.textMuted, size: 64),
+                        SizedBox(height: AppSpacing.lg),
+                        Text('No channels found', style: AppTypography.h3),
+                        SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Check your Xtream credentials\nor refresh to try again.',
+                          style: AppTypography.caption,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Group channels by category
+                final grouped = <int, List<ChannelEntity>>{};
+                for (final ch in channels) {
+                  grouped.putIfAbsent(ch.categoryId, () => []).add(ch);
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  itemCount: grouped.length,
+                  itemBuilder: (context, index) {
+                    final categoryId = grouped.keys.elementAt(index);
+                    final categoryChannels = grouped[categoryId]!;
+                    final categoryName = categoryChannels.first.categoryName;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+                          ),
+                          child: Text(
+                            categoryName.isNotEmpty ? categoryName : 'All Channels',
+                            style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ),
+                        ...categoryChannels.map((channel) => ChannelTile(
+                          channel: channel,
+                          onTap: () => _openPlayer(context, ref, channel),
+                        )),
+                        const Divider(height: 1),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
-        ),
-        data: (channels) {
-          if (channels.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.live_tv_outlined, color: AppColors.textMuted, size: 64),
-                  SizedBox(height: AppSpacing.lg),
-                  Text('No channels found', style: AppTypography.h3),
-                  SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Check your Xtream credentials\nor refresh to try again.',
-                    style: AppTypography.caption,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Group channels by category
-          final grouped = <int, List<ChannelEntity>>{};
-          for (final ch in channels) {
-            grouped.putIfAbsent(ch.categoryId, () => []).add(ch);
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            itemCount: grouped.length,
-            itemBuilder: (context, index) {
-              final categoryId = grouped.keys.elementAt(index);
-              final categoryChannels = grouped[categoryId]!;
-              final categoryName = categoryChannels.first.categoryName;
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
-                    ),
-                    child: Text(
-                      categoryName.isNotEmpty ? categoryName : 'All Channels',
-                      style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  ...categoryChannels.map((channel) => ChannelTile(
-                    channel: channel,
-                    onTap: () => _openPlayer(context, ref, channel),
-                  )),
-                  const Divider(height: 1),
-                ],
-              );
-            },
-          );
-        },
+        ],
       ),
     );
   }
@@ -122,6 +133,89 @@ class ChannelListScreen extends ConsumerWidget {
   }
 }
 
+class CategoryFilterChips extends ConsumerWidget {
+  const CategoryFilterChips({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+
+    return SizedBox(
+      height: 52,
+      child: categoriesAsync.when(
+        loading: () => const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
+        ),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (result) {
+          final categories = result.categories.where((c) => c.type == 'live').toList();
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            itemCount: categories.length + 1, // +1 for "All" chip
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: FilterChip(
+                    label: const Text('All'),
+                    selected: selectedCategory == null,
+                    onSelected: (_) {
+                      ref.read(selectedCategoryProvider.notifier).state = null;
+                    },
+                    selectedColor: AppColors.primary.withValues(alpha: 0.3),
+                    checkmarkColor: AppColors.primary,
+                    labelStyle: TextStyle(
+                      color: selectedCategory == null
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                    ),
+                    side: BorderSide(
+                      color: selectedCategory == null
+                          ? AppColors.primary
+                          : AppColors.surfaceElevated,
+                    ),
+                  ),
+                );
+              }
+
+              final category = categories[index - 1];
+              final isSelected = selectedCategory == category.id;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: FilterChip(
+                  label: Text(category.name),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    ref.read(selectedCategoryProvider.notifier).state =
+                        isSelected ? null : category.id;
+                  },
+                  selectedColor: AppColors.primary.withValues(alpha: 0.3),
+                  checkmarkColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? AppColors.primary : AppColors.textMuted,
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.primary : AppColors.surfaceElevated,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 
 class ChannelTile extends StatelessWidget {
   final ChannelEntity channel;

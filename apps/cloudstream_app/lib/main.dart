@@ -69,15 +69,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.live_tv_outlined),
             activeIcon: Icon(Icons.live_tv),
             label: 'Live TV',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.guide_outlined),
-            activeIcon: Icon(Icons.guide),
+            icon: Icon(Icons.menu_book_outlined),
+            activeIcon: Icon(Icons.menu_book),
             label: 'Guide',
           ),
           BottomNavigationBarItem(
@@ -105,7 +105,7 @@ class _GuidePlaceholder extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.guide, color: AppColors.textMuted, size: 64),
+            Icon(Icons.menu_book, color: AppColors.textMuted, size: 64),
             SizedBox(height: 16),
             Text('Guide — coming soon', style: AppTypography.h3),
           ],

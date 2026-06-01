@@ -39,7 +39,7 @@
 | F05 | Login screen | Done | agent | Form validation, Xtream auth flow |
 | F06 | Channel list screen | Done | agent | Grouped by category, channel tiles with logos |
 | F07 | Video player (Chewie/HLS) | Done | agent | PlayerScreen with Chewie, EPG now/next overlay |
-| F08 | Category filtering | Next | agent | Category chips, filtered channel list |
+|| F08 | Category filtering | In Progress | agent | Category chips, filtered channel list |
 | F09 | Settings screen | Next | agent | Server URL edit, logout, about |
 | F10 | Android build smoke test | Blocked | josh | Side-load on Firestick |
 

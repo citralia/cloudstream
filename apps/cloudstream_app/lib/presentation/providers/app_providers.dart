@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/api_client.dart';
 import '../../data/datasources/remote_data_source.dart';
 import '../../domain/entities/channel_entity.dart';
-import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../data/models/programme_model.dart';
 
