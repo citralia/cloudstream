@@ -38,3 +38,5 @@ coverage/
 **/firebase_options.dart
 
 # Note: *.md is NOT globally ignored — README, SPEC, PROJECT_PLAN, CONTRIBUTING are committed
+*.apk
+.hermes/plans/
