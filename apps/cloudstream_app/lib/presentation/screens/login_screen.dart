@@ -12,6 +12,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _serverUrlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -19,6 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _serverUrlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -27,7 +29,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    final profileName = _nameController.text.trim().isEmpty
+        ? Uri.parse(_serverUrlController.text.trim()).host
+        : _nameController.text.trim();
     await ref.read(authProvider.notifier).login(
+      name: profileName,
       serverUrl: _serverUrlController.text.trim(),
       username: _usernameController.text.trim(),
       password: _passwordController.text,
@@ -70,6 +76,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.xxxl),
+
+                  // Profile name (optional — defaults to server hostname)
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Profile name (optional)',
+                      hintText: 'e.g. Home, Work',
+                      prefixIcon: Icon(Icons.label_outline, color: AppColors.textMuted),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
 
                   // Server URL
                   TextFormField(
