@@ -101,7 +101,7 @@ jobs:
         with:
           name: ios-release-${{ needs.version.outputs.new-version }}
           path: apps/cloudstream_app/build/ios/iphoneos/Runner.app
-          retention-days: 14
+          retention-days: 30
 
   build-android:
     name: Build Android
@@ -139,14 +139,15 @@ jobs:
       # with a valid keystore. For now, builds an unsigned APK.
       - name: Build APK (release)
         run: |
-          cd apps/cloudstream_app && flutter build apk --release 2>&1
+          cd apps/cloudstream_app && flutter build apk --release \
+            --dart-define=ApiConfig.baseUrl=http://100.112.53.35:8001 2>&1
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-${{ needs.version.outputs.new-version }}
           path: apps/cloudstream_app/build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 14
+          retention-days: 30
 
   build-macos:
     name: Build macOS
@@ -183,7 +184,7 @@ jobs:
         with:
           name: macos-release-${{ needs.version.outputs.new-version }}
           path: apps/cloudstream_app/build/macos/Build/Products/Release/
-          retention-days: 14
+          retention-days: 30
 
   # ─────────────────────────────────────────────────────────
   # JOB 3: Tag + GitHub Release
@@ -212,11 +213,11 @@ jobs:
           tag_name: ${{ needs.version.outputs.release-tag }}
           name: CloudStream ${{ needs.version.outputs.new-version }}
           generate_release_notes: true
-          draft: true
+          draft: false
           artifacts: |
-            build/ios/iphoneos/Runner.app
-            build/app/outputs/flutter-apk/app-release.apk
-            build/macos/Build/Products/Release/*.app
+            apps/cloudstream_app/build/ios/iphoneos/Runner.app
+            apps/cloudstream_app/build/app/outputs/flutter-apk/app-release.apk
+            apps/cloudstream_app/build/macos/Build/Products/Release/
           body: |
             ## CloudStream ${{ needs.version.outputs.new-version }}
 
