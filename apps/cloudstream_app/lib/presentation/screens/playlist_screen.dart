@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
@@ -399,7 +400,7 @@ class _TvButtonState extends State<_TvButton> {
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.gameButtonA) {
           widget.onPressed?.call();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },

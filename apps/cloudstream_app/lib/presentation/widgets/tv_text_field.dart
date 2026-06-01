@@ -78,6 +78,7 @@ class _TvTextFieldState extends State<TvTextField> {
       builder: (context) => TvSoftKeyboard(
         controller: widget.controller,
         label: widget.label,
+        hint: widget.hint,
         obscureText: widget.obscureText,
         keyboardType: widget.keyboardType,
         onDone: () {
@@ -112,7 +113,7 @@ class _TvTextFieldState extends State<TvTextField> {
                   ? AppColors.error
                   : _isFocused
                       ? AppColors.primary
-                      : AppColors.border,
+                      : AppColors.divider,
               width: _isFocused || _hasError ? 2 : 1,
             ),
             boxShadow: _isFocused
@@ -221,6 +222,7 @@ class _TvTextFieldState extends State<TvTextField> {
 class TvSoftKeyboard extends StatefulWidget {
   final TextEditingController controller;
   final String label;
+  final String? hint;
   final bool obscureText;
   final TextInputType keyboardType;
   final VoidCallback onDone;
@@ -229,6 +231,7 @@ class TvSoftKeyboard extends StatefulWidget {
     super.key,
     required this.controller,
     required this.label,
+    this.hint,
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
     required this.onDone,
@@ -291,7 +294,7 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
         decoration: BoxDecoration(
           color: AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.divider),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -313,7 +316,7 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
                 ],
               ),
             ),
-            const Divider(color: AppColors.border, height: 1),
+            const Divider(color: AppColors.divider, height: 1),
             // Input display
             Container(
               margin: const EdgeInsets.all(AppSpacing.md),
@@ -321,7 +324,7 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.divider),
               ),
               child: Row(
                 children: [
@@ -516,7 +519,7 @@ class _TvKeyState extends State<_TvKey> {
                           : AppColors.surfaceElevated,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: _isFocused ? AppColors.accent : AppColors.border,
+                    color: _isFocused ? AppColors.accent : AppColors.divider,
                     width: _isFocused ? 2 : 1,
                   ),
                 ),
