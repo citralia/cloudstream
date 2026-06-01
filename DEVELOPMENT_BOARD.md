@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-01T20:45:00+01:00
+> Last updated: 2026-06-01T20:58:00+01:00
 
 ## Legend
 | Status | Meaning |
@@ -25,8 +25,8 @@
 | B04 | Channel list router | Done | agent | /api/channels with category filter |
 | B05 | EPG aggregator router | Done | agent | XMLTV parse + SQLite cache |
 | B06 | Stream proxy endpoint | Done | agent | /api/stream/{id} redirects to Xtream |
-| B07 | Docker compose + deploy script | Next | agent | deploy.sh ready, docker-compose added |
-| B08 | VPS deployment + smoke test | Blocked | josh | needs home access to VPS |
+| B07 | Docker compose + deploy script | Done | agent | deploy.sh ready |
+| B08 | VPS deployment + smoke test | Done | agent | Running on :8001, 14992 channels live, 234 categories, stream manifest verified |
 
 ### Flutter — Android App (Phase 0)
 
