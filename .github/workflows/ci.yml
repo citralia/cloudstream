@@ -153,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: apps/cloudstream_app/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 3
 
   # ─────────────────────────────────────────────────────────
