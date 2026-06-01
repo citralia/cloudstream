@@ -4,15 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_theme.dart';
-import '../../domain/entities/channel_entity.dart';
-import '../../domain/entities/programme_entity.dart';
-import '../../data/datasources/remote_data_source.dart';
+import '../../core/network/xtream_client.dart';
 import '../providers/app_providers.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
-  final ChannelEntity channel;
+  final XtreamStream stream;
 
-  const PlayerScreen({super.key, required this.channel});
+  const PlayerScreen({super.key, required this.stream});
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -23,7 +21,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
-  ProgrammeEntity? _currentProgramme;
+  XtreamEpgEntry? _currentProgramme;
 
   @override
   void initState() {
@@ -52,12 +50,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _initializePlayer() async {
     try {
-      // Get stream URL from backend
-      final ds = ref.read(remoteDataSourceProvider);
-      final manifestUrl = await ds.getStreamManifest(widget.channel.id);
+      // Build stream URL directly from stored credentials
+      final streamUrl = ref.read(streamUrlProvider(widget.stream.streamId));
 
       // Initialise video player with the HLS manifest
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(manifestUrl));
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(streamUrl));
       await _videoController!.initialize();
 
       _chewieController = ChewieController(
@@ -86,10 +83,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               children: [
                 const Icon(Icons.error_outline, color: AppColors.error, size: 48),
                 const SizedBox(height: 16),
-                Text(
-                  'Playback error',
-                  style: AppTypography.h3,
-                ),
+                Text('Playback error', style: AppTypography.h3),
                 const SizedBox(height: 8),
                 Text(
                   errorMessage,
@@ -105,43 +99,42 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       // Load EPG for this channel
       _loadEpg();
 
-      setState(() => _isLoading = false);
-    } on AuthException catch (e) {
-      setState(() {
-        _error = 'Authentication failed: ${e.message}';
-        _isLoading = false;
-      });
-    } on ApiException catch (e) {
-      setState(() {
-        _error = 'Failed to load stream: ${e.message}';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } on XtreamApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = 'Unexpected error: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to play stream: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadEpg() async {
     try {
-      final ds = ref.read(remoteDataSourceProvider);
-      final epgChannels = await ds.getEpg(channelId: widget.channel.id, hours: 2);
-      if (epgChannels.isNotEmpty && epgChannels.first.programmes.isNotEmpty) {
-        // Find currently playing programme
-        final now = DateTime.now().toUtc();
-        for (final prog in epgChannels.first.programmes) {
-          final start = prog.start;
-          final end = prog.end;
-          if (now.isAfter(start) && now.isBefore(end)) {
-            setState(() => _currentProgramme = prog.toEntity());
-            break;
-          }
+      final entries = await ref.read(epgProvider(widget.stream.streamId).future);
+      if (entries.isEmpty) return;
+
+      final now = DateTime.now();
+      for (final entry in entries) {
+        final start = entry.startTime;
+        final end = entry.endTime;
+        if (now.isAfter(start) && now.isBefore(end)) {
+          if (mounted) setState(() => _currentProgramme = entry);
+          break;
         }
       }
     } catch (_) {
-      // EPG failure is non-fatal — just don't show programme info
+      // EPG failure is non-fatal
     }
   }
 
@@ -196,21 +189,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Row(
                     children: [
-                      // Back button
                       IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-
-                      // Channel info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              widget.channel.name,
+                              widget.stream.name,
                               style: AppTypography.h3.copyWith(color: Colors.white),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -255,10 +245,7 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, color: AppColors.error, size: 64),
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Playback failed',
-              style: AppTypography.h2,
-            ),
+            Text('Playback failed', style: AppTypography.h2),
             const SizedBox(height: AppSpacing.sm),
             Text(
               error,

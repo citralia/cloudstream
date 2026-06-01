@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 
@@ -13,14 +12,12 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           const SizedBox(height: AppSpacing.md),
 
-          // ── Account section ─────────────────────────────
+          // ── Account ───────────────────────────────────────
           _SectionHeader(title: 'Account'),
           _InfoTile(
             icon: Icons.person_outline,
@@ -30,15 +27,20 @@ class SettingsScreen extends ConsumerWidget {
           _InfoTile(
             icon: Icons.dns_outlined,
             label: 'Server',
-            value: ApiConfig.baseUrl,
-            valueStyle: AppTypography.micro.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            value: ref.watch(xtreamClientProvider).isConfigured ? 'Connected' : '—',
           ),
+          if (authState.user != null)
+            _InfoTile(
+              icon: Icons.calendar_today_outlined,
+              label: 'Expires',
+              value: authState.user!.expiryDate.isNotEmpty
+                  ? authState.user!.expiryDate.substring(0, 10)
+                  : '—',
+            ),
 
           const SizedBox(height: AppSpacing.xl),
 
-          // ── Playback section ────────────────────────────
+          // ── Playback ─────────────────────────────────────
           _SectionHeader(title: 'Playback'),
           _SettingsTile(
             icon: Icons.picture_in_picture_outlined,
@@ -57,9 +59,9 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // ── About section ───────────────────────────────
+          // ── About ────────────────────────────────────────
           _SectionHeader(title: 'About'),
-          _InfoTile(
+          const _InfoTile(
             icon: Icons.info_outline,
             label: 'Version',
             value: '0.1.0',
@@ -69,12 +71,12 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Open source',
             subtitle: 'View on GitHub',
             trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
-            onTap: () => _openUrl('https://github.com/citralia/cloudstream'),
+            onTap: () {}, // TODO: url_launcher
           ),
 
           const SizedBox(height: AppSpacing.xl),
 
-          // ── Sign out ────────────────────────────────────
+          // ── Sign out ─────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: SizedBox(
@@ -118,18 +120,11 @@ class SettingsScreen extends ConsumerWidget {
               Navigator.pop(ctx);
               ref.read(authProvider.notifier).logout();
             },
-            child: Text(
-              'Sign out',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child: Text('Sign out', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
     );
-  }
-
-  void _openUrl(String url) {
-    // In a real app, use url_launcher. For now, no-op since we're TV-focused.
   }
 }
 
@@ -143,10 +138,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
       child: Text(
         title.toUpperCase(),
-        style: AppTypography.micro.copyWith(
-          color: AppColors.primary,
-          letterSpacing: 1.2,
-        ),
+        style: AppTypography.micro.copyWith(color: AppColors.primary, letterSpacing: 1.2),
       ),
     );
   }
@@ -156,22 +148,13 @@ class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final TextStyle? valueStyle;
 
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueStyle,
-  });
+  const _InfoTile({required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       child: Row(
         children: [
           Icon(icon, color: AppColors.textMuted, size: 20),
@@ -182,12 +165,7 @@ class _InfoTile extends StatelessWidget {
               children: [
                 Text(label, style: AppTypography.caption),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: valueStyle ?? AppTypography.body,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(value, style: AppTypography.body, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -218,17 +196,10 @@ class _SettingsTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textMuted,
-              size: 20,
-            ),
+            Icon(icon, color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textMuted, size: 20),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -237,18 +208,14 @@ class _SettingsTile extends StatelessWidget {
                   Text(
                     title,
                     style: AppTypography.body.copyWith(
-                      color: isDisabled
-                          ? AppColors.textMuted.withValues(alpha: 0.5)
-                          : AppColors.textPrimary,
+                      color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: AppTypography.caption.copyWith(
-                      color: isDisabled
-                          ? AppColors.textMuted.withValues(alpha: 0.5)
-                          : AppColors.textSecondary,
+                      color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -273,10 +240,7 @@ class _ComingSoonBadge extends StatelessWidget {
         color: AppColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        'Soon',
-        style: AppTypography.micro.copyWith(color: AppColors.primary),
-      ),
+      child: Text('Soon', style: AppTypography.micro.copyWith(color: AppColors.primary)),
     );
   }
 }

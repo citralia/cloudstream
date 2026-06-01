@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
-import '../../domain/entities/channel_entity.dart';
+import '../../core/network/xtream_client.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 
@@ -10,8 +10,8 @@ class ChannelListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCategory = ref.watch(selectedCategoryProvider);
-    final channelsAsync = ref.watch(channelsProvider(selectedCategory));
+    final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
+    final streamsAsync = ref.watch(filteredLiveStreamsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -20,7 +20,10 @@ class ChannelListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(channelsProvider(selectedCategory)),
+            onPressed: () {
+              ref.invalidate(liveStreamsProvider);
+              ref.invalidate(filteredLiveStreamsProvider);
+            },
           ),
         ],
       ),
@@ -30,7 +33,7 @@ class ChannelListScreen extends ConsumerWidget {
           const CategoryFilterChips(),
           // Channel list
           Expanded(
-            child: channelsAsync.when(
+            child: streamsAsync.when(
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
@@ -42,10 +45,7 @@ class ChannelListScreen extends ConsumerWidget {
                     children: [
                       const Icon(Icons.error_outline, color: AppColors.error, size: 48),
                       const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        'Failed to load channels',
-                        style: AppTypography.h3,
-                      ),
+                      Text('Failed to load channels', style: AppTypography.h3),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         error.toString(),
@@ -54,15 +54,15 @@ class ChannelListScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       ElevatedButton(
-                        onPressed: () => ref.invalidate(channelsProvider(selectedCategory)),
+                        onPressed: () => ref.invalidate(filteredLiveStreamsProvider),
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
                 ),
               ),
-              data: (channels) {
-                if (channels.isEmpty) {
+              data: (streams) {
+                if (streams.isEmpty) {
                   return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -81,41 +81,18 @@ class ChannelListScreen extends ConsumerWidget {
                   );
                 }
 
-                // Group channels by category
-                final grouped = <int, List<ChannelEntity>>{};
-                for (final ch in channels) {
-                  grouped.putIfAbsent(ch.categoryId, () => []).add(ch);
+                // When filtered: show flat list by category. When not filtered: group by category.
+                if (selectedCategoryId != null) {
+                  return _FlatChannelList(
+                    streams: streams,
+                    onTap: (stream) => _openPlayer(context, ref, stream),
+                  );
+                } else {
+                  return _GroupedChannelList(
+                    streams: streams,
+                    onTap: (stream) => _openPlayer(context, ref, stream),
+                  );
                 }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  itemCount: grouped.length,
-                  itemBuilder: (context, index) {
-                    final categoryId = grouped.keys.elementAt(index);
-                    final categoryChannels = grouped[categoryId]!;
-                    final categoryName = categoryChannels.first.categoryName;
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
-                          ),
-                          child: Text(
-                            categoryName.isNotEmpty ? categoryName : 'All Channels',
-                            style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ),
-                        ...categoryChannels.map((channel) => ChannelTile(
-                          channel: channel,
-                          onTap: () => _openPlayer(context, ref, channel),
-                        )),
-                        const Divider(height: 1),
-                      ],
-                    );
-                  },
-                );
               },
             ),
           ),
@@ -124,21 +101,91 @@ class ChannelListScreen extends ConsumerWidget {
     );
   }
 
-  void _openPlayer(BuildContext context, WidgetRef ref, ChannelEntity channel) {
-    ref.read(selectedChannelProvider.notifier).state = channel;
+  void _openPlayer(BuildContext context, WidgetRef ref, XtreamStream stream) {
+    ref.read(selectedStreamProvider.notifier).state = stream;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PlayerScreen(channel: channel)),
+      MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
     );
   }
 }
 
+/// Flat list when a category is selected.
+class _FlatChannelList extends StatelessWidget {
+  final List<XtreamStream> streams;
+  final void Function(XtreamStream) onTap;
+
+  const _FlatChannelList({required this.streams, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      itemCount: streams.length,
+      itemBuilder: (context, index) => ChannelTile(
+        stream: streams[index],
+        onTap: () => onTap(streams[index]),
+      ),
+    );
+  }
+}
+
+/// Grouped list when no category is selected (shows all channels grouped by category).
+class _GroupedChannelList extends StatelessWidget {
+  final List<XtreamStream> streams;
+  final void Function(XtreamStream) onTap;
+
+  const _GroupedChannelList({required this.streams, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // Group by category_id
+    final grouped = <int, List<XtreamStream>>{};
+    for (final stream in streams) {
+      grouped.putIfAbsent(stream.categoryId, () => []).add(stream);
+    }
+
+    final sortedKeys = grouped.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      itemCount: sortedKeys.length,
+      itemBuilder: (context, index) {
+        final categoryId = sortedKeys[index];
+        final categoryStreams = grouped[categoryId]!;
+        final categoryName = categoryStreams.first.name; // fallback
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+              ),
+              child: Text(
+                categoryName.isNotEmpty ? categoryName : 'All Channels',
+                style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
+              ),
+            ),
+            ...categoryStreams.map((stream) => ChannelTile(
+              stream: stream,
+              onTap: () => onTap(stream),
+            )),
+            const Divider(height: 1),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Category filter chip bar.
 class CategoryFilterChips extends ConsumerWidget {
   const CategoryFilterChips({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final selectedCategory = ref.watch(selectedCategoryProvider);
+    final categoriesAsync = ref.watch(liveCategoriesProvider);
+    final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
 
     return SizedBox(
       height: 52,
@@ -151,8 +198,9 @@ class CategoryFilterChips extends ConsumerWidget {
           ),
         ),
         error: (_, __) => const SizedBox.shrink(),
-        data: (result) {
-          final categories = result.live;
+        data: (categories) {
+          if (categories.isEmpty) return const SizedBox.shrink();
+
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -162,50 +210,25 @@ class CategoryFilterChips extends ConsumerWidget {
             itemCount: categories.length + 1, // +1 for "All" chip
             itemBuilder: (context, index) {
               if (index == 0) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: FilterChip(
-                    label: const Text('All'),
-                    selected: selectedCategory == null,
-                    onSelected: (_) {
-                      ref.read(selectedCategoryProvider.notifier).state = null;
-                    },
-                    selectedColor: AppColors.primary.withValues(alpha: 0.3),
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: selectedCategory == null
-                          ? AppColors.primary
-                          : AppColors.textMuted,
-                    ),
-                    side: BorderSide(
-                      color: selectedCategory == null
-                          ? AppColors.primary
-                          : AppColors.surfaceElevated,
-                    ),
-                  ),
+                return _FilterChip(
+                  label: 'All',
+                  isSelected: selectedCategoryId == null,
+                  onTap: () => ref.read(selectedCategoryIdProvider.notifier).state = null,
                 );
               }
 
               final category = categories[index - 1];
-              final isSelected = selectedCategory == category.id;
+              final isSelected = selectedCategoryId == category.id;
 
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: FilterChip(
-                  label: Text(category.name),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    ref.read(selectedCategoryProvider.notifier).state =
+                child: _FilterChip(
+                  label: category.name,
+                  isSelected: isSelected,
+                  onTap: () {
+                    ref.read(selectedCategoryIdProvider.notifier).state =
                         isSelected ? null : category.id;
                   },
-                  selectedColor: AppColors.primary.withValues(alpha: 0.3),
-                  checkmarkColor: AppColors.primary,
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppColors.primary : AppColors.textMuted,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.surfaceElevated,
-                  ),
                 ),
               );
             },
@@ -216,11 +239,49 @@ class CategoryFilterChips extends ConsumerWidget {
   }
 }
 
-class ChannelTile extends StatelessWidget {
-  final ChannelEntity channel;
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
   final VoidCallback onTap;
 
-  const ChannelTile({super.key, required this.channel, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.2) : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.primary : AppColors.textMuted,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Single channel tile.
+class ChannelTile extends StatelessWidget {
+  final XtreamStream stream;
+  final VoidCallback onTap;
+
+  const ChannelTile({super.key, required this.stream, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -241,44 +302,43 @@ class ChannelTile extends StatelessWidget {
                 color: AppColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: channel.logo != null && channel.logo!.isNotEmpty
+              child: stream.logo != null && stream.logo!.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        channel.logo!,
+                        stream.logo!,
                         width: 52,
                         height: 52,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, __) => _placeholderLogo(),
+                        errorBuilder: (_, __, ___) => _placeholderLogo(),
                       ),
                     )
                   : _placeholderLogo(),
             ),
             const SizedBox(width: AppSpacing.md),
-
             // Channel name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    channel.name,
+                    stream.name,
                     style: AppTypography.body,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    channel.categoryName,
-                    style: AppTypography.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  if (stream.epgChannel != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      stream.epgChannel!,
+                      style: AppTypography.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),
-
-            // Play indicator
             const Icon(Icons.play_arrow, color: AppColors.textMuted),
           ],
         ),
@@ -289,7 +349,7 @@ class ChannelTile extends StatelessWidget {
   Widget _placeholderLogo() {
     return Center(
       child: Text(
-        channel.name.isNotEmpty ? channel.name[0].toUpperCase() : '?',
+        stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
         style: AppTypography.h2.copyWith(color: AppColors.primary),
       ),
     );
