@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-01T20:00:00+01:00
+> Last updated: 2026-06-01T20:45:00+01:00
 
 ## Legend
 | Status | Meaning |
@@ -25,23 +25,23 @@
 | B04 | Channel list router | Done | agent | /api/channels with category filter |
 | B05 | EPG aggregator router | Done | agent | XMLTV parse + SQLite cache |
 | B06 | Stream proxy endpoint | Done | agent | /api/stream/{id} redirects to Xtream |
-| B07 | Dockerise + deploy script | Next | agent | docker-compose + deploy notes |
-| B08 | VPS deployment + smoke test | Blocked | josh | needs VPS access |
+| B07 | Docker compose + deploy script | Next | agent | deploy.sh ready, docker-compose added |
+| B08 | VPS deployment + smoke test | Blocked | josh | needs home access to VPS |
 
 ### Flutter — Android App (Phase 0)
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
-| F01 | Flutter project clean structure | Next | agent | |
-| F02 | Design tokens + theme | Next | agent | |
-| F03 | Xtream data models | Next | agent | |
-| F04 | Xtream API client | Next | agent | |
-| F05 | Login screen | Next | agent | |
-| F06 | Channel list screen | Next | agent | |
-| F07 | Video player integration | Next | agent | |
-| F08 | EPG overlay (now/next) | Next | agent | |
-| F09 | Android build smoke test | Blocked | josh | needs Android Studio |
-| F10 | CI verify debug APK | Blocked | josh | CI runs on merge |
+| F01 | Flutter project clean structure | Done | agent | Clean Architecture dirs, pubspec with deps |
+| F02 | Design tokens + app theme | Done | agent | AppTheme dark, AppColors, AppTypography, AppSpacing |
+| F03 | Xtream data models | Done | agent | Channel, Programme, Category, User entities + DTOs |
+| F04 | Xtream API client | Done | agent | Dio ApiClient + CloudStreamRemoteDataSource |
+| F05 | Login screen | Done | agent | Form validation, Xtream auth flow |
+| F06 | Channel list screen | Done | agent | Grouped by category, channel tiles with logos |
+| F07 | Video player (Chewie/HLS) | Done | agent | PlayerScreen with Chewie, EPG now/next overlay |
+| F08 | Category filtering | Next | agent | Category chips, filtered channel list |
+| F09 | Settings screen | Next | agent | Server URL edit, logout, about |
+| F10 | Android build smoke test | Blocked | josh | Side-load on Firestick |
 
 ### iOS (deferred — full build on Mac)
 
@@ -58,10 +58,10 @@
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
 | P101 | Channel switching < 1s | Backlog | | |
-| P102 | Category filtering | Backlog | | |
-| P103 | Quick channel switcher overlay | Backlog | | |
-| P104 | PiP support | Backlog | | |
-| P105 | Gesture controls | Backlog | | |
+| P102 | Quick channel switcher overlay | Backlog | | |
+| P103 | PiP support | Backlog | | |
+| P104 | Gesture controls | Backlog | | |
+| P105 | Full EPG guide screen | Backlog | | |
 
 ---
 
@@ -69,10 +69,9 @@
 
 | Blocker | Impact | Resolution |
 |---------|--------|------------|
-| No Xtream test server | B03-B07 | Use test fixtures, real server on deploy |
 | No VPS access | B08 | Deploy when josh home |
 | No MacBook | iOS build | CI validates, Mac verification later |
-| No Firebase credentials | F05-F08 | Env vars on deploy |
+| No Firebase credentials | F10 | Env vars on deploy |
 
 ---
 
@@ -82,3 +81,5 @@
 - Frontend: Flutter with Clean Architecture (data/domain/presentation)
 - All commits must include board update
 - PR required for all merges to develop
+- Xtream server: Josh has one — point backend at deploy
+- Cron: dev cron fires hourly at :05, advances next task
