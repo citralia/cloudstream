@@ -31,15 +31,17 @@ Firestick (Flutter) → FastAPI Proxy (VPS) → Xtream Server (IPTV)
 - CI: GitHub Actions — analyze, test, build iOS/Android/macOS
 
 ### What's been done today:
+- [x] F09: Settings screen — server URL display, username, version, sign out with confirm dialog, about section, PiP/quick-switch as coming soon
+- [x] Fixed CI workflow — was missing `push` trigger, only ran on `pull_request`; now also runs on push to main/develop
 - [x] F08: Category filtering — horizontal chip bar above channel list, filters via selectedCategoryProvider
 - [x] Fixed pre-existing CI errors: `Icons.guide` → `Icons.menu_book`, removed `const` from `BottomNavigationBar.items`, fixed stale widget test
 - [x] Fixed `CategoryListResult.categories` → `result.live`
 - [x] CI passes: Analyze ✅ Test ✅ Build macOS ✅ Build iOS ✅
 
 ### What's next:
-- F09: Settings screen (server URL edit, logout, about)
+- F10: Android smoke test (side-load on Firestick) — blocked on josh
+- Phase 1 features (channel switching < 1s, PiP, gesture controls)
 - VPS deployment when josh gets home access (has Xtream server to connect)
-- F10: Android smoke test (side-load on Firestick)
 
 ---
 

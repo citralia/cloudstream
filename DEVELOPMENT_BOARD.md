@@ -37,7 +37,7 @@
 | F06 | Channel list screen | Done | agent | Grouped by category, channel tiles with logos |
 | F07 | Video player (Chewie/HLS) | Done | agent | PlayerScreen with Chewie, EPG now/next overlay |
 | F08 | Category filtering | Done | agent | Category chips, filtered channel list |
-| F09 | Settings screen | Next | agent | Server URL edit, logout, about |
+| F09 | Settings screen | Done | agent | Server URL display, logout with confirm, about section |
 | F10 | Android build smoke test | Blocked | josh | Side-load on Firestick |
 
 > **Note F04-F08:** Client currently points to backend proxy. Must be updated to call Xtream API directly.
