@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-simulator-build
-          path: build/ios/iphonesimulator/
+          path: apps/cloudstream_app/build/ios/iphonesimulator/
           retention-days: 3
 
   # ─────────────────────────────────────────────────────────
@@ -189,5 +189,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: build/macos/Build/Products/Release/
+          path: apps/cloudstream_app/build/macos/Build/Products/Release/
           retention-days: 3
