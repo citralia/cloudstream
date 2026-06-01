@@ -8,6 +8,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FLUTTER_VERSION: "3.44.0"
+
 jobs:
   # ─────────────────────────────────────────────────────────
   # JOB 1: Lint + Analyze
@@ -22,7 +26,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "4.0.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -33,11 +37,11 @@ jobs:
           key: flutter-deps-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Install dependencies
-        run: flutter pub get
+        run: cd apps/cloudstream_app && flutter pub get
 
       - name: Analyze
         run: |
-          flutter analyze --no-fatal-infos --no-fatal-warnings
+          cd apps/cloudstream_app && flutter analyze --no-fatal-infos --no-fatal-warnings
 
   # ─────────────────────────────────────────────────────────
   # JOB 2: Unit + Widget Tests
@@ -52,7 +56,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "4.0.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -63,10 +67,10 @@ jobs:
           key: flutter-deps-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Install dependencies
-        run: flutter pub get
+        run: cd apps/cloudstream_app && flutter pub get
 
       - name: Run tests
-        run: flutter test --no-pub
+        run: cd apps/cloudstream_app && flutter test --no-pub
 
   # ─────────────────────────────────────────────────────────
   # JOB 3: iOS Build (Simulator — no signing required)
@@ -82,7 +86,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "4.0.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -93,11 +97,11 @@ jobs:
           key: flutter-deps-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Install dependencies
-        run: flutter pub get
+        run: cd apps/cloudstream_app && flutter pub get
 
       - name: Build iOS (simulator)
         run: |
-          flutter build ios --simulator --no-codesign 2>&1
+          cd apps/cloudstream_app && flutter build ios --simulator --no-codesign 2>&1
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -120,7 +124,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "4.0.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -137,11 +141,11 @@ jobs:
           key: flutter-deps-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Install dependencies
-        run: flutter pub get
+        run: cd apps/cloudstream_app && flutter pub get
 
       - name: Build APK (debug)
         run: |
-          flutter build apk --debug 2>&1
+          cd apps/cloudstream_app && flutter build apk --debug 2>&1
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -164,7 +168,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "4.0.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -175,11 +179,11 @@ jobs:
           key: flutter-deps-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Install dependencies
-        run: flutter pub get
+        run: cd apps/cloudstream_app && flutter pub get
 
       - name: Build macOS
         run: |
-          flutter build macos 2>&1
+          cd apps/cloudstream_app && flutter build macos 2>&1
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
