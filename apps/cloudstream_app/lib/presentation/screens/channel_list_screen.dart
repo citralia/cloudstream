@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/channel_entity.dart';
-import '../../domain/entities/category_entity.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 
@@ -153,7 +152,7 @@ class CategoryFilterChips extends ConsumerWidget {
         ),
         error: (_, __) => const SizedBox.shrink(),
         data: (result) {
-          final categories = result.categories.where((c) => c.type == 'live').toList();
+          final categories = result.live;
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -250,7 +249,7 @@ class ChannelTile extends StatelessWidget {
                         width: 52,
                         height: 52,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => _placeholderLogo(),
+                        errorBuilder: (_, _, __) => _placeholderLogo(),
                       ),
                     )
                   : _placeholderLogo(),
