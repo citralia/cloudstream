@@ -11,7 +11,7 @@ class ApiConfig {
   /// Set to empty string to use demo mode.
   static const String baseUrl = String.fromEnvironment(
     'CLOUDSTREAM_API_URL',
-    defaultValue: '',
+    defaultValue: 'http://100.112.53.35:8001',
   );
 
   /// Request timeout in seconds.
