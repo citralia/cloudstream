@@ -36,18 +36,22 @@ async def list_channels(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    channels = [
-        Channel(
+    channels = []
+    for stream in streams:
+        cat_id = stream.get("category_id")
+        if isinstance(cat_id, str) and cat_id.isdigit():
+            cat_id = int(cat_id)
+        elif cat_id is None:
+            cat_id = None
+        channels.append(Channel(
             id=stream["stream_id"],
-            name=stream.get("name", "Unknown"),
-            logo=stream.get("stream_icon", ""),
-            category_id=stream.get("category_id", 0),
-            category_name=stream.get("category_name", ""),
+            name=stream.get("name") or "Unknown",
+            logo=stream.get("stream_icon"),
+            category_id=cat_id,
+            category_name=stream.get("category_name") or "",
             stream_url=f"/api/stream/{stream['stream_id']}",
             is_recording=False,
-        )
-        for stream in streams
-    ]
+        ))
 
     return ChannelListResponse(channels=channels, total=len(channels))
 

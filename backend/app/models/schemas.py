@@ -26,12 +26,12 @@ class LoginResponse(BaseModel):
 
 
 class Channel(BaseModel):
-    id: int
+    id: int = Field(..., description="Xtream stream_id")
     name: str
     logo: Optional[str] = None
-    category_id: int
-    category_name: str
-    stream_url: str
+    category_id: Optional[int] = None  # Xtream may return string or null
+    category_name: str = ""
+    stream_url: str = ""
     is_recording: bool = False
 
 

@@ -67,7 +67,6 @@ class XtreamClient:
         params = {
             "username": self.username,
             "password": self.password,
-            "action": "login",
         }
 
         try:
@@ -81,10 +80,9 @@ class XtreamClient:
         except httpx.RequestError as e:
             raise XtreamAPIError(f"Connection error: {e}")
 
-        if data.get("auth") == 0:
-            raise XtreamAuthError("Authentication failed — check credentials")
-
         user_info = data.get("user_info") or data
+        if user_info.get("auth", 1) == 0:
+            raise XtreamAuthError("Authentication failed — check credentials")
         self._user_info = user_info
         self._token = self._generate_token()
         return self._user_info
