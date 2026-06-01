@@ -97,7 +97,7 @@ class _TvTextFieldState extends State<TvTextField> {
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.gameButtonA) {
           _openKeyboard();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
@@ -479,23 +479,23 @@ class _TvKeyState extends State<_TvKey> {
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.gameButtonA) {
           widget.onTap();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
           _focusNext();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
           _focusPrev();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
           _focusDown();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
           _focusUp();
-          return KeyEventHandled;
+          return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
