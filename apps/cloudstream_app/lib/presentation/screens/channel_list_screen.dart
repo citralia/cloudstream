@@ -260,7 +260,7 @@ class _FilterChip extends StatelessWidget {
           color: isSelected ? AppColors.primary.withValues(alpha: 0.2) : AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
+            color: isSelected ? AppColors.primary : AppColors.textMuted,
           ),
         ),
         child: Text(
