@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-01T22:15:00+01:00
+> Last updated: 2026-06-02T00:20:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -48,9 +48,9 @@
 |---|------|--------|-------|-------|
 | C01 | Strip backend proxy from Xtream client | Done | agent | App → Xtream direct, no backend in middle — XtreamApiClient via Riverpod, CloudStreamRemoteDataSource dead code |
 | C02 | flutter_secure_storage integration | Done | agent | CredentialsStore with flutter_secure_storage — done |
-| C03 | Add Playlist screen | In Progress | agent | Connection list, add/edit/delete profiles |
-| C04 | Connection management | Next | agent | Multiple profiles, set active connection |
-| C05 | Rebuild APK with direct Xtream | Next | agent | GitHub Release, Downloader URL |
+| C03 | Add Playlist screen | Done | agent | PlaylistScreen + _ConnectionFormSheet — done in b68eacc |
+| C04 | Connection management | Done | agent | Multi-profile support via CredentialsStore — done in b68eacc |
+| C05 | Rebuild APK with direct Xtream | Done | agent | GitHub Release v0.0.1 — APK uploaded, direct Xtream architecture |
 | C06 | Smoke test on Firestick | Blocked | josh | Verify login, channels, playback |
 
 ### Backend — Obsolete (IPTV layer)

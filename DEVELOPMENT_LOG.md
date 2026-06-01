@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-06-02 — CloudStream Hourly Cron
+
+**Session start:** 00:15 BST
+
+### Board audit findings:
+- C03 (Playlist screen) and C04 (connection management) already implemented in origin/develop (b68eacc)
+- Board had them as In Progress / Next — corrected to Done
+- C05 (rebuild APK) was Next
+
+### What was done:
+- Triggered release workflow (patch bump) → v0.0.1
+- All builds succeeded: iOS ✅ macOS ✅ Android ✅
+- Android APK uploaded to GitHub Release v0.0.1
+- iOS/macOS .app patterns didn't match (unsigned builds — expected)
+- Board updated: C03, C04, C05 all marked Done
+
+### CI status:
+- Release v0.0.1 ✅ complete — https://github.com/citralia/cloudstream/releases/tag/v0.0.1
+
+### What's next:
+- C06: Smoke test on Firestick (blocked on josh)
+- Phase 1 features: channel switching < 1s, PiP, gesture controls, full EPG guide
+- VPS deployment when josh gets home access
+
+---
+
 ## 2026-06-01 — CloudStream development begins
 
 **Session start:** 20:00 BST
