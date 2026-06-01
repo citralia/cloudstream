@@ -1,0 +1,19 @@
+{
+  "problem_statement": "Design a comprehensive Telegram bot monetization strategy that maximizes revenue while maintaining user experience and platform compliance. Consider: (1) bot category/type alignment, (2) target audience and use case, (3) monetization mechanisms (subscriptions, ads, affiliate, paid access, tips, premium features), (4) growth and user acquisition, (5) technical implementation complexity, (6) regulatory/payment infrastructure requirements, (7) competition differentiation. The strategy should specify: which monetization model(s) to pursue, why they fit the chosen bot vertical, estimated implementation timeline, key success metrics, and realistic revenue benchmarks for a bot at 1K, 10K, and 100K users.",
+  "success_criteria": [
+    "Identifies 2-3 viable monetization mechanisms ranked by expected ROI",
+    "Explains why chosen model fits Telegram's user behavior and platform norms",
+    "Addresses payment infrastructure and regulatory considerations",
+    "Provides realistic growth trajectory with key milestones",
+    "Differentiates from existing solutions in the same vertical",
+    "Includes risk assessment and mitigation strategies"
+  ],
+  "domain": "product strategy and monetization",
+  "personas": [
+    "Bot Developer \u2014 deep knowledge of Telegram Bot API capabilities, rate limits, Botfather features, and what technical architecture enables or blocks monetization",
+    "Growth Strategist \u2014 expertise in Telegram user acquisition, community growth loops, referral systems, and viral mechanics specific to messaging platforms",
+    "Monetization Architect \u2014 specializes in pricing psychology, subscription economics, freemium models, affiliate networks, and payment infrastructure for digital products",
+    "Market Analyst \u2014 tracks the Telegram bot ecosystem, competitive landscape, vertical-specific opportunities, and emerging trends in bot monetization"
+  ],
+  "notes": "Frame the debate around a SPECIFIC bot vertical (e.g., productivity, trading signals, adult content, AI assistant, community management) \u2014 each persona should advocate for monetization paths that align with their expertise domain while respecting platform rules."
+}

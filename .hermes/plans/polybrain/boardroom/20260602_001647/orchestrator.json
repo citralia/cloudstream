@@ -1,0 +1,20 @@
+{
+  "problem_statement": "A solo operator with $100 in starting capital wants to launch a simple, sustainable micro-business. They have no employees, no physical storefront, and limited time (roughly 10-15 hours per week to devote to the business). The business must be legal, ethical, and capable of generating meaningful side income within 30-60 days. Evaluate a specific, named business model that meets these constraints and justify why it is the best choice among alternatives. Include: the exact initial setup steps, the top 3 biggest risks and how to mitigate them, the realistic monthly income ceiling in the first 6 months, and what metrics to track to know if it's working.",
+  "success_criteria": [
+    "Provides a specific, named business model (not a category \u2014 an actual type, e.g. 'print-on-demand Etsy shop selling minimalist dog portraits', not just 'e-commerce')",
+    "States a realistic first-6-months income range with reasoning",
+    "Identifies 3 concrete risks with named mitigations (not generic advice)",
+    "Covers the exact setup steps with estimated costs \u2014 must sum to ~$100 or clearly justify why less is needed",
+    "Explains 2-3 key metrics to track and the decision point for when to pivot or quit",
+    "Addresses the 10-15 hour/week time constraint explicitly in the model",
+    "Considers the operator is solo with no employees"
+  ],
+  "domain": "Entrepreneurship / Small Business",
+  "personas": [
+    "Bootstrapped Operator \u2014 Has launched 3+ micro-businesses under $200, knows which business models actually work at this scale and which are traps",
+    "Financial Viability Analyst \u2014 Specializes in unit economics, break-even analysis, and realistic income projections for solopreneurs",
+    "Market Opportunity Researcher \u2014 Understands demand signals, competitive saturation, timing, and where underserved niches exist for low-capital entrants",
+    "Risk & Operations Strategist \u2014 Focuses on failure modes, mitigations, and the operational simplicity needed to survive year one as a solo operator"
+  ],
+  "notes": "The boardroom should pressure-test whether the recommended model is genuinely executable at $100 and 15 hours/week, and not just theoretically possible."
+}

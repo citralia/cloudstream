@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
 import '../../data/datasources/credentials_store.dart';
 import '../providers/app_providers.dart';
+import '../widgets/tv_text_field.dart';
 
 /// Screen for managing saved connection profiles.
 /// Accessible from Settings, lists all Xtream servers.
@@ -250,24 +251,40 @@ class _ConnectionFormSheet extends StatefulWidget {
 }
 
 class _ConnectionFormSheetState extends State<_ConnectionFormSheet> {
-  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _serverUrlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _serverUrlController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  String? _validateRequired(String? val) {
+    if (val == null || val.trim().isEmpty) return 'This field is required';
+    return null;
+  }
+
+  String? _validateServerUrl(String? val) {
+    if (val == null || val.trim().isEmpty) return 'Server URL is required';
+    if (!val.trim().startsWith('http://') && !val.trim().startsWith('https://')) {
+      return 'Must start with http:// or https://';
+    }
+    return null;
   }
 
   void _submit() {
-    if (!_formKey.currentState!.validate()) return;
+    final nameError = _validateRequired(_nameController.text);
+    final urlError = _validateServerUrl(_serverUrlController.text);
+    final userError = _validateRequired(_usernameController.text);
+    final passError = _validateRequired(_passwordController.text);
+
+    if (nameError != null || urlError != null || userError != null || passError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(nameError ?? urlError ?? userError ?? passError ?? 'Error'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     Navigator.pop(
       context,
       XtreamCredentials(
@@ -284,113 +301,126 @@ class _ConnectionFormSheetState extends State<_ConnectionFormSheet> {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.textMuted,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
+            ),
+            const SizedBox(height: AppSpacing.lg),
 
-              Text('New Connection', style: AppTypography.h3),
-              const SizedBox(height: AppSpacing.lg),
+            Text('New Connection', style: AppTypography.h3),
+            const SizedBox(height: AppSpacing.lg),
 
-              // Profile name
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Profile name',
-                  hintText: 'e.g. Home, Work, Parent\'s house',
-                  prefixIcon: Icon(Icons.label_outline, color: AppColors.textMuted),
-                ),
-                textInputAction: TextInputAction.next,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Name is required';
-                  return null;
-                },
+            // Profile name
+            TvTextField(
+              label: 'Profile name',
+              hint: 'e.g. Home, Work',
+              prefixIcon: Icons.label_outline,
+              controller: _nameController,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Server URL
+            TvTextField(
+              label: 'Xtream server URL',
+              hint: 'http://1.2.3.4:8080',
+              prefixIcon: Icons.dns_outlined,
+              controller: _serverUrlController,
+              keyboardType: TextInputType.url,
+              validator: _validateServerUrl,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Username
+            TvTextField(
+              label: 'Username',
+              prefixIcon: Icons.person_outline,
+              controller: _usernameController,
+              validator: _validateRequired,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Password
+            TvTextField(
+              label: 'Password',
+              prefixIcon: Icons.lock_outline,
+              controller: _passwordController,
+              obscureText: true,
+              validator: _validateRequired,
+              onSubmitted: _submit,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+
+            SizedBox(
+              height: 56,
+              child: _TvButton(
+                label: 'Save connection',
+                onPressed: _submit,
               ),
-              const SizedBox(height: AppSpacing.md),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-              // Server URL
-              TextFormField(
-                controller: _serverUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'Xtream server URL',
-                  hintText: 'http://1.2.3.4:8080',
-                  prefixIcon: Icon(Icons.dns_outlined, color: AppColors.textMuted),
-                ),
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                textInputAction: TextInputAction.next,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Server URL is required';
-                  if (!val.startsWith('http://') && !val.startsWith('https://')) {
-                    return 'Must start with http:// or https://';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
+/// Reusable TV button for consistency across forms.
+class _TvButton extends StatefulWidget {
+  final String label;
+  final VoidCallback? onPressed;
 
-              // Username
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: Icon(Icons.person_outline, color: AppColors.textMuted),
-                ),
-                textInputAction: TextInputAction.next,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Username is required';
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
+  const _TvButton({required this.label, this.onPressed});
 
-              // Password
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textMuted),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                      color: AppColors.textMuted,
-                    ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _submit(),
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Password is required';
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.xl),
+  @override
+  State<_TvButton> createState() => _TvButtonState();
+}
 
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _submit,
-                  child: const Text('Save connection'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
+class _TvButtonState extends State<_TvButton> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      autofocus: true,
+      onFocusChange: (v) => setState(() => _isFocused = v),
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+          widget.onPressed?.call();
+          return KeyEventHandled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _isFocused ? AppColors.primary : AppColors.primary.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isFocused ? AppColors.accent : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: _isFocused
+                ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 10)]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: AppTypography.h3.copyWith(color: Colors.white),
           ),
         ),
       ),
