@@ -153,7 +153,7 @@ class CategoryFilterChips extends ConsumerWidget {
         ),
         error: (_, __) => const SizedBox.shrink(),
         data: (result) {
-          final categories = result.categories.where((c) => c.type == 'live').toList();
+          final categories = result.live;
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
