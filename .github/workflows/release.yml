@@ -202,6 +202,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
       - name: Create tag + commit
         env:
           NEW_VERSION: ${{ needs.version.outputs.new-version }}
@@ -213,32 +218,29 @@ jobs:
           git push origin $RELEASE_TAG --force
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.release-tag }}
           name: CloudStream ${{ needs.version.outputs.new-version }}
           generate_release_notes: true
           draft: false
-          artifacts: |
-            apps/cloudstream_app/build/ios/iphoneos/Runner.app
-            apps/cloudstream_app/build/app/outputs/flutter-apk/app-release.apk
-            apps/cloudstream_app/build/macos/Build/Products/Release/
+          files: |
+            artifacts/android-apk-${{ needs.version.outputs.new-version }}/app-release.apk
+            artifacts/macos-release-${{ needs.version.outputs.new-version }}/*.app
+            artifacts/ios-release-${{ needs.version.outputs.new-version }}/*.app
           body: |
             ## CloudStream ${{ needs.version.outputs.new-version }}
 
             See [SPEC.md](SPEC.md) for the full feature roadmap.
 
-            ### What's Changed
-            <!-- Add manual notes or use auto-generated release notes -->
-
             ### Platform Builds
-            - ✅ iOS (Release)
-            - ✅ Android (APK)
+            - ✅ Android (APK) — install directly on Firestick/Android
             - ✅ macOS
+            - ✅ iOS (requires Apple Developer account for sideloading)
 
             ### Installation
-            **iOS:** Download the .app from artifacts, sideload via Xcode (requires Apple Developer account).
+            **Android:** Download the APK → Install → Enable "Install from unknown sources" in settings.
 
-            **Android:** Install the APK directly (enable "Install from unknown sources").
+            **macOS:** Drag Runner.app to Applications, then right-click → Open (bypass Gatekeeper on first run).
 
-            **macOS:** Drag Runner.app to Applications.
+            **iOS:** Open the .app in Xcode → select your device → Run (requires signing certificate).
