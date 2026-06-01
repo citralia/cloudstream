@@ -1,27 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/network/api_client.dart';
-import '../../data/datasources/remote_data_source.dart';
-import '../../domain/entities/channel_entity.dart';
-import '../../domain/entities/user_entity.dart';
-import '../../data/models/programme_model.dart';
+import '../../core/network/xtream_client.dart';
+import '../../data/datasources/credentials_store.dart';
 
-// ── Core providers ─────────────────────────────────────────
+// ── Core providers ─────────────────────────────────────────────────────────
 
-final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+final xtreamClientProvider = Provider<XtreamApiClient>((ref) {
+  return XtreamApiClient();
 });
 
-final remoteDataSourceProvider = Provider<CloudStreamRemoteDataSource>((ref) {
-  return CloudStreamRemoteDataSource(ref.watch(apiClientProvider));
+final credentialsStoreProvider = Provider<CredentialsStore>((ref) {
+  return CredentialsStore();
 });
 
-// ── Auth state ─────────────────────────────────────────────
+// ── Auth state ─────────────────────────────────────────────────────────────
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
 class AuthState {
   final AuthStatus status;
-  final UserEntity? user;
+  final XtreamLoginResult? user;
   final String? error;
 
   const AuthState({
@@ -30,7 +27,7 @@ class AuthState {
     this.error,
   });
 
-  AuthState copyWith({AuthStatus? status, UserEntity? user, String? error}) {
+  AuthState copyWith({AuthStatus? status, XtreamLoginResult? user, String? error}) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
@@ -40,78 +37,123 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  final CloudStreamRemoteDataSource _ds;
+  final XtreamApiClient _client;
+  final CredentialsStore _store;
 
-  AuthNotifier(this._ds) : super(const AuthState());
+  AuthNotifier(this._client, this._store) : super(const AuthState()) {
+    _restoreSession();
+  }
 
+  /// Restore session from secure storage on app startup.
+  Future<void> _restoreSession() async {
+    try {
+      final creds = await _store.loadCredentials();
+      if (creds == null) {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+      _client.configure(
+        serverUrl: creds.serverUrl,
+        username: creds.username,
+        password: creds.password,
+      );
+      // Validate by logging in
+      final user = await _client.login();
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } catch (e) {
+      // Stored credentials are invalid — clear them
+      await _store.clearCredentials();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    }
+  }
+
+  /// Login with Xtream credentials.
   Future<void> login({
     required String serverUrl,
     required String username,
     required String password,
   }) async {
-    state = state.copyWith(status: AuthStatus.unauthenticated, error: null);
+    state = state.copyWith(status: AuthStatus.unknown, error: null);
+
+    // Configure client
+    _client.configure(
+      serverUrl: serverUrl,
+      username: username,
+      password: password,
+    );
+
     try {
-      final user = await _ds.login(
+      final user = await _client.login();
+      // Save credentials
+      await _store.saveConnection(
+        name: serverUrl,
         serverUrl: serverUrl,
         username: username,
         password: password,
       );
-      state = AuthState(status: AuthStatus.authenticated, user: user.toEntity());
-    } on AuthException catch (e) {
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on XtreamAuthException catch (e) {
       state = state.copyWith(status: AuthStatus.unauthenticated, error: e.message);
-    } on ApiException catch (e) {
+    } on XtreamApiException catch (e) {
       state = state.copyWith(status: AuthStatus.unauthenticated, error: e.message);
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        error: 'Connection error — is the backend running?',
+        error: 'Connection failed — check your server URL',
       );
     }
   }
 
+  /// Logout and clear stored credentials.
   Future<void> logout() async {
-    try {
-      await _ds.logout();
-    } catch (_) {}
+    await _store.clearCredentials();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(remoteDataSourceProvider));
+  return AuthNotifier(
+    ref.watch(xtreamClientProvider),
+    ref.watch(credentialsStoreProvider),
+  );
 });
 
-// ── Channels ─────────────────────────────────────────────
+// ── Channels ───────────────────────────────────────────────────────────────
 
-final channelsProvider = FutureProvider.family<List<ChannelEntity>, int?>((ref, categoryId) async {
-  final ds = ref.watch(remoteDataSourceProvider);
-  final channels = await ds.getChannels(categoryId: categoryId);
-  return channels.map((c) => c.toEntity()).toList();
+final liveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getLiveStreams();
 });
 
-final selectedCategoryProvider = StateProvider<int?>((ref) => null);
+final selectedCategoryIdProvider = StateProvider<int?>((ref) => null);
 
-// ── Categories ─────────────────────────────────────────────
-
-final categoriesProvider = FutureProvider<CategoryListResult>((ref) async {
-  final ds = ref.watch(remoteDataSourceProvider);
-  return await ds.getCategories();
+final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final categoryId = ref.watch(selectedCategoryIdProvider);
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getLiveStreams(categoryId: categoryId);
 });
 
-// ── EPG ───────────────────────────────────────────────
+// ── Categories ────────────────────────────────────────────────────────────
 
-final epgProvider = FutureProvider.family<List<EpgChannelModel>, int?>((ref, channelId) async {
-  final ds = ref.watch(remoteDataSourceProvider);
-  return await ds.getEpg(channelId: channelId, hours: 24);
+final liveCategoriesProvider = FutureProvider<List<XtreamCategory>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getLiveCategories();
 });
 
-// ── Stream ─────────────────────────────────────────────
+// ── EPG ──────────────────────────────────────────────────────────────────
 
-final streamManifestProvider = FutureProvider.family<String, int>((ref, channelId) async {
-  final ds = ref.watch(remoteDataSourceProvider);
-  return await ds.getStreamManifest(channelId);
+final epgProvider = FutureProvider.family<List<XtreamEpgEntry>, int>((ref, streamId) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getEpg(streamId);
 });
 
-// ── Selected channel ─────────────────────────────────────────
+// ── Stream URL builder ────────────────────────────────────────────────────
 
-final selectedChannelProvider = StateProvider<ChannelEntity?>((ref) => null);
+final streamUrlProvider = Provider.family<String, int>((ref, streamId) {
+  final client = ref.watch(xtreamClientProvider);
+  return client.buildLiveStreamUrl(streamId);
+});
+
+// ── Selected channel ─────────────────────────────────────────────────────
+
+final selectedStreamProvider = StateProvider<XtreamStream?>((ref) => null);

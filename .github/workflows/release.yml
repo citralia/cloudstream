@@ -204,6 +204,8 @@ jobs:
           NEW_VERSION: ${{ needs.version.outputs.new-version }}
           RELEASE_TAG: ${{ needs.version.outputs.release-tag }}
         run: |
+          git config --global user.email "ci@cloudstream.app"
+          git config --global user.name "CloudStream CI"
           git tag -a $RELEASE_TAG -m "Release $NEW_VERSION" --force
           git push origin $RELEASE_TAG --force
 

@@ -1,6 +1,16 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-01T20:58:00+01:00
+> Last updated: 2026-06-01T22:15:00+01:00
+
+## Architecture Decision (2026-06-01)
+
+> **Previous error:** Built backend as sessionful Xtream proxy — wrong. Backend stored credentials, proxied all Xtream calls.
+>
+> **Correct architecture:** App → Xtream server directly. No backend involvement in IPTV operations. Credentials stored on-device in flutter_secure_storage.
+>
+> **ADR-004 and ONBOARDING.md are authoritative.** Backend serves no purpose for IPTV flow.
+
+---
 
 ## Legend
 | Status | Meaning |
@@ -9,26 +19,13 @@
 | **In Progress** | Active work, owned |
 | **In Review** | Code written, testing/verification |
 | **Done** | Merged, verified, shipped |
-| **Blocked** | Waiting on external dependency |
+| **Backlog** | Not yet started |
 
 ---
 
-## Phase 0 — Foundation
+## Phase 0 — Foundation (corrected)
 
-### Backend — FastAPI Proxy
-
-| # | Task | Status | Owner | Notes |
-|---|------|--------|-------|-------|
-| B01 | SPEC.md architecture update | Done | agent | Backend proxy architecture locked |
-| B02 | FastAPI project scaffold | Done | agent | Docker + uvicorn + SQLite |
-| B03 | Xtream auth router + models | Done | agent | Login/logout/me + Bearer token |
-| B04 | Channel list router | Done | agent | /api/channels with category filter |
-| B05 | EPG aggregator router | Done | agent | XMLTV parse + SQLite cache |
-| B06 | Stream proxy endpoint | Done | agent | /api/stream/{id} redirects to Xtream |
-| B07 | Docker compose + deploy script | Done | agent | deploy.sh ready |
-| B08 | VPS deployment + smoke test | Done | agent | Running on :8001, 14992 channels live, 234 categories, stream manifest verified |
-
-### Flutter — Android App (Phase 0)
+### Flutter App — Direct Xtream Architecture
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
@@ -39,17 +36,35 @@
 | F05 | Login screen | Done | agent | Form validation, Xtream auth flow |
 | F06 | Channel list screen | Done | agent | Grouped by category, channel tiles with logos |
 | F07 | Video player (Chewie/HLS) | Done | agent | PlayerScreen with Chewie, EPG now/next overlay |
-|| F08 | Category filtering | In Progress | agent | Category chips, filtered channel list |
-| F09 | Settings screen | Next | agent | Server URL edit, logout, about |
+| F08 | Category filtering | Done | agent | Category chips, filtered channel list |
+| F09 | Settings screen | Done | agent | Server URL display, logout with confirm, about section |
 | F10 | Android build smoke test | Blocked | josh | Side-load on Firestick |
 
-### iOS (deferred — full build on Mac)
+> **Note F04-F08:** Client currently points to backend proxy. Must be updated to call Xtream API directly.
+
+### Correct Architecture — Flutter (pending rebuild)
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
-| I01 | Flutter iOS target config | Done | agent | scaffolded |
-| I02 | Native iOS signing + provisioning | Next | josh | Mac only |
-| I03 | TestFlight deployment | Blocked | josh | Mac + Apple account |
+| C01 | Strip backend proxy from Xtream client | Next | agent | App → Xtream direct, no backend in middle |
+| C02 | flutter_secure_storage integration | Next | agent | Store Xtream URL + creds on-device |
+| C03 | Add Playlist screen | Next | agent | Xtream URL + username + password input |
+| C04 | Connection management | Next | agent | Multiple profiles, set active connection |
+| C05 | Rebuild APK with direct Xtream | Next | agent | GitHub Release, Downloader URL |
+| C06 | Smoke test on Firestick | Blocked | josh | Verify login, channels, playback |
+
+### Backend — Obsolete (IPTV layer)
+
+| # | Task | Status | Owner | Notes |
+|---|------|--------|-------|-------|
+| B01-B08 | Sessionful proxy layer | **Obsolete** | — | Killed 2026-06-01 — wrong architecture |
+
+### Backend — Minimal Future Use (Phase 2+)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| B201 | EPG aggregation service | Backlog | Optional — if Xtream EPG is slow/broken |
+| B202 | Firebase integration | Backlog | Analytics, crashlytics, app distribution |
 
 ---
 
@@ -65,21 +80,41 @@
 
 ---
 
+## iOS (deferred — full build on Mac)
+
+| # | Task | Status | Owner | Notes |
+|---|------|--------|-------|-------|
+| I01 | Flutter iOS target config | Done | agent | scaffolded |
+| I02 | Native iOS signing + provisioning | Backlog | josh | Mac only |
+| I03 | TestFlight deployment | Backlog | josh | Mac + Apple account |
+
+---
+
 ## Blockers
 
 | Blocker | Impact | Resolution |
 |---------|--------|------------|
-| No VPS access | B08 | Deploy when josh home |
-| No MacBook | iOS build | CI validates, Mac verification later |
-| No Firebase credentials | F10 | Env vars on deploy |
+| No MacBook | iOS build | CI validates, Mac verification when home |
+| Firestick for smoke test | F10 | Downloader + GitHub Release URL |
+
+---
+
+## Infrastructure
+
+| Service | Status | URL/Notes |
+|---------|--------|-----------|
+| Budget API | ✅ Running | http://100.112.53.35:8000 |
+| CloudStream backend | ❌ Killed | Was on :8001 — wrong architecture |
+| GitHub Releases | ✅ Live | https://github.com/citralia/cloudstream/releases |
+| Flutter CI | ✅ Green | analyze + test on every push |
+| Release workflow | ✅ Fixed | artifact paths, dart-define URL, public release |
 
 ---
 
 ## Notes
 
-- Backend: FastAPI + SQLite for session cache
-- Frontend: Flutter with Clean Architecture (data/domain/presentation)
-- All commits must include board update
-- PR required for all merges to develop
-- Xtream server: Josh has one — point backend at deploy
-- Cron: dev cron fires hourly at :05, advances next task
+- Credentials: stored in flutter_secure_storage (iOS Keychain / Android Keystore)
+- Stream URLs: `http://{server}/live/{user}/{pass}/{stream_id}.m3u8` — constructed by app
+- Xtream API: called directly from Flutter, no backend relay
+- Onboarding target: first channel playing in < 60 seconds
+- Multi-connection: up to 5 profiles, one active at a time

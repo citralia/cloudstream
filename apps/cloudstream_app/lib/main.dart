@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/channel_list_screen.dart';
+import 'presentation/screens/settings_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: CloudStreamApp()));
@@ -63,7 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ChannelListScreen(),
           _GuidePlaceholder(),   // TODO: EPG guide screen
           _VodPlaceholder(),    // TODO: VOD screen
-          _SettingsPlaceholder(), // TODO: Settings screen
+          const SettingsScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -134,22 +135,3 @@ class _VodPlaceholder extends StatelessWidget {
   }
 }
 
-class _SettingsPlaceholder extends ConsumerWidget {
-  const _SettingsPlaceholder();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.logout, color: AppColors.error),
-            title: const Text('Sign out', style: TextStyle(color: AppColors.error)),
-            onTap: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
-    );
-  }
-}

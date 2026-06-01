@@ -18,6 +18,9 @@ dependencies:
   # HTTP client
   dio: ^5.4.3+1
 
+  # Secure storage (iOS Keychain / Android Keystore)
+  flutter_secure_storage: ^9.2.2
+
   # Video player
   video_player: ^2.9.2
   chewie: ^1.8.5
