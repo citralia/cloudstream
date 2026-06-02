@@ -18,13 +18,20 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "enterPictureInPicture" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val rational = Rational(16, 9)
+                        val params = PictureInPictureParams.Builder()
+                            .setAspectRatio(rational)
+                            .build()
+                        enterPictureInPictureMode(params)
+                        result.success(true)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         val rational = Rational(16, 9)
                         val params = PictureInPictureParams.Builder()
                             .setAspectRatio(rational)
                             .build()
                         @Suppress("DEPRECATION")
-                        this@MainActivity.enterPictureInPicture(params)
+                        enterPictureInPicture(params)
                         result.success(true)
                     } else {
                         result.success(false)
