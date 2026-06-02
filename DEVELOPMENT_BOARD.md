@@ -63,7 +63,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P201 | VOD list + browse | In Progress | agent | Xtream get_vod_categories + get_vod_streams |
+| P201 | VOD list + browse | Done | agent | VOD list + browse screen — 7473b82 — CI pending |
 | B202 | Firebase integration | Backlog | Analytics, crashlytics, app distribution |
 
 ---
