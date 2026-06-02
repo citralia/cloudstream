@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
                         val params = PictureInPictureParams.Builder()
                             .setAspectRatio(rational)
                             .build()
+                        @Suppress("DEPRECATION")
                         this@MainActivity.enterPictureInPicture(params)
                         result.success(true)
                     } else {
