@@ -201,7 +201,7 @@ jobs:
       - name: Package macOS artifact
         run: |
           cd apps/cloudstream_app/build/macos/Build/Products/Release
-          zip -r ../Runner_macOS.zip Runner.app
+          zip -r ../Runner_macOS.zip cloudstream_app.app
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
