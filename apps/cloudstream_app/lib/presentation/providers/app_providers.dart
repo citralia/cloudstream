@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/debug/debug_log_service.dart';
 import '../../core/network/xtream_client.dart';
 import '../../data/datasources/credentials_store.dart';
 import 'player_controller_notifier.dart';
@@ -201,3 +202,40 @@ final connectionsListProvider = FutureProvider<List<XtreamCredentials>>((ref) as
 });
 
 final activeConnectionNameProvider = StateProvider<String?>((ref) => null);
+
+// ── Debug logs ─────────────────────────────────────────────────────────────
+
+class DebugLogState {
+  final bool enabled;
+  final List<String> lines;
+  const DebugLogState({this.enabled = true, this.lines = const []});
+  DebugLogState copyWith({bool? enabled, List<String>? lines}) =>
+      DebugLogState(enabled: enabled ?? this.enabled, lines: lines ?? this.lines);
+}
+
+class DebugLogNotifier extends StateNotifier<DebugLogState> {
+  DebugLogNotifier() : super(const DebugLogState()) {
+    _subscribe();
+  }
+
+  void _subscribe() {
+    DebugLogService.instance.stream.listen((line) {
+      // Keep last 500 lines to prevent memory growth.
+      final updated = [...state.lines.take(499), line];
+      state = state.copyWith(lines: updated);
+    });
+  }
+
+  void setEnabled(bool value) {
+    DebugLogService.instance.enabled = value;
+    state = state.copyWith(enabled: value);
+  }
+
+  void clear() {
+    state = state.copyWith(lines: []);
+  }
+}
+
+final debugLogProvider = StateNotifierProvider<DebugLogNotifier, DebugLogState>((ref) {
+  return DebugLogNotifier();
+});

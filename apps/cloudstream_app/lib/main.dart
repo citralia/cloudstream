@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/debug/debug_log_service.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
@@ -8,6 +9,9 @@ import 'presentation/screens/channel_list_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Auto-start log collection (enabled by default, can be toggled in UI).
+  DebugLogService.instance.start();
   runApp(const ProviderScope(child: CloudStreamApp()));
 }
 

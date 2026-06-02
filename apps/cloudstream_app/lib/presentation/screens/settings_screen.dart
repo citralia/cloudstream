@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 import 'playlist_screen.dart';
+import 'debug_logs_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -56,6 +57,37 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Switch channels without returning to the list',
             trailing: const _ComingSoonBadge(),
             onTap: null,
+          ),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Debug ────────────────────────────────────────
+          _SectionHeader(title: 'Debug'),
+          _SettingsTile(
+            icon: Icons.bug_report_outlined,
+            title: 'Debug logs',
+            subtitle: 'View live logcat output from the app',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: ref.watch(debugLogProvider).enabled ? Colors.green : AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+              ],
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DebugLogsScreen()),
+              );
+            },
           ),
 
           const SizedBox(height: AppSpacing.xl),
