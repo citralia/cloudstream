@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-06-02 — CloudStream Hourly Cron (10:10 BST)
+
+**Session start:** 09:05 BST
+
+### What was done:
+- P104: Gesture controls — `PlayerGestureOverlay` widget wrapping Chewie player
+  - Horizontal swipe: seek ±seconds (5px/s)
+  - Double tap left/right: seek −10s / +10s
+  - Vertical swipe left third: brightness indicator (☀️ %)
+  - Vertical swipe right third: volume control (🔊 %)
+  - Animated fade labels auto-dismiss after 800ms
+  - New file: `player_gesture_overlay.dart`
+- Bug fix: `CardThemeData` in app_theme.dart (CI uses Flutter 3.44, reverted my local Flutter 3.24 override)
+- Pushed 48b5448 — CI passed ✅ (5m48s)
+
+### CI status:
+- `feat(P104): player gesture controls` ✅ passed (5m48s)
+- `Release` ✅ passed (5m11s)
+- Previous (failed): `CardTheme` → `CardThemeData` fix needed for Flutter 3.44 ✅ resolved
+
+### What's next:
+- P105: Full EPG guide screen
+- C06: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-02 — CloudStream Hourly Cron (08:25 BST)
 
 **Session start:** 07:40 BST
