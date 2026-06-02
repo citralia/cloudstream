@@ -105,13 +105,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: AppSpacing.xxxl),
 
                 // Profile name (optional)
-                TvTextField(
-                  label: 'Profile name (optional)',
-                  hint: 'e.g. Home, Work',
-                  prefixIcon: Icons.label_outline,
-                  controller: _nameController,
+                Focus(
+                  autofocus: true,
+                  child: TvTextField(
+                    label: 'Profile name (optional)',
+                    hint: 'e.g. Home, Work',
+                    prefixIcon: Icons.label_outline,
+                    controller: _nameController,
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
 
                 // Server URL
                 TvTextField(
@@ -210,7 +212,6 @@ class _TvButtonState extends State<_TvButton> {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
       onFocusChange: (v) => setState(() => _isFocused = v),
       onKeyEvent: (node, event) {
         if (event.logicalKey == LogicalKeyboardKey.enter ||
