@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/xtream_client.dart';
 import '../../data/datasources/credentials_store.dart';
+import 'player_controller_notifier.dart';
 
 // ── Core providers ─────────────────────────────────────────────────────────
 
@@ -163,6 +164,30 @@ final streamUrlProvider = Provider.family<String, int>((ref, streamId) {
 // ── Selected channel ─────────────────────────────────────────────────────
 
 final selectedStreamProvider = StateProvider<XtreamStream?>((ref) => null);
+
+// ── Recently watched channels (for quick switcher) ─────────────────────────
+
+final recentChannelsProvider = StateNotifierProvider<RecentChannelsNotifier, List<XtreamStream>>((ref) {
+  return RecentChannelsNotifier();
+});
+
+class RecentChannelsNotifier extends StateNotifier<List<XtreamStream>> {
+  RecentChannelsNotifier() : super([]);
+
+  static const int maxHistory = 10;
+
+  void add(XtreamStream stream) {
+    // Remove if already present, then prepend.
+    final updated = [stream, ...state.where((s) => s.streamId != stream.streamId)];
+    state = updated.length > maxHistory ? updated.sublist(0, maxHistory) : updated;
+  }
+}
+
+// ── Persistent player controller ──────────────────────────────────────────
+
+final playerControllerProvider = StateNotifierProvider<PlayerControllerNotifier, PlayerControllerState>((ref) {
+  return PlayerControllerNotifier();
+});
 
 // ── Connections (Playlist) ────────────────────────────────────────────────
 

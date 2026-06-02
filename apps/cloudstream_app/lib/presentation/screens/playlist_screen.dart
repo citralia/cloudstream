@@ -209,7 +209,7 @@ class _ConnectionTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: AppSpacing.lg),
-        color: AppColors.error.withValues(alpha: 0.2),
+        color: AppColors.error.withOpacity(0.2),
         child: const Icon(Icons.delete_outline, color: AppColors.error),
       ),
       child: ListTile(
@@ -222,7 +222,7 @@ class _ConnectionTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
+            color: AppColors.primary.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.dns_outlined, color: AppColors.primary),
@@ -408,14 +408,14 @@ class _TvButtonState extends State<_TvButton> {
         onTap: widget.onPressed,
         child: Container(
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.primary : AppColors.primary.withValues(alpha: 0.7),
+            color: _isFocused ? AppColors.primary : AppColors.primary.withOpacity(0.7),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _isFocused ? AppColors.accent : Colors.transparent,
               width: 2,
             ),
             boxShadow: _isFocused
-                ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 10)]
+                ? [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10)]
                 : null,
           ),
           alignment: Alignment.center,

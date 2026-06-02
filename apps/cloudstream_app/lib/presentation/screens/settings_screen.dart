@@ -100,11 +100,11 @@ class SettingsScreen extends ConsumerWidget {
               child: ElevatedButton.icon(
                 onPressed: () => _confirmLogout(context, ref),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error.withValues(alpha: 0.15),
+                  backgroundColor: AppColors.error.withOpacity(0.15),
                   foregroundColor: AppColors.error,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                    side: BorderSide(color: AppColors.error.withOpacity(0.3)),
                   ),
                 ),
                 icon: const Icon(Icons.logout),
@@ -215,7 +215,7 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Row(
           children: [
-            Icon(icon, color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textMuted, size: 20),
+            Icon(icon, color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textMuted, size: 20),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -224,14 +224,14 @@ class _SettingsTile extends StatelessWidget {
                   Text(
                     title,
                     style: AppTypography.body.copyWith(
-                      color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textPrimary,
+                      color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: AppTypography.caption.copyWith(
-                      color: isDisabled ? AppColors.textMuted.withValues(alpha: 0.5) : AppColors.textSecondary,
+                      color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -253,7 +253,7 @@ class _ComingSoonBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.15),
+        color: AppColors.primary.withOpacity(0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text('Soon', style: AppTypography.micro.copyWith(color: AppColors.primary)),

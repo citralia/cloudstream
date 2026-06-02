@@ -149,9 +149,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
+                      color: AppColors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
@@ -226,10 +226,10 @@ class _TvButtonState extends State<_TvButton> {
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
             color: widget.isLoading
-                ? AppColors.primary.withValues(alpha: 0.5)
+                ? AppColors.primary.withOpacity(0.5)
                 : _isFocused
                     ? AppColors.primary
-                    : AppColors.primary.withValues(alpha: 0.8),
+                    : AppColors.primary.withOpacity(0.8),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _isFocused ? AppColors.accent : Colors.transparent,
@@ -238,7 +238,7 @@ class _TvButtonState extends State<_TvButton> {
             boxShadow: _isFocused
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.5),
+                      color: AppColors.primary.withOpacity(0.5),
                       blurRadius: 12,
                       spreadRadius: 0,
                     )

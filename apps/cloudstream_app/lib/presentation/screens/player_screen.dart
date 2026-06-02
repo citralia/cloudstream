@@ -181,7 +181,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.7),
+                        Colors.black.withOpacity(0.7),
                         Colors.transparent,
                       ],
                     ),
