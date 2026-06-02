@@ -23,7 +23,7 @@ class MainActivity : FlutterActivity() {
                         val params = PictureInPictureParams.Builder()
                             .setAspectRatio(rational)
                             .build()
-                        enterPictureInPicture(params)
+                        this@MainActivity.enterPictureInPicture(params)
                         result.success(true)
                     } else {
                         result.success(false)
