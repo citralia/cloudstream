@@ -76,7 +76,7 @@
 | P102 | Quick channel switcher overlay | Done | agent | Wired to Info/Guide remote button via quickSwitcherOverlayVisibleProvider (a032eed) |
 | P103 | PiP support | Done | agent | Android PiP via platform channel — APK in v0.0.1 release |
 | P104 | Gesture controls | Done | agent | PlayerGestureOverlay — swipe seek, double-tap ±10s, vertical vol/brightness (48b5448) |
-| P105 | Full EPG guide screen | Backlog | | |
+| P105 | Full EPG guide screen | Done | agent | TV-style grid with fixed channel column + scrollable timeline — a1f6859 — Analyze ✅ Test ✅ |
 
 ---
 

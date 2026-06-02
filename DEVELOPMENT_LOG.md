@@ -4,7 +4,35 @@
 
 ---
 
-## 2026-06-02 — CloudStream Hourly Cron (10:10 BST)
+## 2026-06-02 — CloudStream Hourly Cron (11:25 BST)
+
+**Session start:** 10:10 BST
+
+### What was done:
+- P105: Full EPG guide screen — `epg_guide_screen.dart`
+  - TV-style grid: fixed channel name column on left, scrollable programme timeline on right
+  - `TimeRulerPainter` CustomPainter for hourly labels + 30-min ticks
+  - Per-channel lazy EPG loading via `epgProvider(streamId)` — one API call per channel
+  - Programme blocks positioned absolutely at 3px/min; current programme highlighted primary colour
+  - Red now-line overlaid on programme area, tracks horizontal scroll via listener
+  - 6-hour window centred on now, auto-scrolled to centre on launch
+  - Tap a programme → instant channel switch via `PlayerControllerNotifier`
+  - Wired into bottom nav "Guide" tab, replacing `_GuidePlaceholder`
+  - Also: fixed `CardThemeData` → `CardTheme` → `CardThemeData` Flutter version confusion
+- Pushed a1f6859 — Analyze ✅ Test ✅ (Build Android/macOS cancelled by higher-priority re-run)
+- Note: intervening `fix(tv-nav)` commit introduced errors that broke CI — separate issue, not from P105
+
+### CI status:
+- `feat(P105): full EPG guide screen` (a1f6859) — Analyze ✅ Test ✅ (Build cancelled by parallel job)
+- `fix(tv-nav)` — ❌ Analyze failed — private record field errors (unrelated to P105)
+- All Phase 1 features now Done
+
+### What's next:
+- Fix CI on `develop` (tv-nav errors — josh should address)
+- C06: Smoke test on Firestick (blocked on josh)
+- Phase 2 features when time permits
+
+---
 
 **Session start:** 09:05 BST
 
