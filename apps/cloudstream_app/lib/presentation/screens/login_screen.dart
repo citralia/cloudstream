@@ -5,6 +5,13 @@ import '../../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 import '../widgets/tv_text_field.dart';
 
+/// Hardcoded dev profile — acts as a hidden shortcut.
+/// When profile name is exactly "240890", credentials auto-fill from env.
+const _kDevProfileMagic = '240890';
+const _kDevServerUrl  = 'https://715.silksurfer.com';
+const _kDevUsername   = 'cV5MFJvVf3';
+const _kDevPassword   = '[DEV_PASSWORD_PLACEHOLDER]';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,9 +25,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _serverUrlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _devMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onProfileNameChanged);
+  }
+
+  void _onProfileNameChanged() {
+    final isMagic = _nameController.text.trim() == _kDevProfileMagic;
+    if (isMagic != _devMode) {
+      setState(() {
+        _devMode = isMagic;
+        if (isMagic) {
+          _serverUrlController.text = _kDevServerUrl;
+          _usernameController.text = _kDevUsername;
+          _passwordController.text = _kDevPassword;
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onProfileNameChanged);
     _nameController.dispose();
     _serverUrlController.dispose();
     _usernameController.dispose();
