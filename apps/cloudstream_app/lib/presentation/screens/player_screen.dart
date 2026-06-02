@@ -11,8 +11,9 @@ import 'player_gesture_overlay.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final XtreamStream stream;
+  final String? streamUrl; // Optional: pass VOD URL directly
 
-  const PlayerScreen({super.key, required this.stream});
+  const PlayerScreen({super.key, required this.stream, this.streamUrl});
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -57,11 +58,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _initializePlayer() async {
     try {
-      // Build stream URL directly from stored credentials
-      final streamUrl = ref.read(streamUrlProvider(widget.stream.streamId));
+      // Build stream URL: use explicit VOD URL if provided, otherwise construct from stream ID
+      final streamUrl = widget.streamUrl ??
+          ref.read(streamUrlProvider(widget.stream.streamId));
 
       // Initialise video player with the HLS manifest
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(streamUrl));
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(streamUrl!));
       await _videoController!.initialize();
 
       _chewieController = ChewieController(

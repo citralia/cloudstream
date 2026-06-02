@@ -203,6 +203,33 @@ final connectionsListProvider = FutureProvider<List<XtreamCredentials>>((ref) as
 
 final activeConnectionNameProvider = StateProvider<String?>((ref) => null);
 
+// ── VOD ───────────────────────────────────────────────────────────────────
+
+final vodCategoriesProvider = FutureProvider<List<XtreamCategory>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getVodCategories();
+});
+
+final selectedVodCategoryIdProvider = StateProvider<int?>((ref) => null);
+
+final vodStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getVodStreams();
+});
+
+final filteredVodStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final categoryId = ref.watch(selectedVodCategoryIdProvider);
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getVodStreams(categoryId: categoryId);
+});
+
+final selectedVodProvider = StateProvider<XtreamStream?>((ref) => null);
+
+final vodStreamUrlProvider = Provider.family<String, int>((ref, streamId) {
+  final client = ref.watch(xtreamClientProvider);
+  return client.buildVodStreamUrl(streamId);
+});
+
 // ── Debug logs ─────────────────────────────────────────────────────────────
 
 class DebugLogState {

@@ -7,6 +7,7 @@ import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/channel_list_screen.dart';
 import 'presentation/screens/epg_guide_screen.dart';
+import 'presentation/screens/vod_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
 void main() {
@@ -87,7 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: const [
             ChannelListScreen(),
             EpgGuideScreen(),
-            _VodPlaceholder(),    // TODO: VOD screen
+            VodScreen(),
             SettingsScreen(),
           ],
         ),

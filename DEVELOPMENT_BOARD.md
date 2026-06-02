@@ -63,7 +63,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| B201 | EPG aggregation service | Backlog | Optional — if Xtream EPG is slow/broken |
+| P201 | VOD list + browse | In Progress | agent | Xtream get_vod_categories + get_vod_streams |
 | B202 | Firebase integration | Backlog | Analytics, crashlytics, app distribution |
 
 ---

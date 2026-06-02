@@ -102,7 +102,7 @@ class AppTheme {
       unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
     ),
-    cardTheme: const CardThemeData(
+    cardTheme: CardTheme(
       color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
