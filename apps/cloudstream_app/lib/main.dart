@@ -97,25 +97,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _GuidePlaceholder extends StatelessWidget {
-  const _GuidePlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.menu_book, color: AppColors.textMuted, size: 64),
-            SizedBox(height: 16),
-            Text('Guide — coming soon', style: AppTypography.h3),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _VodPlaceholder extends StatelessWidget {
   const _VodPlaceholder();
   @override
@@ -148,10 +129,10 @@ class _TvNavBarState extends ConsumerState<_TvNavBar> {
   int _currentIndex = 0;
 
   static const _navItems = [
-    (_icon: Icons.live_tv_outlined, _activeIcon: Icons.live_tv, _label: 'Live TV'),
-    (_icon: Icons.menu_book_outlined, _activeIcon: Icons.menu_book, _label: 'Guide'),
-    (_icon: Icons.movie_outlined, _activeIcon: Icons.movie, _label: 'VOD'),
-    (_icon: Icons.settings_outlined, _activeIcon: Icons.settings, _label: 'Settings'),
+    (icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv, label: 'Live TV'),
+    (icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book, label: 'Guide'),
+    (icon: Icons.movie_outlined, activeIcon: Icons.movie, label: 'VOD'),
+    (icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
   ];
 
   void _handleKeyEvent(KeyEvent event) {
@@ -201,8 +182,8 @@ class _TvNavBarState extends ConsumerState<_TvNavBar> {
                 final isSelected = _currentIndex == i;
                 return Expanded(
                   child: _NavBarItem(
-                    icon: isSelected ? item._activeIcon : item._icon,
-                    label: item._label,
+                    icon: isSelected ? item.activeIcon : item.icon,
+                    label: item.label,
                     isSelected: isSelected,
                     onTap: () {
                       setState(() => _currentIndex = i);
