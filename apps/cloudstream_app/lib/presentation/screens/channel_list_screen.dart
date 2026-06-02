@@ -492,48 +492,75 @@ class ChannelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.select)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final isFocused = Focus.of(context).hasFocus;
+          return InkWell(
+            onTap: onTap,
+            focusColor: AppColors.primary.withOpacity(0.1),
+            child: Container(
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+                border: isFocused
+                    ? Border.all(color: AppColors.primary, width: 2)
+                    : null,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: stream.logo != null && stream.logo!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        stream.logo!,
-                        width: 52,
-                        height: 52,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => _placeholderLogo(),
-                      ),
-                    )
-                  : _placeholderLogo(),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              child: Row(
                 children: [
-                  Text(stream.name, style: AppTypography.body, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  if (stream.epgChannel != null) ...[
-                    const SizedBox(height: 2),
-                    Text(stream.epgChannel!, style: AppTypography.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: stream.logo != null && stream.logo!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              stream.logo!,
+                              width: 52,
+                              height: 52,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => _placeholderLogo(),
+                            ),
+                          )
+                        : _placeholderLogo(),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(stream.name, style: AppTypography.body,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        if (stream.epgChannel != null) ...[
+                          const SizedBox(height: 2),
+                          Text(stream.epgChannel!, style: AppTypography.caption,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.play_arrow, color: AppColors.textMuted),
                 ],
               ),
             ),
-            const Icon(Icons.play_arrow, color: AppColors.textMuted),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
