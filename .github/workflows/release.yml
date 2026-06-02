@@ -217,6 +217,14 @@ jobs:
           git tag -a $RELEASE_TAG -m "Release $NEW_VERSION" --force
           git push origin $RELEASE_TAG --force
 
+      - name: Upload to latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload latest \
+            artifacts/android-apk-${{ needs.version.outputs.new-version }}/app-release.apk \
+            --clobber 2>&1 || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
