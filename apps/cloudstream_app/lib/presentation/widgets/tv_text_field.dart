@@ -219,6 +219,7 @@ class _TvTextFieldState extends State<TvTextField> {
 
 /// Full-screen TV soft keyboard overlay.
 /// DPad-navigable character grid + action row.
+/// Parent (TvSoftKeyboardState) owns focus grid so navigation is explicit.
 class TvSoftKeyboard extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -247,11 +248,80 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
   bool _shift = false;
   bool _capsLock = false;
 
+  // Explicit focus grid — parent owns navigation
+  int _focusRow = 0;
+  int _focusCol = 0;
+  late List<List<String>> _rows;
+
+  // Focus nodes for every key
+  late List<List<FocusNode>> _focusNodes;
+
   @override
   void initState() {
     super.initState();
     _text = widget.controller.text;
     _cursorPos = _text.length;
+    _buildRowsAndNodes();
+  }
+
+  void _buildRowsAndNodes() {
+    _rows = _getKeyboardRows();
+    _focusNodes = List.generate(
+      _rows.length,
+      (r) => List.generate(_rows[r].length, (c) => FocusNode()),
+    );
+    // Auto-focus first key
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestFocus(0, 0);
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final row in _focusNodes) {
+      for (final node in row) {
+        node.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  void _requestFocus(int row, int col) {
+    final r = row.clamp(0, _rows.length - 1);
+    final c = col.clamp(0, _rows[r].length - 1);
+    _focusRow = r;
+    _focusCol = c;
+    _focusNodes[r][c].requestFocus();
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+
+    final key = event.logicalKey;
+    final rows = _rows[_focusRow];
+    final curKey = rows[_focusCol];
+
+    if (key == LogicalKeyboardKey.arrowRight) {
+      if (_focusCol < rows.length - 1) {
+        _requestFocus(_focusRow, _focusCol + 1);
+      }
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      if (_focusCol > 0) {
+        _requestFocus(_focusRow, _focusCol - 1);
+      }
+    } else if (key == LogicalKeyboardKey.arrowDown) {
+      if (_focusRow < _rows.length - 1) {
+        final nextRowLen = _rows[_focusRow + 1].length;
+        _requestFocus(_focusRow + 1, _focusCol.clamp(0, nextRowLen - 1));
+      }
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      if (_focusRow > 0) {
+        final prevRowLen = _rows[_focusRow - 1].length;
+        _requestFocus(_focusRow - 1, _focusCol.clamp(0, prevRowLen - 1));
+      }
+    } else if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.gameButtonA) {
+      _handleKey(curKey);
+    }
   }
 
   void _insertChar(String char) {
@@ -272,16 +342,76 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
     }
   }
 
-  void _moveCursor(int delta) {
-    setState(() {
-      _cursorPos = (_cursorPos + delta).clamp(0, _text.length);
-    });
-  }
-
   void _commit() {
     widget.controller.text = _text;
     widget.controller.selection = TextSelection.collapsed(offset: _text.length);
     widget.onDone();
+  }
+
+  List<List<String>> _getKeyboardRows() {
+    if (widget.keyboardType == TextInputType.url) {
+      return [
+        ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+        ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+        ['z', 'x', 'c', 'v', 'b', 'n', 'm', '←'],
+        ['⇧', '.', '/', ':', '-', '_', '@', 'Done'],
+      ];
+    }
+    return [
+      ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+      ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+      [_shift || _capsLock ? '⬆' : '⇧', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '←'],
+      ['123', '.', '/', '-', '@', '.com', 'Done'],
+    ];
+  }
+
+  String _keyDisplay(String key) {
+    switch (key) {
+      case '←': return '⌫';
+      case '⇧': return '⇧';
+      case '⬆': return '⬆';
+      case 'Done': return 'Done';
+      case '123': return '123';
+      case '.com': return '.com';
+      default: return key;
+    }
+  }
+
+  void _handleKey(String key) {
+    switch (key) {
+      case '←':
+        _backspace();
+        break;
+      case '⇧':
+        setState(() {
+          if (_capsLock) {
+            _capsLock = false;
+            _shift = false;
+          } else {
+            _shift = !_shift;
+          }
+          // refresh nodes for shift indicator
+          _buildRowsAndNodes();
+        });
+        break;
+      case '⬆':
+        setState(() {
+          _capsLock = !_capsLock;
+          _buildRowsAndNodes();
+        });
+        break;
+      case 'Done':
+        _commit();
+        break;
+      case '123':
+        setState(() {});
+        break;
+      case '.com':
+        _insertChar('.com');
+        break;
+      default:
+        _insertChar(key);
+    }
   }
 
   @override
@@ -330,229 +460,107 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
                 children: [
                   Expanded(
                     child: Text(
-                      _text.isEmpty
-                          ? (widget.hint ?? ' ')
-                          : _text,
+                      _text.isEmpty ? (widget.hint ?? ' ') : _text,
                       style: AppTypography.body.copyWith(
-                        color: _text.isEmpty
-                            ? AppColors.textMuted
-                            : AppColors.textPrimary,
+                        color: _text.isEmpty ? AppColors.textMuted : AppColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    width: 2,
-                    height: 20,
-                    color: AppColors.primary,
-                  ),
+                  Container(width: 2, height: 20, color: AppColors.primary),
                 ],
               ),
             ),
-            // Keyboard
-            _buildKeyboard(),
+            // Keyboard — single Focus wraps all keys, parent handles navigation
+            Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                _handleKeyEvent(event);
+                return KeyEventResult.handled;
+              },
+              child: Column(
+                children: [
+                  for (int r = 0; r < _rows.length; r++) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (int c = 0; c < _rows[r].length; c++)
+                            _KeyboardKey(
+                              focusNode: _focusNodes[r][c],
+                              label: _keyDisplay(_rows[r][c]),
+                              isFocused: _focusRow == r && _focusCol == c,
+                              isAction: _rows[r][c] == '←' ||
+                                  _rows[r][c] == '⇧' ||
+                                  _rows[r][c] == '⬆' ||
+                                  _rows[r][c] == 'Done' ||
+                                  _rows[r][c] == '123',
+                              onTap: () => _handleKey(_rows[r][c]),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (r < _rows.length - 1) const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildKeyboard() {
-    final rows = _getKeyboardRows();
-    return Column(
-      children: [
-        for (int r = 0; r < rows.length; r++) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: rows[r]
-                  .map((key) => _buildKey(key))
-                  .toList(),
-            ),
-          ),
-          if (r < rows.length - 1) const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
-    );
-  }
-
-  List<List<String>> _getKeyboardRows() {
-    if (widget.keyboardType == TextInputType.url) {
-      return [
-        ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-        ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-        ['z', 'x', 'c', 'v', 'b', 'n', 'm', '←'],
-        ['⇧', '.', '/', ':', '-', '_', '@', 'Done'],
-      ];
-    }
-    return [
-      ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-      ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-      [_shift || _capsLock ? '⬆' : '⇧', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '←'],
-      ['123', '.', '/', '-', '@', '.com', 'Done'],
-    ];
-  }
-
-  Widget _buildKey(String key) {
-    final isAction = key == '←' || key == '⇧' || key == '⬆' || key == 'Done' || key == '123';
-    final display = _keyDisplay(key);
-
-    return Padding(
-      padding: const EdgeInsets.all(2),
-      child: _TvKey(
-        label: display,
-        isAction: isAction,
-        onTap: () => _handleKey(key),
-      ),
-    );
-  }
-
-  String _keyDisplay(String key) {
-    switch (key) {
-      case '←': return '⌫';
-      case '⇧': return '⇧';
-      case '⬆': return '⬆';
-      case 'Done': return 'Done';
-      case '123': return '123';
-      case '.com': return '.com';
-      default: return key;
-    }
-  }
-
-  void _handleKey(String key) {
-    switch (key) {
-      case '←':
-        _backspace();
-        break;
-      case '⇧':
-        setState(() {
-          if (_capsLock) {
-            _capsLock = false;
-            _shift = false;
-          } else {
-            _shift = !_shift;
-          }
-        });
-        break;
-      case '⬆':
-        setState(() => _capsLock = !_capsLock);
-        break;
-      case 'Done':
-        _commit();
-        break;
-      case '123':
-        // Switch to numeric — simplified, toggle via state if needed
-        setState(() {});
-        break;
-      case '.com':
-        _insertChar('.com');
-        break;
-      default:
-        _insertChar(key);
-    }
-  }
 }
 
-class _TvKey extends StatefulWidget {
+class _KeyboardKey extends StatelessWidget {
+  final FocusNode focusNode;
   final String label;
+  final bool isFocused;
   final bool isAction;
   final VoidCallback onTap;
 
-  const _TvKey({
+  const _KeyboardKey({
+    required this.focusNode,
     required this.label,
+    required this.isFocused,
     required this.isAction,
     required this.onTap,
   });
 
   @override
-  State<_TvKey> createState() => _TvKeyState();
-}
-
-class _TvKeyState extends State<_TvKey> {
-  bool _isFocused = false;
-
-  @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          _focusNext();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          _focusPrev();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-          _focusDown();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-          _focusUp();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Builder(
-        builder: (ctx) {
-          return GestureDetector(
-            onTap: widget.onTap,
-            child: Focus(
-              onFocusChange: (focused) => setState(() => _isFocused = focused),
-              child: Container(
-                width: widget.label.length > 2 ? 64 : 40,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _isFocused
-                      ? AppColors.primary
-                      : widget.isAction
-                          ? AppColors.surface
-                          : AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: _isFocused ? AppColors.accent : AppColors.divider,
-                    width: _isFocused ? 2 : 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  widget.label,
-                  style: AppTypography.body.copyWith(
-                    color: _isFocused ? Colors.white : AppColors.textPrimary,
-                    fontWeight: widget.isAction ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.all(2),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: label.length > 2 ? 64 : 40,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isFocused
+                ? AppColors.primary
+                : isAction
+                    ? AppColors.surface
+                    : AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isFocused ? AppColors.accent : AppColors.divider,
+              width: isFocused ? 2 : 1,
             ),
-          );
-        },
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: AppTypography.body.copyWith(
+              color: isFocused ? Colors.white : AppColors.textPrimary,
+              fontWeight: isAction ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
       ),
     );
-  }
-
-  void _focusNext() {
-    Focus.of(context).nextFocus();
-  }
-
-  void _focusPrev() {
-    Focus.of(context).previousFocus();
-  }
-
-  void _focusDown() {
-    // Find next row — handled by Focus traversal
-    Focus.of(context).nextFocus();
-  }
-
-  void _focusUp() {
-    Focus.of(context).previousFocus();
   }
 }
