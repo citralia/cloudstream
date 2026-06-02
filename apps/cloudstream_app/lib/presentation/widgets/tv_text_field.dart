@@ -289,7 +289,9 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(AppSpacing.xl),
-      child: Container(
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Container(
         constraints: const BoxConstraints(maxWidth: 700),
         decoration: BoxDecoration(
           color: AppColors.surfaceElevated,
@@ -354,6 +356,7 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
             _buildKeyboard(),
             const SizedBox(height: AppSpacing.md),
           ],
+        ),
         ),
       ),
     );
@@ -477,82 +480,39 @@ class _TvKeyState extends State<_TvKey> {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
+      onFocusChange: (focused) => setState(() => _isFocused = focused),
       onKeyEvent: (node, event) {
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.gameButtonA) {
           widget.onTap();
           return KeyEventResult.handled;
         }
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          _focusNext();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          _focusPrev();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-          _focusDown();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-          _focusUp();
-          return KeyEventResult.handled;
-        }
         return KeyEventResult.ignored;
       },
-      child: Builder(
-        builder: (ctx) {
-          return GestureDetector(
-            onTap: widget.onTap,
-            child: Focus(
-              onFocusChange: (focused) => setState(() => _isFocused = focused),
-              child: Container(
-                width: widget.label.length > 2 ? 64 : 40,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _isFocused
-                      ? AppColors.primary
-                      : widget.isAction
-                          ? AppColors.surface
-                          : AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: _isFocused ? AppColors.accent : AppColors.divider,
-                    width: _isFocused ? 2 : 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  widget.label,
-                  style: AppTypography.body.copyWith(
-                    color: _isFocused ? Colors.white : AppColors.textPrimary,
-                    fontWeight: widget.isAction ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+      child: Container(
+        width: widget.label.length > 2 ? 64 : 40,
+        height: 48,
+        decoration: BoxDecoration(
+          color: _isFocused
+              ? AppColors.primary
+              : widget.isAction
+                  ? AppColors.surface
+                  : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: _isFocused ? AppColors.accent : AppColors.divider,
+            width: _isFocused ? 2 : 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          widget.label,
+          style: AppTypography.body.copyWith(
+            color: _isFocused ? Colors.white : AppColors.textPrimary,
+            fontWeight: widget.isAction ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
       ),
     );
-  }
-
-  void _focusNext() {
-    Focus.of(context).nextFocus();
-  }
-
-  void _focusPrev() {
-    Focus.of(context).previousFocus();
-  }
-
-  void _focusDown() {
-    // Find next row — handled by Focus traversal
-    Focus.of(context).nextFocus();
-  }
-
-  void _focusUp() {
-    Focus.of(context).previousFocus();
   }
 }
