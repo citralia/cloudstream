@@ -74,7 +74,7 @@
 |---|------|--------|-------|-------|
 | P101 | Channel switching < 1s | Done | agent | Persistent player + quick switcher overlay (a7b324e) — CI fixed: CardTheme→CardThemeData (513c79c) |
 | P102 | Quick channel switcher overlay | Done | agent | Wired to Info/Guide remote button via quickSwitcherOverlayVisibleProvider (a032eed) |
-| P103 | PiP support | In Progress | agent | Android PiP via platform channel |
+| P103 | PiP support | Done | agent | Android PiP via platform channel — APK in v0.0.1 release |
 | P104 | Gesture controls | Backlog | | |
 | P105 | Full EPG guide screen | Backlog | | |
 

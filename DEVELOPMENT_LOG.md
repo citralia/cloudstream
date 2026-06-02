@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-02 — CloudStream Hourly Cron (08:25 BST)
+
+**Session start:** 07:40 BST
+
+### What was done:
+- P103 (PiP support) already fully implemented from last session — no code changes needed this run
+- Verified CI status: latest run 26805913111 (Release) ✅ passed
+- APK uploaded to GitHub Release v0.0.1 ✅
+- Marked P103 Done in board
+
+### CI status:
+- `Release` ✅ passed (6m1s) — APK uploaded to https://github.com/citralia/cloudstream/releases/tag/v0.0.1
+- `fix(P103): use enterPictureInPictureMode only` ✅ passed (5m16s)
+- All previous: ✅ green
+
+### What's next:
+- P104: Gesture controls
+- P105: Full EPG guide screen
+- C06: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-02 — CloudStream Hourly Cron (06:20 BST)
 
 **Session start:** 05:05 BST
