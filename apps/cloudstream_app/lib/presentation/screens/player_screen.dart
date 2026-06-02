@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/pip/pip_service.dart';
 import '../providers/app_providers.dart';
+import 'player_gesture_overlay.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final XtreamStream stream;
@@ -169,7 +170,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           },
                         )
                       : _chewieController != null
-                          ? Chewie(controller: _chewieController!)
+                          ? PlayerGestureOverlay(
+                              controller: _chewieController!.videoPlayerController,
+                              child: Chewie(controller: _chewieController!),
+                            )
                           : const SizedBox.expand(),
             ),
 
