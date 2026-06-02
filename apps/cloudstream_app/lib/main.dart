@@ -16,11 +16,19 @@ class CloudStreamApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      title: 'CloudStream',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: const AuthRouter(),
+    return Shortcuts(
+      // Android TV DPad center button sends LogicalKeyboardKey.select.
+      // Map it to ActivateIntent so DPad select works throughout the app.
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.gameButtonA): const ActivateIntent(),
+      },
+      child: MaterialApp(
+        title: 'CloudStream',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark,
+        home: const AuthRouter(),
+      ),
     );
   }
 }
