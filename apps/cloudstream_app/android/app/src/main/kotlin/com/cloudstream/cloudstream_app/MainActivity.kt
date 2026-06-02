@@ -18,20 +18,14 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "enterPictureInPicture" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // enterPictureInPictureMode is available from API 26 (Oreo)
+                    // enterPictureInPicture(instance, params) was removed in API 33 (S)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         val rational = Rational(16, 9)
                         val params = PictureInPictureParams.Builder()
                             .setAspectRatio(rational)
                             .build()
                         enterPictureInPictureMode(params)
-                        result.success(true)
-                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val rational = Rational(16, 9)
-                        val params = PictureInPictureParams.Builder()
-                            .setAspectRatio(rational)
-                            .build()
-                        @Suppress("DEPRECATION")
-                        enterPictureInPicture(params)
                         result.success(true)
                     } else {
                         result.success(false)
