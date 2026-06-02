@@ -39,8 +39,6 @@ class MainActivity : FlutterActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Optional: auto-enter PiP when user presses home during playback
-        // The Flutter side decides when to call enterPictureInPicture
     }
 
     override fun onPictureInPictureModeChanged(
