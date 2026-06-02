@@ -103,7 +103,8 @@ class _TvTextFieldState extends State<TvTextField> {
         return KeyEventResult.ignored;
       },
       child: GestureDetector(
-        onTap: _openKeyboard,
+        onTapUp: (_) => _openKeyboard(),
+        behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -172,18 +173,21 @@ class _TvTextFieldState extends State<TvTextField> {
                       ),
                     ),
                     if (widget.obscureText)
-                      IconButton(
-                        icon: Icon(
-                          _showPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: AppColors.textMuted,
-                          size: 20,
+                      Focus(
+                        onKeyEvent: (_, __) => KeyEventResult.ignored,
+                        child: IconButton(
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: AppColors.textMuted,
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              setState(() => _showPassword = !_showPassword),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        onPressed: () =>
-                            setState(() => _showPassword = !_showPassword),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       ),
                   ],
                 ),
