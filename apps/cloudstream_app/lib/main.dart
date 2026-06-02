@@ -98,25 +98,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _VodPlaceholder extends StatelessWidget {
-  const _VodPlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.movie, color: AppColors.textMuted, size: 64),
-            SizedBox(height: 16),
-            Text('VOD — coming soon', style: AppTypography.h3),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// TV D-pad friendly bottom navigation bar.
 /// Replaces BottomNavigationBar which does not handle DPad left/right on Android TV.
 class _TvNavBar extends ConsumerStatefulWidget {
