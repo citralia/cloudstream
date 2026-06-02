@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
+import '../../core/pip/pip_service.dart';
 import '../providers/app_providers.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _isLoading = true;
   String? _error;
   XtreamEpgEntry? _currentProgramme;
+  final PipService _pipService = PipService();
 
   @override
   void initState() {
@@ -37,6 +39,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       DeviceOrientation.landscapeRight,
       DeviceOrientation.portraitUp,
     ]);
+  }
+
+  Future<void> _enterPip() async {
+    await _pipService.enter();
   }
 
   @override
@@ -194,6 +200,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: AppSpacing.sm),
+                      IconButton(
+                        icon: const Icon(Icons.picture_in_picture_alt, color: Colors.white),
+                        onPressed: _enterPip,
+                        tooltip: 'Picture in Picture',
+                      ),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
