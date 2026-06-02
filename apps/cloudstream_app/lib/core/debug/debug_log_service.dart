@@ -40,14 +40,18 @@ class DebugLogService {
 
   void _start() {
     _subscription?.cancel();
-    _subscription = _channel.receiveBroadcastStream().listen(
-      (dynamic line) {
-        if (line is String) _controller.add(line);
-      },
-      onError: (dynamic err) {
-        _controller.addError(err);
-      },
-    );
+    try {
+      _subscription = _channel.receiveBroadcastStream().listen(
+        (dynamic line) {
+          if (line is String) _controller.add(line);
+        },
+        onError: (dynamic err) {
+          _controller.addError(err);
+        },
+      );
+    } catch (e) {
+      // Channel not available (e.g. not on Android) — silently skip.
+    }
   }
 
   void _stop() {

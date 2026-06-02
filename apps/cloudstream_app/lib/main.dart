@@ -10,8 +10,6 @@ import 'presentation/screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Auto-start log collection (enabled by default, can be toggled in UI).
-  DebugLogService.instance.start();
   runApp(const ProviderScope(child: CloudStreamApp()));
 }
 
@@ -43,6 +41,10 @@ class AuthRouter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Start log collection after first frame to avoid startup crash.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DebugLogService.instance.start();
+    });
     final authState = ref.watch(authProvider);
 
     return switch (authState.status) {
