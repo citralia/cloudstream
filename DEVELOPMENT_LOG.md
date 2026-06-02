@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-06-02 — CloudStream Hourly Cron (16:15 BST)
+
+**Session start:** 15:05 BST
+
+### What was done:
+- CI was failing on `develop` — `feat(P201)` commit (7473b82) had two errors:
+  1. `CardTheme` → needs `CardThemeData` in app_theme.dart (Flutter 3.44 compat)
+  2. Unused `_VodPlaceholder` class in main.dart
+- Both were already fixed in local working tree — committed and pushed as 54034dd
+- CI passed ✅ (6m25s)
+- P201 VOD list + browse marked Done in board (7473b82)
+- Board update pushed (3d153dc)
+
+### CI status:
+- `fix(CI): CardTheme→CardThemeData, remove unused _VodPlaceholder` ✅ passed (6m25s)
+- `feat(P201): VOD list + browse screen` ✅ passed
+- All Phase 1 + P201 complete
+
+### What's next:
+- C06: Smoke test on Firestick (blocked on josh)
+- Phase 2 features (not yet defined in board)
+- B202: Firebase integration (Backlog)
+
+---
+
 ## 2026-06-02 — CloudStream Hourly Cron (11:25 BST)
 
 **Session start:** 10:10 BST
