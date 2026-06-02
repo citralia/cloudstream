@@ -4,29 +4,28 @@
 
 ---
 
-## 2026-06-02 — CloudStream Hourly Cron
+## 2026-06-02 — CloudStream Hourly Cron (05:15 BST)
 
-**Session start:** 00:15 BST
-
-### Board audit findings:
-- C03 (Playlist screen) and C04 (connection management) already implemented in origin/develop (b68eacc)
-- Board had them as In Progress / Next — corrected to Done
-- C05 (rebuild APK) was Next
+**Session start:** 04:05 BST
 
 ### What was done:
-- Triggered release workflow (patch bump) → v0.0.1
-- All builds succeeded: iOS ✅ macOS ✅ Android ✅
-- Android APK uploaded to GitHub Release v0.0.1
-- iOS/macOS .app patterns didn't match (unsigned builds — expected)
-- Board updated: C03, C04, C05 all marked Done
+- CI was failing on `develop` due to `P101: channel switching < 1s` (a7b324e)
+  - Root cause: Flutter 3.44 broke `CardTheme` → now requires `CardThemeData`
+  - Fix: 1-line change in `app_theme.dart:105` — `CardTheme` → `CardThemeData`
+  - Also removed 2 stray doc files accidentally committed earlier
+- Pushed fix (513c79c) — CI passed ✅ (5m32s)
+- P101 marked Done in board
 
 ### CI status:
-- Release v0.0.1 ✅ complete — https://github.com/citralia/cloudstream/releases/tag/v0.0.1
+- `fix(app_theme): CardTheme → CardThemeData for Flutter 3.44 compat` ✅ passed (5m32s)
+- Release v0.0.1 ✅ https://github.com/citralia/cloudstream/releases/tag/v0.0.1
 
 ### What's next:
+- P102: Quick channel switcher overlay
+- P103: PiP support
+- P104: Gesture controls
+- P105: Full EPG guide screen
 - C06: Smoke test on Firestick (blocked on josh)
-- Phase 1 features: channel switching < 1s, PiP, gesture controls, full EPG guide
-- VPS deployment when josh gets home access
 
 ---
 

@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-02T00:20:00+01:00
+> Last updated: 2026-06-02T05:20:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -72,7 +72,7 @@
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
-| P101 | Channel switching < 1s | Backlog | | |
+| P101 | Channel switching < 1s | Done | agent | Persistent player + quick switcher overlay (a7b324e) — CI fixed: CardTheme→CardThemeData (513c79c) |
 | P102 | Quick channel switcher overlay | Backlog | | |
 | P103 | PiP support | Backlog | | |
 | P104 | Gesture controls | Backlog | | |
