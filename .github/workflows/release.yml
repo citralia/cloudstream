@@ -105,11 +105,16 @@ jobs:
         run: |
           cd apps/cloudstream_app && flutter build ios --release --no-codesign 2>&1
 
+      - name: Package iOS artifact
+        run: |
+          cd apps/cloudstream_app/build/ios/iphoneos
+          zip -r ../Runner_iOS.zip Runner.app
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-release-${{ needs.version.outputs.new-version }}
-          path: apps/cloudstream_app/build/ios/iphoneos/Runner.app
+          path: apps/cloudstream_app/build/ios/Runner_iOS.zip
           retention-days: 30
 
   build-android:
@@ -188,11 +193,16 @@ jobs:
         run: |
           cd apps/cloudstream_app && flutter build macos --release 2>&1
 
+      - name: Package macOS artifact
+        run: |
+          cd apps/cloudstream_app/build/macos/Build/Products/Release
+          zip -r ../Runner_macOS.zip Runner.app
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-release-${{ needs.version.outputs.new-version }}
-          path: apps/cloudstream_app/build/macos/Build/Products/Release/
+          path: apps/cloudstream_app/build/macos/Build/Products/Release/Runner_macOS.zip
           retention-days: 30
 
   # ─────────────────────────────────────────────────────────
@@ -232,8 +242,8 @@ jobs:
           draft: false
           files: |
             artifacts/android-apk-${{ needs.version.outputs.new-version }}/app-release.apk
-            artifacts/macos-release-${{ needs.version.outputs.new-version }}/*.app
-            artifacts/ios-release-${{ needs.version.outputs.new-version }}/*.app
+            artifacts/macos-release-${{ needs.version.outputs.new-version }}/Runner_macOS.zip
+            artifacts/ios-release-${{ needs.version.outputs.new-version }}/Runner_iOS.zip
           body: |
             ## CloudStream ${{ needs.version.outputs.new-version }}
 
