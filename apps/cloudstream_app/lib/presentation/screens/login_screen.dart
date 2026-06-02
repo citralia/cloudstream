@@ -10,7 +10,7 @@ import '../widgets/tv_text_field.dart';
 const _kDevProfileMagic = '240890';
 const _kDevServerUrl  = 'https://715.silksurfer.com';
 const _kDevUsername   = 'cV5MFJvVf3';
-const _kDevPassword   = '[DEV_PASSWORD_PLACEHOLDER]';
+const _kDevPassword   = '53s6fnjQMh';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
