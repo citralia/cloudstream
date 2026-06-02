@@ -77,6 +77,15 @@ class LogStreamHandler : EventChannel.StreamHandler {
     private var process: Process? = null
     private var isStreaming = false
 
+    /// Stop streaming and clean up resources.
+    fun cancel() {
+        isStreaming = false
+        try { reader?.close() } catch (_: Exception) {}
+        process?.destroy()
+        process = null
+        reader = null
+    }
+
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         if (isStreaming) return
         isStreaming = true
