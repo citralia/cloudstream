@@ -40,11 +40,17 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          # Find the most recent semver tag, skipping non-semver tags like "latest"
+          CURRENT=$(git tag --list 'v*' --sort=-version:refname | head -1 | sed 's/^v//' 2>/dev/null || echo "0.0.0")
           BUMP=${{ github.event.inputs.version-bump || 'patch' }}
 
           # Parse version
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          # Fallback if parsing failed
+          if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then
+            CURRENT="0.0.0"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          fi
 
           if [ "$BUMP" = "major" ]; then
             MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
