@@ -16,8 +16,6 @@ class ChannelListScreen extends ConsumerStatefulWidget {
 }
 
 class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
-  bool _overlayVisible = false;
-
   void _openPlayer(BuildContext context, WidgetRef ref, XtreamStream stream) {
     // Record in recent history.
     ref.read(recentChannelsProvider.notifier).add(stream);
@@ -28,7 +26,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
         playerState.status == PlayerStatus.initialising) {
       final url = ref.read(streamUrlProvider(stream.streamId));
       ref.read(playerControllerProvider.notifier).setStream(stream, url);
-      setState(() => _overlayVisible = false);
+      ref.read(quickSwitcherOverlayVisibleProvider.notifier).state = false;
       return;
     }
 
@@ -43,6 +41,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     ref.read(recentChannelsProvider.notifier).add(stream);
     final url = ref.read(streamUrlProvider(stream.streamId));
     ref.read(playerControllerProvider.notifier).setStream(stream, url);
+    ref.read(quickSwitcherOverlayVisibleProvider.notifier).state = false;
   }
 
   void _openFullPlayer() {
@@ -61,6 +60,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     final streamsAsync = ref.watch(filteredLiveStreamsProvider);
     final playerState = ref.watch(playerControllerProvider);
     final recentChannels = ref.watch(recentChannelsProvider);
+    final overlayVisible = ref.watch(quickSwitcherOverlayVisibleProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -162,7 +162,8 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
                 ref.read(playerControllerProvider.notifier).dispose();
                 ref.read(playerControllerProvider.notifier); // re-create fresh
               },
-              onOverlayToggle: () => setState(() => _overlayVisible = !_overlayVisible),
+              onOverlayToggle: () => ref.read(quickSwitcherOverlayVisibleProvider.notifier).state =
+                  !ref.read(quickSwitcherOverlayVisibleProvider),
             ),
 
           // Quick-channel switcher overlay.
@@ -170,6 +171,8 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
             QuickChannelOverlay(
               recentStreams: recentChannels,
               onChannelSelected: _switchToStream,
+              isVisible: overlayVisible,
+              onDismiss: () => ref.read(quickSwitcherOverlayVisibleProvider.notifier).state = false,
             ),
         ],
       ),

@@ -11,11 +11,15 @@ import '../../core/network/xtream_client.dart';
 class QuickChannelOverlay extends ConsumerStatefulWidget {
   final List<XtreamStream> recentStreams;
   final void Function(XtreamStream) onChannelSelected;
+  final bool isVisible;
+  final VoidCallback onDismiss;
 
   const QuickChannelOverlay({
     super.key,
     required this.recentStreams,
     required this.onChannelSelected,
+    required this.isVisible,
+    required this.onDismiss,
   });
 
   @override
@@ -23,14 +27,9 @@ class QuickChannelOverlay extends ConsumerStatefulWidget {
 }
 
 class _QuickChannelOverlayState extends ConsumerState<QuickChannelOverlay> {
-  bool _visible = false;
-
-  void show() => setState(() => _visible = true);
-  void hide() => setState(() => _visible = false);
-
   @override
   Widget build(BuildContext context) {
-    if (!_visible || widget.recentStreams.isEmpty) {
+    if (!widget.isVisible || widget.recentStreams.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -39,7 +38,7 @@ class _QuickChannelOverlayState extends ConsumerState<QuickChannelOverlay> {
       right: 0,
       bottom: 0,
       child: GestureDetector(
-        onTap: hide,
+        onTap: widget.onDismiss,
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -83,7 +82,7 @@ class _QuickChannelOverlayState extends ConsumerState<QuickChannelOverlay> {
                     return _RecentChannelChip(
                       stream: stream,
                       onTap: () {
-                        hide();
+                        widget.onDismiss();
                         widget.onChannelSelected(stream);
                       },
                     );

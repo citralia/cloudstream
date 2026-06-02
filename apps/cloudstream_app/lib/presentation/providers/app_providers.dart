@@ -189,6 +189,10 @@ final playerControllerProvider = StateNotifierProvider<PlayerControllerNotifier,
   return PlayerControllerNotifier();
 });
 
+// ── Quick-switcher overlay visibility (remote: Info key) ─────────────────
+
+final quickSwitcherOverlayVisibleProvider = StateProvider<bool>((ref) => false);
+
 // ── Connections (Playlist) ────────────────────────────────────────────────
 
 final connectionsListProvider = FutureProvider<List<XtreamCredentials>>((ref) async {

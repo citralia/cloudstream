@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
@@ -55,17 +56,34 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    // Info key toggles quick channel switcher overlay.
+    if (event.logicalKey == LogicalKeyboardKey.info) {
+      final visible = ref.read(quickSwitcherOverlayVisibleProvider);
+      ref.read(quickSwitcherOverlayVisibleProvider.notifier).state = !visible;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          ChannelListScreen(),
-          _GuidePlaceholder(),   // TODO: EPG guide screen
-          _VodPlaceholder(),    // TODO: VOD screen
-          const SettingsScreen(),
-        ],
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          _handleKeyEvent(event);
+          // Don't consume the event — let children handle it too.
+          return KeyEventResult.ignored;
+        },
+        child: IndexedStack(
+          index: _currentIndex,
+          children: const [
+            ChannelListScreen(),
+            _GuidePlaceholder(),   // TODO: EPG guide screen
+            _VodPlaceholder(),    // TODO: VOD screen
+            const SettingsScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
