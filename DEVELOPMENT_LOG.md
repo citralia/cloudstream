@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-06-02 — CloudStream Hourly Cron (06:20 BST)
+
+**Session start:** 05:05 BST
+
+### What was done:
+- P102: Quick channel switcher overlay wired to Info/Guide remote button
+  - Added `quickSwitcherOverlayVisibleProvider` (StateProvider<bool>) in app_providers.dart
+  - `HomeScreen` intercepts `LogicalKeyboardKey.info` to toggle the overlay
+  - `QuickChannelOverlay` refactored from internal `_visible` state to controlled `isVisible` + `onDismiss` props
+  - `ChannelListScreen` now watches the provider; mini-player toggle and overlay both use it
+- Pushed a032eed — CI passed ✅ (5m0s)
+
+### CI status:
+- `P102: wire quick-channel switcher overlay to Info key remote button` ✅ passed (5m0s)
+- All previous: ✅ green
+
+### What's next:
+- P103: PiP support
+- P104: Gesture controls
+- P105: Full EPG guide screen
+- C06: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-02 — CloudStream Hourly Cron (05:15 BST)
 
 **Session start:** 04:05 BST
