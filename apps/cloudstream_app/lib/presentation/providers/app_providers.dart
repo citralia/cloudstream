@@ -45,9 +45,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Restore session from secure storage on app startup.
+  /// Times out after 10s to avoid hanging on slow Firestick I/O.
   Future<void> _restoreSession() async {
     try {
-      final creds = await _store.loadActiveConnection();
+      // Race: load credentials vs. timeout. Firestick secure storage can be slow.
+      final creds = await _store.loadActiveConnection().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => null,
+      );
       if (creds == null) {
         state = const AuthState(status: AuthStatus.unauthenticated);
         return;
@@ -57,12 +62,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         username: creds.username,
         password: creds.password,
       );
-      // Validate by logging in
-      final user = await _client.login();
+      // Validate by logging in — also timed out to avoid indefinite hang
+      final user = await _client.login().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const XtreamApiException('Login timed out'),
+      );
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
-      // Stored credentials are invalid — clear them
-      await _store.clearAll();
+      // Stored credentials invalid or network issue — clear and go to login
+      await _store.clearAll().timeout(const Duration(seconds: 5), onTimeout: () {});
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
