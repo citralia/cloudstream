@@ -91,11 +91,12 @@ class LogStreamHandler : EventChannel.StreamHandler {
         isStreaming = true
 
         try {
-            // Filter to this app's process + Flutter tags only.
-            // Excludes noisy system tags; targets this app's package.
+            val pid = android.os.Process.myPid()
+            // Filter to this app's process via tag wildcard + explicit Flutter tags.
+            // --pid=0 is invalid; use -s silent mode with tag:priority filters.
             process = Runtime.getRuntime().exec(arrayOf(
-                "logcat", "--pid=0", "-s",
-                "flutter", "cloudstream_app", "D/CloudStream", "E/CloudStream", "W/CloudStream"
+                "logcat", "--pid=$pid", "-s",
+                "flutter:V", "D/Flutter:V", "CloudStream:V", "CloudStreamApp:V"
             ))
             reader = BufferedReader(InputStreamReader(process!!.inputStream), 8192)
 

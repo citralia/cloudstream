@@ -13,7 +13,7 @@ class DebugLogService {
   static const _channel = EventChannel('com.cloudstream.cloudstream_app/logs');
 
   final _controller = StreamController<String>.broadcast();
-  bool _enabled = false;
+  bool _enabled = true;
   StreamSubscription? _subscription;
 
   /// Live stream of logcat lines.

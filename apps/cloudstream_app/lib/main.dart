@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/channel_list_screen.dart';
+import 'presentation/screens/epg_guide_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
 void main() {
@@ -93,9 +94,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           index: _currentIndex,
           children: const [
             ChannelListScreen(),
-            _GuidePlaceholder(),   // TODO: EPG guide screen
+            EpgGuideScreen(),
             _VodPlaceholder(),    // TODO: VOD screen
-            const SettingsScreen(),
+            SettingsScreen(),
           ],
         ),
       ),

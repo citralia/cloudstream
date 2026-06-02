@@ -1,0 +1,664 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/network/xtream_client.dart';
+import '../providers/app_providers.dart';
+import '../providers/player_controller_notifier.dart';
+import 'player_screen.dart';
+
+/// P105 — Full EPG guide screen.
+/// TV-style grid: channel column on the left, programme blocks on a timeline.
+/// Accessible via the "Guide" tab in the bottom navigation bar.
+class EpgGuideScreen extends ConsumerStatefulWidget {
+  const EpgGuideScreen({super.key});
+
+  @override
+  ConsumerState<EpgGuideScreen> createState() => _EpgGuideScreenState();
+}
+
+class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
+  late DateTime _windowStart;
+  late DateTime _windowEnd;
+
+  final Map<int, bool> _loadingChannels = {};
+  final Map<int, List<XtreamEpgEntry>> _channelEpg = {};
+  final Set<int> _loadedStreamIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initWindow();
+  }
+
+  void _initWindow() {
+    final now = DateTime.now().toUtc();
+    _windowStart = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute >= 30 ? 30 : 0)
+        .subtract(const Duration(minutes: 30));
+    _windowEnd = _windowStart.add(const Duration(hours: 6));
+  }
+
+  double _timeToOffset(DateTime time) {
+    final diff = time.difference(_windowStart);
+    return diff.inMinutes * TimelineMetrics.pixelsPerMinute;
+  }
+
+  void _loadEpgForChannel(int streamId) async {
+    if (_loadingChannels[streamId] == true) return;
+    setState(() => _loadingChannels[streamId] = true);
+    try {
+      final entries = await ref.read(epgProvider(streamId).future);
+      if (mounted) {
+        setState(() {
+          _channelEpg[streamId] = entries;
+          _loadedStreamIds.add(streamId);
+          _loadingChannels[streamId] = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingChannels[streamId] = false);
+    }
+  }
+
+  void _ensureChannelsLoaded(List<XtreamStream> streams) {
+    for (final stream in streams) {
+      if (!_loadedStreamIds.contains(stream.streamId)) {
+        _loadEpgForChannel(stream.streamId);
+      }
+    }
+  }
+
+  void _openChannel(XtreamStream stream) {
+    ref.read(recentChannelsProvider.notifier).add(stream);
+    final playerState = ref.read(playerControllerProvider);
+
+    if (playerState.status == PlayerStatus.playing ||
+        playerState.status == PlayerStatus.initialising) {
+      final url = ref.read(streamUrlProvider(stream.streamId));
+      ref.read(playerControllerProvider.notifier).setStream(stream, url);
+      return;
+    }
+
+    ref.read(selectedStreamProvider.notifier).state = stream;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final streamsAsync = ref.watch(filteredLiveStreamsProvider);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Guide'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh EPG',
+            onPressed: () {
+              setState(() {
+                _loadedStreamIds.clear();
+                _channelEpg.clear();
+              });
+              ref.invalidate(filteredLiveStreamsProvider);
+            },
+          ),
+        ],
+      ),
+      body: streamsAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                const SizedBox(height: AppSpacing.lg),
+                Text('Failed to load channels', style: AppTypography.h3),
+                const SizedBox(height: AppSpacing.sm),
+                Text(error.toString(), style: AppTypography.caption, textAlign: TextAlign.center),
+                const SizedBox(height: AppSpacing.xl),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(filteredLiveStreamsProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        data: (streams) {
+          if (streams.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.menu_book_outlined, color: AppColors.textMuted, size: 64),
+                  SizedBox(height: AppSpacing.lg),
+                  Text('No channels', style: AppTypography.h3),
+                ],
+              ),
+            );
+          }
+
+          _ensureChannelsLoaded(streams);
+
+          return _EpgGrid(
+            streams: streams,
+            channelEpg: _channelEpg,
+            loadingChannels: _loadingChannels,
+            windowStart: _windowStart,
+            windowEnd: _windowEnd,
+            timeToOffset: _timeToOffset,
+            onChannelTap: _openChannel,
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Timeline layout constants ─────────────────────────────────────────────
+
+class TimelineMetrics {
+  static const double pixelsPerMinute = 3.0;
+  static const double channelColumnWidth = 120.0;
+  static const double rowHeight = 64.0;
+  static const double headerHeight = 40.0;
+
+  static double timelineWidth(Duration window) =>
+      window.inMinutes * pixelsPerMinute;
+}
+
+// ─── EPG Grid ─────────────────────────────────────────────────────────────
+
+class _EpgGrid extends StatefulWidget {
+  final List<XtreamStream> streams;
+  final Map<int, List<XtreamEpgEntry>> channelEpg;
+  final Map<int, bool> loadingChannels;
+  final DateTime windowStart;
+  final DateTime windowEnd;
+  final double Function(DateTime) timeToOffset;
+  final void Function(XtreamStream) onChannelTap;
+
+  const _EpgGrid({
+    required this.streams,
+    required this.channelEpg,
+    required this.loadingChannels,
+    required this.windowStart,
+    required this.windowEnd,
+    required this.timeToOffset,
+    required this.onChannelTap,
+  });
+
+  @override
+  State<_EpgGrid> createState() => _EpgGridState();
+}
+
+class _EpgGridState extends State<_EpgGrid> {
+  late ScrollController _horizontalController;
+  late ScrollController _verticalController;
+
+  @override
+  void initState() {
+    super.initState();
+    _horizontalController = ScrollController();
+    _verticalController = ScrollController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final nowOffset = widget.timeToOffset(DateTime.now().toUtc());
+      final screenWidth = MediaQuery.of(context).size.width;
+      final target = nowOffset - (screenWidth / 2) + (TimelineMetrics.channelColumnWidth / 2);
+      if (_horizontalController.hasClients) {
+        _horizontalController.jumpTo(target.clamp(
+          0.0,
+          _horizontalController.position.maxScrollExtent,
+        ));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalWidth = TimelineMetrics.timelineWidth(
+      widget.windowEnd.difference(widget.windowStart),
+    );
+
+    return Column(
+      children: [
+        // Header: time ruler.
+        SizedBox(
+          height: TimelineMetrics.headerHeight,
+          child: Row(
+            children: [
+              Container(
+                width: TimelineMetrics.channelColumnWidth,
+                color: AppColors.surface,
+                alignment: Alignment.center,
+                child: Text('CHANNEL', style: AppTypography.caption),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _horizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: totalWidth,
+                    height: TimelineMetrics.headerHeight,
+                    child: CustomPaint(
+                      painter: _TimeRulerPainter(
+                        windowStart: widget.windowStart,
+                        windowEnd: widget.windowEnd,
+                        pixelsPerMinute: TimelineMetrics.pixelsPerMinute,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Body: channel rows.
+        Expanded(
+          child: Row(
+            children: [
+              // Fixed channel name column.
+              SizedBox(
+                width: TimelineMetrics.channelColumnWidth,
+                child: ListView.builder(
+                  controller: _verticalController,
+                  itemCount: widget.streams.length,
+                  itemBuilder: (context, index) {
+                    final stream = widget.streams[index];
+                    return _ChannelLabelCell(
+                      stream: stream,
+                      onTap: () => widget.onChannelTap(stream),
+                    );
+                  },
+                ),
+              ),
+
+              // Scrollable programme grid.
+              Expanded(
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      controller: _verticalController,
+                      child: SizedBox(
+                        height: widget.streams.length * TimelineMetrics.rowHeight,
+                        child: ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: widget.streams.length,
+                          itemBuilder: (context, index) {
+                            final stream = widget.streams[index];
+                            final entries = widget.channelEpg[stream.streamId] ?? [];
+                            final isLoading = widget.loadingChannels[stream.streamId] ?? false;
+                            return _ProgrammeRow(
+                              stream: stream,
+                              entries: entries,
+                              isLoading: isLoading,
+                              windowStart: widget.windowStart,
+                              windowEnd: widget.windowEnd,
+                              timeToOffset: widget.timeToOffset,
+                              onTap: () => widget.onChannelTap(stream),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    _NowLine(
+                      windowStart: widget.windowStart,
+                      windowEnd: widget.windowEnd,
+                      timeToOffset: widget.timeToOffset,
+                      horizontalController: _horizontalController,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Channel label cell ────────────────────────────────────────────────────
+
+class _ChannelLabelCell extends StatelessWidget {
+  final XtreamStream stream;
+  final VoidCallback onTap;
+
+  const _ChannelLabelCell({required this.stream, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: TimelineMetrics.rowHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        ),
+        child: Row(
+          children: [
+            if (stream.logo != null && stream.logo!.isNotEmpty)
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: Image.network(
+                  stream.logo!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => _initial(),
+                ),
+              )
+            else
+              _initial(),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                stream.name,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _initial() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
+        style: const TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+// ─── Programme row ─────────────────────────────────────────────────────────
+
+class _ProgrammeRow extends StatelessWidget {
+  final XtreamStream stream;
+  final List<XtreamEpgEntry> entries;
+  final bool isLoading;
+  final DateTime windowStart;
+  final DateTime windowEnd;
+  final double Function(DateTime) timeToOffset;
+  final VoidCallback onTap;
+
+  const _ProgrammeRow({
+    required this.stream,
+    required this.entries,
+    required this.isLoading,
+    required this.windowStart,
+    required this.windowEnd,
+    required this.timeToOffset,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Container(
+        height: TimelineMetrics.rowHeight,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
+        ),
+      );
+    }
+
+    final visible = entries.where((e) {
+      final start = e.startTime;
+      final end = e.endTime;
+      return end.isAfter(windowStart) && start.isBefore(windowEnd);
+    }).toList();
+
+    if (visible.isEmpty) {
+      return Container(
+        height: TimelineMetrics.rowHeight,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: TimelineMetrics.rowHeight,
+      child: Stack(
+        children: visible.map((entry) => _ProgrammeBlock(
+          entry: entry,
+          windowStart: windowStart,
+          windowEnd: windowEnd,
+          timeToOffset: timeToOffset,
+          onTap: onTap,
+        )).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Programme block ──────────────────────────────────────────────────────
+
+class _ProgrammeBlock extends StatelessWidget {
+  final XtreamEpgEntry entry;
+  final DateTime windowStart;
+  final DateTime windowEnd;
+  final double Function(DateTime) timeToOffset;
+  final VoidCallback onTap;
+
+  const _ProgrammeBlock({
+    required this.entry,
+    required this.windowStart,
+    required this.windowEnd,
+    required this.timeToOffset,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final start = entry.startTime.isBefore(windowStart) ? windowStart : entry.startTime;
+    final end = entry.endTime.isAfter(windowEnd) ? windowEnd : entry.endTime;
+    final left = timeToOffset(start);
+    final right = timeToOffset(end);
+    final width = right - left;
+
+    if (width <= 0) return const SizedBox.shrink();
+
+    final now = DateTime.now().toUtc();
+    final isOnNow = now.isAfter(entry.startTime) && now.isBefore(entry.endTime);
+
+    return Positioned(
+      left: left,
+      top: 4,
+      bottom: 4,
+      width: width,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isOnNow
+                ? AppColors.primary.withOpacity(0.85)
+                : AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(4),
+            border: isOnNow
+                ? Border.all(color: AppColors.primary, width: 2)
+                : Border.all(color: AppColors.textMuted.withOpacity(0.3)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          alignment: Alignment.centerLeft,
+          child: width > 60
+              ? Text(
+                  entry.title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isOnNow ? Colors.white : AppColors.textSecondary,
+                    fontWeight: isOnNow ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Now-line ─────────────────────────────────────────────────────────────
+
+class _NowLine extends StatefulWidget {
+  final DateTime windowStart;
+  final DateTime windowEnd;
+  final double Function(DateTime) timeToOffset;
+  final ScrollController horizontalController;
+
+  const _NowLine({
+    required this.windowStart,
+    required this.windowEnd,
+    required this.timeToOffset,
+    required this.horizontalController,
+  });
+
+  @override
+  State<_NowLine> createState() => _NowLineState();
+}
+
+class _NowLineState extends State<_NowLine> {
+  double _scrollPixels = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollPixels = widget.horizontalController.position.pixels;
+    widget.horizontalController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    setState(() {
+      _scrollPixels = widget.horizontalController.position.pixels;
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.horizontalController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now().toUtc();
+    if (now.isBefore(widget.windowStart) || now.isAfter(widget.windowEnd)) {
+      return const SizedBox.shrink();
+    }
+
+    final rawOffset = widget.timeToOffset(now);
+    final visibleOffset = rawOffset - _scrollPixels;
+
+    if (visibleOffset < -2 || visibleOffset > MediaQuery.of(context).size.width) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: visibleOffset,
+      top: 0,
+      bottom: 0,
+      child: Container(width: 2, color: AppColors.error),
+    );
+  }
+}
+
+// ─── Time ruler painter ───────────────────────────────────────────────────
+
+class _TimeRulerPainter extends CustomPainter {
+  final DateTime windowStart;
+  final DateTime windowEnd;
+  final double pixelsPerMinute;
+
+  _TimeRulerPainter({
+    required this.windowStart,
+    required this.windowEnd,
+    required this.pixelsPerMinute,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.surfaceElevated
+      ..strokeWidth = 1;
+
+    final textStyle = TextStyle(
+      color: AppColors.textMuted,
+      fontSize: 10,
+    );
+
+    var cursor = DateTime(windowStart.year, windowStart.month, windowStart.day, windowStart.hour);
+    if (cursor.isBefore(windowStart)) {
+      cursor = cursor.add(const Duration(hours: 1));
+    }
+
+    while (cursor.isBefore(windowEnd)) {
+      final offset = cursor.difference(windowStart).inMinutes * pixelsPerMinute;
+
+      canvas.drawLine(Offset(offset, 0), Offset(offset, size.height), paint);
+
+      final label = '${cursor.hour.toString().padLeft(2, '0')}:00';
+      final textSpan = TextSpan(text: label, style: textStyle);
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(canvas, Offset(offset + 4, (size.height - textPainter.height) / 2));
+
+      final halfOffset = offset + (30 * pixelsPerMinute);
+      if (halfOffset < size.width) {
+        final halfPaint = Paint()
+          ..color = AppColors.textMuted.withOpacity(0.3)
+          ..strokeWidth = 1;
+        canvas.drawLine(
+          Offset(halfOffset, size.height * 0.6),
+          Offset(halfOffset, size.height),
+          halfPaint,
+        );
+      }
+
+      cursor = cursor.add(const Duration(hours: 1));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TimeRulerPainter old) =>
+      windowStart != old.windowStart ||
+      windowEnd != old.windowEnd ||
+      pixelsPerMinute != old.pixelsPerMinute;
+}
