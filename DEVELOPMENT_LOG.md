@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-06-04 — CloudStream Hourly Cron (07:00 BST)
+
+**Session start:** 06:15 BST
+
+### What was done:
+- P202: VOD library + player reuse — fully implemented and shipped:
+  - `WatchProgressStore` (`core/storage/watch_progress_store.dart`): SharedPreferences-backed persistence for VOD watch progress, keyed by `profileId + streamId`. Supports save/load/clear/list.
+  - `shared_preferences` added to pubspec.yaml
+  - `app_providers.dart`: added `sharedPreferencesProvider`, `watchProgressStoreProvider`, `watchProgressProvider` (family over streamId+profileId)
+  - `main.dart`: async `main()` with `SharedPreferences.getInstance()` and `ProviderScope` override
+  - `PlayerScreen`: added `startPosition` param; added `_onPositionChanged` listener that saves progress every 30s; `_saveProgress()` called on `dispose()`
+  - `VodDetailScreen`: new screen between tap and play — shows cover, title, synopsis placeholder, and two buttons: **Resume** (loads saved position) and **Start Over**
+  - `vod_screen.dart`: tap VOD card now navigates to `VodDetailScreen` instead of playing directly
+  - All analyze errors resolved (zero new errors introduced)
+- Pushed `751a3b9` — CI ✅ Analyze ✅ Test ✅
+
+### CI status:
+- `feat(P202): VOD library — watch progress store, resume prompt, VOD detail screen` ✅ Release passed (5m36s) ✅ CI passed (5m50s)
+
+### What's next:
+- P203: Multi-profile local (per-profile favourites, isolated state)
+- C06: Smoke test on Firestick (blocked on josh)
+- B202: Firebase integration (Backlog)
+
+---
+
 ## 2026-06-04 — CloudStream Hourly Cron (04:00 BST)
 
 **Session start:** 03:15 BST

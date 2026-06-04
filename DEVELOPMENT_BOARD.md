@@ -73,7 +73,7 @@
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
 | P201 | Provider abstraction (CloudStreamPlayer + XtreamStreamSession) | **Done** | agent | CloudStreamPlayer interface, XtreamStreamSession impl, PII redaction — 69ad17c |
-| P202 | VOD library + player reuse | **In Progress** | agent | VOD categories, posters, resume, watch-progress per profile |
+| P202 | VOD library + player reuse | **Done** | agent | WatchProgressStore via SharedPreferences, VodDetailScreen with resume/start-over, PlayerScreen saves position every 30s — 751a3b9 |
 | P203 | Multi-profile local | Backlog | agent | Profile switcher, per-profile favourites, isolated state |
 | P204 | Search | Backlog | agent | In-memory index over live + VOD, <300ms on Firestick |
 | P205 | Profile sync via Firestore | Backlog | agent | Mirror favourites/watch-progress, server-side cred encryption |
