@@ -8,6 +8,7 @@ import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/channel_list_screen.dart';
 import 'presentation/screens/epg_guide_screen.dart';
+import 'presentation/screens/search_screen.dart';
 import 'presentation/screens/vod_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
@@ -97,6 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: const [
             ChannelListScreen(),
             EpgGuideScreen(),
+            SearchScreen(),
             VodScreen(),
             SettingsScreen(),
           ],
@@ -122,6 +124,7 @@ class _TvNavBarState extends ConsumerState<_TvNavBar> {
   static const _navItems = [
     (icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv, label: 'Live TV'),
     (icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book, label: 'Guide'),
+    (icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Search'),
     (icon: Icons.movie_outlined, activeIcon: Icons.movie, label: 'VOD'),
     (icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
   ];

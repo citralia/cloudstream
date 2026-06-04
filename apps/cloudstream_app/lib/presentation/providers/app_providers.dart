@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/debug/debug_log_service.dart';
 import '../../core/network/xtream_client.dart';
+import '../../core/search/search_service.dart';
 import '../../core/storage/profile_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../data/datasources/credentials_store.dart';
@@ -410,4 +411,37 @@ class DebugLogNotifier extends StateNotifier<DebugLogState> {
 
 final debugLogProvider = StateNotifierProvider<DebugLogNotifier, DebugLogState>((ref) {
   return DebugLogNotifier();
+});
+
+// ── Search ─────────────────────────────────────────────────────────────────
+
+/// Singleton search index shared across the app.
+final searchServiceProvider = Provider<SearchService>((ref) {
+  return SearchService();
+});
+
+/// Query string for search.
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Triggers rebuild when live or VOD streams change.
+final searchIndexRebuilderProvider = FutureProvider<void>((ref) async {
+  // Watch both providers so we re-index when they change.
+  final liveAsync = ref.watch(liveStreamsProvider);
+  final vodAsync = ref.watch(vodStreamsProvider);
+
+  final live = liveAsync.valueOrNull ?? [];
+  final vod = vodAsync.valueOrNull ?? [];
+
+  final index = ref.read(searchServiceProvider);
+  index.rebuild(live: live, vod: vod);
+});
+
+/// Search results derived from query + index.
+/// Depends on searchIndexRebuilderProvider to ensure index is built first.
+final searchResultsProvider = Provider<List<SearchResult>>((ref) {
+  // Depend on the index builder to ensure it's been built.
+  ref.watch(searchIndexRebuilderProvider);
+  final query = ref.watch(searchQueryProvider);
+  final index = ref.read(searchServiceProvider);
+  return index.search(query);
 });
