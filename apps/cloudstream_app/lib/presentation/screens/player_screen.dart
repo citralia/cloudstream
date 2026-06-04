@@ -12,8 +12,14 @@ import 'player_gesture_overlay.dart';
 class PlayerScreen extends ConsumerStatefulWidget {
   final XtreamStream stream;
   final String? streamUrl; // Optional: pass VOD URL directly
+  final Duration? startPosition; // Optional: resume from position
 
-  const PlayerScreen({super.key, required this.stream, this.streamUrl});
+  const PlayerScreen({
+    super.key,
+    required this.stream,
+    this.streamUrl,
+    this.startPosition,
+  });
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -26,6 +32,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String? _error;
   XtreamEpgEntry? _currentProgramme;
   final PipService _pipService = PipService();
+
+  // Watch progress
+  static const _progressSaveInterval = Duration(seconds: 30);
+  DateTime _lastSaveTime = DateTime.now();
 
   @override
   void initState() {
@@ -49,11 +59,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
+    _saveProgress();
     _chewieController?.dispose();
     _videoController?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
+  }
+
+  void _onPositionChanged() {
+    final now = DateTime.now();
+    if (now.difference(_lastSaveTime) >= _progressSaveInterval) {
+      _lastSaveTime = now;
+      _saveProgress();
+    }
+  }
+
+  Future<void> _saveProgress() async {
+    if (_videoController == null) return;
+    final position = _videoController!.value.position.inMilliseconds;
+    if (position <= 0) return;
+    try {
+      final creds = await ref.read(credentialsStoreProvider).loadActiveConnection();
+      if (creds == null) return;
+      final store = ref.read(watchProgressStoreProvider);
+      await store.saveProgress(
+        profileId: creds.name,
+        streamId: widget.stream.streamId,
+        positionMs: position,
+      );
+    } catch (_) {
+      // Non-fatal
+    }
   }
 
   Future<void> _initializePlayer() async {
@@ -64,7 +101,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
       // Initialise video player with the HLS manifest
       _videoController = VideoPlayerController.networkUrl(Uri.parse(streamUrl!));
+      _videoController!.addListener(_onPositionChanged);
       await _videoController!.initialize();
+
+      // Seek to startPosition if provided (resume)
+      if (widget.startPosition != null) {
+        await _videoController!.seekTo(widget.startPosition!);
+      }
 
       _chewieController = ChewieController(
         videoPlayerController: _videoController!,

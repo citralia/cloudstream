@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
-import 'player_screen.dart';
+import 'vod_detail_screen.dart';
 
 class VodScreen extends ConsumerWidget {
   const VodScreen({super.key});
@@ -72,11 +72,9 @@ class VodScreen extends ConsumerWidget {
                     return _VodCard(
                       stream: stream,
                       onTap: () {
-                        ref.read(selectedVodProvider.notifier).state = stream;
-                        final url = ref.read(vodStreamUrlProvider(stream.streamId));
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => PlayerScreen(stream: stream, streamUrl: url),
+                            builder: (_) => VodDetailScreen(stream: stream),
                           ),
                         );
                       },

@@ -28,6 +28,9 @@ dependencies:
   # Google Fonts (Inter variable font)
   google_fonts: ^6.2.1
 
+  # Local storage for watch progress
+  shared_preferences: ^2.3.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/debug/debug_log_service.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
@@ -10,9 +11,17 @@ import 'presentation/screens/epg_guide_screen.dart';
 import 'presentation/screens/vod_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: CloudStreamApp()));
+  final prefs = await SharedPreferences.getInstance();
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const CloudStreamApp(),
+    ),
+  );
 }
 
 class CloudStreamApp extends ConsumerWidget {

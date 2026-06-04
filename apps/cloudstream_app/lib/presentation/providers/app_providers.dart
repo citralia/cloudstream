@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/debug/debug_log_service.dart';
 import '../../core/network/xtream_client.dart';
+import '../../core/storage/watch_progress_store.dart';
 import '../../data/datasources/credentials_store.dart';
 import 'player_controller_notifier.dart';
 
@@ -228,6 +230,24 @@ final selectedVodProvider = StateProvider<XtreamStream?>((ref) => null);
 final vodStreamUrlProvider = Provider.family<String, int>((ref, streamId) {
   final client = ref.watch(xtreamClientProvider);
   return client.buildVodStreamUrl(streamId);
+});
+
+// ── Watch Progress ─────────────────────────────────────────────────────────
+
+/// Must be overridden at app startup with `SharedPreferences.instanceFor`.
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('Override sharedPreferencesProvider at app startup');
+});
+
+/// VOD watch-progress store, backed by SharedPreferences.
+final watchProgressStoreProvider = Provider<WatchProgressStore>((ref) {
+  return WatchProgressStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// Get saved watch progress for a given stream + active profile.
+final watchProgressProvider = Provider.family<WatchProgress?, ({int streamId, String profileId})>((ref, params) {
+  final store = ref.watch(watchProgressStoreProvider);
+  return store.getProgress(profileId: params.profileId, streamId: params.streamId);
 });
 
 // ── Debug logs ─────────────────────────────────────────────────────────────
