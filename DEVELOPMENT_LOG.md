@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-04 — CloudStream Hourly Cron (10:00 BST)
+
+**Session start:** 09:20 BST
+
+### What was done:
+- CI was failing on `develop` — P203 commit (26942615661) broke `widget_test.dart`:
+  - Root cause: `AuthRouter` watches `sharedPreferencesProvider` which throws `UnimplementedError` when not overridden. `main.dart` correctly overrides it, but the test didn't.
+  - Fix: Added `SharedPreferences.setMockInitialValues({})`, `SharedPreferences.getInstance()`, and `sharedPreferencesProvider.overrideWithValue(prefs)` to the test
+- Pushed `a235418` — CI ✅ (5m4s)
+
+### CI status:
+- `fix(widget_test): mock SharedPreferences to fix sharedPreferencesProvider override error` ✅ passed (5m4s)
+- P203: `feat(P203): multi-profile local — ProfileStore, ProfileSwitcherScreen…` ✅ Release passed (6m17s)
+- All Phase 2 (P201–P203) now Done
+
+### What's next:
+- P204: Search — in-memory index over live + VOD, <300ms on Firestick
+- C06: Smoke test on Firestick (blocked on josh)
+- B202: Firebase integration (Backlog)
+
+---
+
 ## 2026-06-04 — CloudStream Hourly Cron (07:00 BST)
 
 **Session start:** 06:15 BST
