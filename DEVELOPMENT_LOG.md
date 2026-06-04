@@ -4,7 +4,32 @@
 
 ---
 
-## 2026-06-04 — CloudStream Hourly Cron (12:00 BST)
+## 2026-06-04 — CloudStream Hourly Cron (13:00 BST)
+
+**Session start:** 12:15 BST
+
+### What was done:
+- P206: Catch-up TV — fully implemented and shipped:
+  - `XtreamEpgEntry.hasCatchup`: parses `has_catchup` bool from Xtream API response
+  - `XtreamEpgEntry.isInCatchupWindow`: true if programme ended within last 3 hours
+  - `XtreamApiClient.buildCatchupStreamUrl(streamId, startTime)`: public method constructing `/live/{user}/{pass}/{id}.m3u8?start={epoch}`
+  - `XtreamEpgEntry.fromJson`: now handles `has_catchup` field (int 1 or bool true)
+  - EPG programme blocks: show `Icons.replay` badge for past programmes that are catch-up eligible
+  - `_openChannel(stream, programme)`: detects past programme with catchup → calls `_playCatchup()`
+  - `_playCatchup()`: builds catchup URL, passes as `PlayerScreen(streamUrl: ...)` override
+  - `PlayerScreen`: already supports `streamUrl` override (from VOD work) — no changes needed
+  - Refactored: `onProgrammeTap` callback chain through `_ProgrammeRow` → `_EpgGrid` → `_EpgGuideScreenState`
+- Pushed `fd29aa2` — CI ✅ Analyze ✅ Test ✅ (10 tests) — Release ✅
+
+### CI status:
+- `feat(P206): catch-up TV — EPG tap to play, replay badge, catchup URL builder` ✅ passed (Release ✅)
+- All Phase 2 (P201–P204, P206) now Done
+
+### What's next:
+- P207: DVR / recordings (Backlog, revenue-gated after P208)
+- P208: Monetisation (Backlog — RevenueCat paywall)
+- C06: Smoke test on Firestick (blocked on josh)
+- P205: Profile sync via Firestore (Backlog — needs Firebase credentials)
 
 **Session start:** 11:05 BST
 

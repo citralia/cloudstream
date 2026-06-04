@@ -77,7 +77,7 @@
 | P203 | Multi-profile local | **Done** | agent | ProfileStore, ProfileSwitcherScreen — 26942615661 ✅ |
 | P204 | Search | **Done** | agent | In-memory index over live + VOD, SearchScreen in bottom nav — 80a4a06 |
 | P205 | Profile sync via Firestore | Backlog | agent | Mirror favourites/watch-progress, server-side cred encryption |
-| P206 | Catch-up TV | Backlog | agent | Xtream catch-up HLS, seek via EPG tap |
+| P206 | Catch-up TV | **Done** | agent | Xtream catch-up HLS, seek via EPG tap — replay badge, _openChannel detects past programme → buildCatchupStreamUrl → PlayerScreen(streamUrl) |
 | P207 | DVR / recordings | Backlog | agent | Cloudflare R2 only, revenue-gated after P208 |
 | P208 | Monetisation | Backlog | agent | RevenueCat paywall on multi-profile + sync + catch-up |
 | P209 | Cast + multi-screen | Backlog | agent | AirPlay + Cast + PiP orchestration |
