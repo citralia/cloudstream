@@ -67,8 +67,20 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
     }
   }
 
-  void _openChannel(XtreamStream stream) {
+  void _openChannel(XtreamStream stream, {XtreamEpgEntry? programme}) {
     ref.read(recentChannelsProvider.notifier).add(stream);
+
+    // If programme is provided and is a past programme with catch-up, play from start.
+    if (programme != null) {
+      final now = DateTime.now().toUtc();
+      if (now.isAfter(programme.endTime) &&
+          programme.hasCatchup &&
+          programme.isInCatchupWindow) {
+        _playCatchup(stream, programme);
+        return;
+      }
+    }
+
     final playerState = ref.read(playerControllerProvider);
 
     if (playerState.status == PlayerStatus.playing ||
@@ -81,6 +93,27 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
     ref.read(selectedStreamProvider.notifier).state = stream;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+    );
+  }
+
+  void _playCatchup(XtreamStream stream, XtreamEpgEntry programme) {
+    final catchupUrl = ref.read(xtreamClientProvider).buildCatchupStreamUrl(
+      stream.streamId,
+      programme.startTime,
+    );
+    final playerState = ref.read(playerControllerProvider);
+
+    if (playerState.status == PlayerStatus.playing ||
+        playerState.status == PlayerStatus.initialising) {
+      ref.read(playerControllerProvider.notifier).setStream(stream, catchupUrl);
+      return;
+    }
+
+    ref.read(selectedStreamProvider.notifier).state = stream;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlayerScreen(stream: stream, streamUrl: catchupUrl),
+      ),
     );
   }
 
@@ -153,7 +186,8 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
             windowStart: _windowStart,
             windowEnd: _windowEnd,
             timeToOffset: _timeToOffset,
-            onChannelTap: _openChannel,
+            onProgrammeTap: (s, e) => _openChannel(s, programme: e),
+            onChannelTap: (s) => _openChannel(s),
           );
         },
       ),
@@ -182,6 +216,7 @@ class _EpgGrid extends StatefulWidget {
   final DateTime windowStart;
   final DateTime windowEnd;
   final double Function(DateTime) timeToOffset;
+  final void Function(XtreamStream stream, XtreamEpgEntry entry) onProgrammeTap;
   final void Function(XtreamStream) onChannelTap;
 
   const _EpgGrid({
@@ -191,6 +226,7 @@ class _EpgGrid extends StatefulWidget {
     required this.windowStart,
     required this.windowEnd,
     required this.timeToOffset,
+    required this.onProgrammeTap,
     required this.onChannelTap,
   });
 
@@ -310,7 +346,7 @@ class _EpgGridState extends State<_EpgGrid> {
                               windowStart: widget.windowStart,
                               windowEnd: widget.windowEnd,
                               timeToOffset: widget.timeToOffset,
-                              onTap: () => widget.onChannelTap(stream),
+                              onProgrammeTap: (s, e) => widget.onProgrammeTap(s, e),
                             );
                           },
                         ),
@@ -407,7 +443,7 @@ class _ProgrammeRow extends StatelessWidget {
   final DateTime windowStart;
   final DateTime windowEnd;
   final double Function(DateTime) timeToOffset;
-  final VoidCallback onTap;
+  final void Function(XtreamStream stream, XtreamEpgEntry entry) onProgrammeTap;
 
   const _ProgrammeRow({
     required this.stream,
@@ -416,7 +452,7 @@ class _ProgrammeRow extends StatelessWidget {
     required this.windowStart,
     required this.windowEnd,
     required this.timeToOffset,
-    required this.onTap,
+    required this.onProgrammeTap,
   });
 
   @override
@@ -457,10 +493,11 @@ class _ProgrammeRow extends StatelessWidget {
       child: Stack(
         children: visible.map((entry) => _ProgrammeBlock(
           entry: entry,
+          stream: stream,
           windowStart: windowStart,
           windowEnd: windowEnd,
           timeToOffset: timeToOffset,
-          onTap: onTap,
+          onTap: (s, e) => onProgrammeTap(s, e),
         )).toList(),
       ),
     );
@@ -471,13 +508,15 @@ class _ProgrammeRow extends StatelessWidget {
 
 class _ProgrammeBlock extends StatelessWidget {
   final XtreamEpgEntry entry;
+  final XtreamStream stream;
   final DateTime windowStart;
   final DateTime windowEnd;
   final double Function(DateTime) timeToOffset;
-  final VoidCallback onTap;
+  final void Function(XtreamStream stream, XtreamEpgEntry entry) onTap;
 
   const _ProgrammeBlock({
     required this.entry,
+    required this.stream,
     required this.windowStart,
     required this.windowEnd,
     required this.timeToOffset,
@@ -496,6 +535,8 @@ class _ProgrammeBlock extends StatelessWidget {
 
     final now = DateTime.now().toUtc();
     final isOnNow = now.isAfter(entry.startTime) && now.isBefore(entry.endTime);
+    final isPast = now.isAfter(entry.endTime);
+    final showCatchupBadge = isPast && entry.hasCatchup && entry.isInCatchupWindow;
 
     return Positioned(
       left: left,
@@ -503,7 +544,7 @@ class _ProgrammeBlock extends StatelessWidget {
       bottom: 4,
       width: width,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () => onTap(stream, entry),
         child: Container(
           decoration: BoxDecoration(
             color: isOnNow
@@ -516,18 +557,28 @@ class _ProgrammeBlock extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           alignment: Alignment.centerLeft,
-          child: width > 60
-              ? Text(
-                  entry.title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isOnNow ? Colors.white : AppColors.textSecondary,
-                    fontWeight: isOnNow ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
+          child: Row(
+            children: [
+              if (showCatchupBadge) ...[
+                const Icon(Icons.replay, size: 10, color: AppColors.accent),
+                const SizedBox(width: 3),
+              ],
+              Expanded(
+                child: width > 60
+                    ? Text(
+                        entry.title,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isOnNow ? Colors.white : AppColors.textSecondary,
+                          fontWeight: isOnNow ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
         ),
       ),
     );

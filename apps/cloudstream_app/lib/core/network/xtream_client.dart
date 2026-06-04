@@ -245,6 +245,16 @@ class XtreamApiClient {
     return '${_serverUrl!}/series/${_username}/${_password}/$episodeStreamId.m3u8';
   }
 
+  /// Build a catch-up stream URL for a given stream and start timestamp.
+  ///
+  /// The [startTime] should be the programme's scheduled start time (from EPG).
+  /// The server will serve the HLS stream from that point.
+  String buildCatchupStreamUrl(int streamId, DateTime startTime) {
+    _requireConfigured();
+    final startEpoch = startTime.millisecondsSinceEpoch ~/ 1000;
+    return '${_serverUrl!}/live/${_username}/${_password}/$streamId.m3u8?start=$startEpoch';
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────
 
   void _requireConfigured() {
@@ -464,6 +474,7 @@ class XtreamEpgEntry {
   final String? description;
   final String? category;
   final String? icon;
+  final bool hasCatchup; // true if server allows catch-up for this programme
 
   const XtreamEpgEntry({
     required this.channelId,
@@ -473,6 +484,7 @@ class XtreamEpgEntry {
     this.description,
     this.category,
     this.icon,
+    this.hasCatchup = false,
   });
 
   factory XtreamEpgEntry.fromJson(Map<String, dynamic> json) {
@@ -484,11 +496,18 @@ class XtreamEpgEntry {
       description: json['description'] as String?,
       category: json['category'] as String?,
       icon: json['icon'] as String?,
+      hasCatchup: json['has_catchup'] == 1 || json['has_catchup'] == true,
     );
   }
 
   DateTime get startTime => DateTime.fromMillisecondsSinceEpoch(start * 1000);
   DateTime get endTime => DateTime.fromMillisecondsSinceEpoch(end * 1000);
+
+  /// True if this programme is currently on air or recently ended (within catch-up window).
+  bool get isInCatchupWindow {
+    final now = DateTime.now().toUtc();
+    return now.isAfter(startTime) && now.isBefore(endTime.add(const Duration(hours: 3)));
+  }
 }
 
 // ── Exceptions ─────────────────────────────────────────────────────────────
