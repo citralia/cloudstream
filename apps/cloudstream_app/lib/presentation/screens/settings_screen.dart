@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/profile.dart';
 import '../providers/app_providers.dart';
 import 'playlist_screen.dart';
 import 'debug_logs_screen.dart';
+import 'profile_switcher_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -39,6 +41,19 @@ class SettingsScreen extends ConsumerWidget {
                   ? authState.user!.expiryDate.substring(0, 10)
                   : '—',
             ),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Profile ───────────────────────────────────────
+          _SectionHeader(title: 'Profile'),
+          _ActiveProfileTile(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileSwitcherScreen()),
+              );
+            },
+          ),
 
           const SizedBox(height: AppSpacing.xl),
 
@@ -289,6 +304,64 @@ class _ComingSoonBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text('Soon', style: AppTypography.micro.copyWith(color: AppColors.primary)),
+    );
+  }
+}
+
+class _ActiveProfileTile extends ConsumerWidget {
+  final VoidCallback onTap;
+
+  const _ActiveProfileTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(activeProfileProvider);
+    final color = profile != null
+        ? Color(kProfileColors[profile.colorIndex % kProfileColors.length])
+        : AppColors.primary;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  profile?.name.isNotEmpty == true ? profile!.name[0].toUpperCase() : '?',
+                  style: AppTypography.h3.copyWith(color: color),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile?.name ?? 'No profile',
+                    style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    profile != null ? 'Tap to switch profiles' : 'Create your first profile',
+                    style: AppTypography.caption,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+          ],
+        ),
+      ),
     );
   }
 }
