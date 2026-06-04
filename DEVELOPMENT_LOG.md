@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-04 — CloudStream Hourly Cron (12:00 BST)
+
+**Session start:** 11:05 BST
+
+### What was done:
+- P204: Search — fully implemented and shipped:
+  - `SearchService` (`core/search/search_service.dart`): flat O(n) substring index over live + VOD streams, rebuilds when streams change
+  - Riverpod providers: `searchServiceProvider`, `searchQueryProvider`, `searchResultsProvider`, `searchIndexRebuilderProvider`
+  - `SearchScreen`: auto-focus search bar, live/VOD type badges, tap to play/view
+  - Bottom nav: Search tab between Guide and VOD (5 tabs total)
+- Pushed `80a4a06` — CI ✅ Analyze ✅ Test ✅ (5m56s)
+
+### CI status:
+- `feat(P204): search` — CI ✅ passed (5m56s)
+- `Release` ✅ passed (5m35s)
+- All Phase 2 (P201–P204) now Done
+
+### What's next:
+- P205: Profile sync via Firestore (Backlog)
+- C06: Smoke test on Firestick (blocked on josh)
+- B202: Firebase integration (Backlog)
+
 ## 2026-06-04 — CloudStream Hourly Cron (10:00 BST)
 
 **Session start:** 09:20 BST

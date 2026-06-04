@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-04T04:00:00+01:00
+> Last updated: 2026-06-04T12:00:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -75,7 +75,7 @@
 | P201 | Provider abstraction (CloudStreamPlayer + XtreamStreamSession) | **Done** | agent | CloudStreamPlayer interface, XtreamStreamSession impl, PII redaction — 69ad17c |
 | P202 | VOD library + player reuse | **Done** | agent | WatchProgressStore via SharedPreferences, VodDetailScreen with resume/start-over, PlayerScreen saves position every 30s — 751a3b9 |
 | P203 | Multi-profile local | **Done** | agent | ProfileStore, ProfileSwitcherScreen — 26942615661 ✅ |
-| P204 | Search | **Next** | agent | In-memory index over live + VOD, <300ms on Firestick |
+| P204 | Search | **Done** | agent | In-memory index over live + VOD, SearchScreen in bottom nav — 80a4a06 |
 | P205 | Profile sync via Firestore | Backlog | agent | Mirror favourites/watch-progress, server-side cred encryption |
 | P206 | Catch-up TV | Backlog | agent | Xtream catch-up HLS, seek via EPG tap |
 | P207 | DVR / recordings | Backlog | agent | Cloudflare R2 only, revenue-gated after P208 |
