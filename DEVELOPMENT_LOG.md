@@ -4,7 +4,30 @@
 
 ---
 
-## 2026-06-02 — CloudStream Hourly Cron (16:15 BST)
+## 2026-06-04 — CloudStream Hourly Cron (04:00 BST)
+
+**Session start:** 03:15 BST
+
+### What was done:
+- Board was stale — last update was 2026-06-02; `develop` had progressed since then
+- Updated DEVELOPMENT_BOARD.md:
+  - P201: correctly shows "Provider abstraction" Done (was incorrectly showing old "VOD list + browse")
+  - Added Phase 2 section (P201–P209) sourced from PHASE2_PLAN.md
+  - P202 VOD library + player reuse set as **Next** task
+  - P201 Provider abstraction marked Done with commit 69ad17c
+- P201 commit (69ad17c) already on `develop` — feat(P201): CloudStreamPlayer interface + XtreamStreamSession + PII redaction:
+  - `CloudStreamPlayer` abstract interface (domain/entities): StreamMode enum, platform capabilities, unified playLive/playVod/playCatchup/seekTo
+  - `XtreamStreamSession` implementation wrapping Chewie + VideoPlayerController
+  - PII redaction module (`diagnostics/pii_redaction.dart`) with 9 unit tests
+- Board + log update pushed as commit
+
+### CI status:
+- `feat(P201): CloudStreamPlayer interface + XtreamStreamSession + PII redaction` — on `develop`, CI status not checked (gh auth unavailable this session)
+
+### What's next:
+- P202: VOD library + player reuse — VOD categories, posters, resume, watch-progress per profile
+- C06: Smoke test on Firestick (blocked on josh)
+- B202: Firebase integration (Backlog)
 
 **Session start:** 15:05 BST
 

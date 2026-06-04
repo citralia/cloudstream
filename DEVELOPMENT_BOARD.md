@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-02T06:25:00+01:00
+> Last updated: 2026-06-04T04:00:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -63,12 +63,28 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P201 | VOD list + browse | Done | agent | VOD list + browse screen — 7473b82 — CI pending |
+| P201 | Provider abstraction | **Done** | CloudStreamPlayer interface + XtreamStreamSession + PII redaction — 69ad17c |
 | B202 | Firebase integration | Backlog | Analytics, crashlytics, app distribution |
 
 ---
 
-## Phase 1 — Core Player (queued)
+## Phase 2 — Provider Abstraction + Multi-Profile
+
+| # | Task | Status | Owner | Notes |
+|---|------|--------|-------|-------|
+| P201 | Provider abstraction (CloudStreamPlayer + XtreamStreamSession) | **Done** | agent | CloudStreamPlayer interface, XtreamStreamSession impl, PII redaction — 69ad17c |
+| P202 | VOD library + player reuse | **Next** | agent | VOD categories, posters, resume, watch-progress per profile |
+| P203 | Multi-profile local | Backlog | agent | Profile switcher, per-profile favourites, isolated state |
+| P204 | Search | Backlog | agent | In-memory index over live + VOD, <300ms on Firestick |
+| P205 | Profile sync via Firestore | Backlog | agent | Mirror favourites/watch-progress, server-side cred encryption |
+| P206 | Catch-up TV | Backlog | agent | Xtream catch-up HLS, seek via EPG tap |
+| P207 | DVR / recordings | Backlog | agent | Cloudflare R2 only, revenue-gated after P208 |
+| P208 | Monetisation | Backlog | agent | RevenueCat paywall on multi-profile + sync + catch-up |
+| P209 | Cast + multi-screen | Backlog | agent | AirPlay + Cast + PiP orchestration |
+
+---
+
+## Phase 1 — Core Player
 
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
