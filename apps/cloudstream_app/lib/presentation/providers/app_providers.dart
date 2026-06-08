@@ -159,10 +159,17 @@ final liveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
 
 final selectedCategoryIdProvider = StateProvider<int?>((ref) => null);
 
+/// When true, the channel list is filtered to favourites-only for the active profile.
+final favouritesOnlyProvider = StateProvider<bool>((ref) => false);
+
 final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
   final categoryId = ref.watch(selectedCategoryIdProvider);
+  final favouritesOnly = ref.watch(favouritesOnlyProvider);
   final client = ref.watch(xtreamClientProvider);
-  return await client.getLiveStreams(categoryId: categoryId);
+  final streams = await client.getLiveStreams(categoryId: categoryId);
+  if (!favouritesOnly) return streams;
+  final favIds = ref.watch(activeProfileFavouritesProvider).toSet();
+  return streams.where((s) => favIds.contains(s.streamId)).toList();
 });
 
 // ── Categories ────────────────────────────────────────────────────────────

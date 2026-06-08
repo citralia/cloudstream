@@ -406,6 +406,7 @@ class CategoryFilterChips extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(liveCategoriesProvider);
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
+    final favouritesOnly = ref.watch(favouritesOnlyProvider);
 
     return SizedBox(
       height: 52,
@@ -423,16 +424,29 @@ class CategoryFilterChips extends ConsumerWidget {
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            itemCount: categories.length + 1,
+            itemCount: categories.length + 2,
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _FilterChip(
                   label: 'All',
-                  isSelected: selectedCategoryId == null,
-                  onTap: () => ref.read(selectedCategoryIdProvider.notifier).state = null,
+                  isSelected: selectedCategoryId == null && !favouritesOnly,
+                  onTap: () {
+                    ref.read(selectedCategoryIdProvider.notifier).state = null;
+                    ref.read(favouritesOnlyProvider.notifier).state = false;
+                  },
                 );
               }
-              final category = categories[index - 1];
+              if (index == 1) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: _FilterChip(
+                    label: '★ Favourites',
+                    isSelected: favouritesOnly,
+                    onTap: () => ref.read(favouritesOnlyProvider.notifier).state = !favouritesOnly,
+                  ),
+                );
+              }
+              final category = categories[index - 2];
               final isSelected = selectedCategoryId == category.id;
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -484,14 +498,16 @@ class _FilterChip extends StatelessWidget {
 
 // ── Channel tile (unchanged) ──────────────────────────────────────────────────
 
-class ChannelTile extends StatelessWidget {
+class ChannelTile extends ConsumerWidget {
   final XtreamStream stream;
   final VoidCallback onTap;
 
   const ChannelTile({super.key, required this.stream, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favIds = ref.watch(activeProfileFavouritesProvider);
+    final isFavourite = favIds.contains(stream.streamId);
     return Focus(
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
@@ -555,6 +571,12 @@ class ChannelTile extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Favourite toggle — tap does not trigger row play.
+                  _FavouriteButton(
+                    isFavourite: isFavourite,
+                    onToggle: () => toggleFavourite(ref, stream.streamId),
+                  ),
+                  const SizedBox(width: 4),
                   const Icon(Icons.play_arrow, color: AppColors.textMuted),
                 ],
               ),
@@ -571,6 +593,30 @@ class ChannelTile extends StatelessWidget {
         stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
         style: AppTypography.h2.copyWith(color: AppColors.primary),
       ),
+    );
+  }
+}
+
+/// Star button shown on each channel tile.
+/// Tapping it toggles favourite state for the active profile without
+/// triggering the row's play action.
+class _FavouriteButton extends StatelessWidget {
+  final bool isFavourite;
+  final VoidCallback onToggle;
+
+  const _FavouriteButton({required this.isFavourite, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(
+        isFavourite ? Icons.star : Icons.star_border,
+        color: isFavourite ? AppColors.accent : AppColors.textMuted,
+      ),
+      tooltip: isFavourite ? 'Remove from favourites' : 'Add to favourites',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      onPressed: onToggle,
     );
   }
 }
