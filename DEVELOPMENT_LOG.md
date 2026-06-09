@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (01:30 BST)
+
+**Session start:** 01:30 BST
+
+### What was done:
+- Picked up **V02 (Series/episode browsing)** from the board. WIP was already in the working tree on a feature branch from a prior session — fleshed it out, verified, and shipped.
+- V02 fully implemented and shipped:
+  - **API client** (`xtream_client.dart`): `getSeriesStreams({categoryId})` and `getSeriesInfo(seriesId)` hitting `action=get_series` and `action=get_series_info`; `buildSeriesStreamUrl(episodeStreamId)` URL builder
+  - **`XtreamSeriesInfo` model** (was a stub on develop): now parses `name`, `plot`, `cover`, `cast`, `director`, `releaseDate`, `rating` + nested `seasons[]` with `episodes[]` (each with `episode_num`, `title`, `description`, `stream_id`, `duration`)
+  - **Providers** (`app_providers.dart`): `seriesCategoriesProvider`, `seriesStreamsProvider`, `filteredSeriesStreamsProvider`, `selectedSeriesCategoryIdProvider`, `seriesInfoProvider` (family<int>), `seriesStreamUrlProvider` (family<int>)
+  - **`SeriesScreen`** (new): category chip filter + responsive grid of series posters. Tapping a card opens `SeriesDetailScreen`. Mirrors `VodScreen` UX exactly.
+  - **`SeriesDetailScreen`** (new): cover (300px hero), title, metadata chips (★ rating, 📅 year via 4-digit regex, 👤 director, 📺 "Series"), plot block, cast block, season chip selector (only shown when >1 season), episode list with title + description + formatted duration, tap-to-play through `PlayerScreen(streamUrl: buildSeriesStreamUrl(episodeStreamId))`
+  - **Search integration**: `SearchService.rebuild()` now also indexes `series` streams (filtered to `streamType == 'series'`); `searchResultsProvider` returns `SearchResult(type: 'series')`; `SearchScreen._openStream` routes series hits to `SeriesDetailScreen`; new `_TypeBadge` widget with series-tinted color
+  - **Bottom nav**: added 6th tab "Series" with `Icons.tv_outlined` (active `Icons.tv`)
+- 8 new tests (`series_info_test.dart`): `XtreamSeriesInfo.fromJson` (full, name-fallback, missing info block, multiple seasons, sparse season without episodes) + `XtreamEpisode.fromJson` (missing duration/description, duration-as-int-string) + `seriesInfoProvider` Riverpod injection test
+- **41 tests total** (was 33), 0 analyze errors, 0 new warnings
+- Merged `feature/v02-series-browsing` into `develop` (b303f9d) and pushed. CI + Release workflows running.
+
+### CI status:
+- `Merge feature/v02-series-browsing into develop` (b303f9d) — CI 🟡 running, Release 🟡 running
+- All Phase 2 (P201–P204, P206) + V01 + V02 now Done
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-09 — CloudStream Hourly Cron (00:10 BST)
 
 **Session start:** 00:10 BST
