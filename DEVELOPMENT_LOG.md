@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (20:15 BST)
+
+**Session start:** 20:00 BST
+
+### What was done:
+- Board on entry: V10 (lead-time persistence) had been merged to develop at 15:15 (931ff60, CI ✅ + Release ✅). All explicit Next candidates were blocked on external services (P205 Firestore, P207 DVR, P208 RevenueCat, B202 Firebase) or noted as one-line follow-ons.
+- Found un-pushed/unmerged work in the working tree: `feature/v12-brightness-aware-chunk2` already had 5 screens migrated (debug_logs, profile_switcher, reminders_list, search, settings) plus a new test file `brightness_aware_chunk2_test.dart`. The branch was last rebased onto V11 (login + tv_text_field) but never committed/verified. **This is the next logical chunk of the V08/V11 follow-on** — per-screen migration to `context.appColors` / `context.appTypography` — and a high-value unblocked task.
+- Verified the WIP work sound: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by the V12 source migration**; `flutter test` → **4 tests failed in the new chunk-2 test file** (the new test pattern used a `for` loop within a single `testWidgets` — the second iteration's `pumpWidget` got poisoned by the WidgetsBinding from the first, so the light iteration kept resolving to dark even with an explicit `themeMode: ThemeMode.light`).
+- Refactored `brightness_aware_chunk2_test.dart` to follow the V11 pattern: one `testWidgets` per (screen × theme) pair, 8 tests total (4 screens × 2 themes), plus a shared `pumpAndAssertBg` helper that wraps the pump + bg-color assert. Documented the loop-poisoning gotcha in a header comment so the next maintainer doesn't re-introduce it. All 8 new tests pass; full suite: **149/149 pass** (was 141, +8 from V12).
+- Committed as `bc2a403` (V12 chunk 2), pushed `feature/v12-brightness-aware-chunk2`, merged to `develop` as `f9cd4ed`, pushed.
+- Board: added V11 + V12 rows to the Phase 2 Vision table; bumped `Last updated` to 2026-06-09T20:15 BST.
+
+### CI status:
+- `Merge feature/v12-brightness-aware-chunk2 into develop` (f9cd4ed) — **CI ✅ (6m22s) Release ✅ (6m40s) → v0.1.38**
+- All Phase 2 (P201–P204, P206) + V01–V12 now Done
+- 7 of the 21 app screens now brightness-aware (login, tv_text_field, settings, profile_switcher, debug_logs, reminders_list, search). The remaining 14 are channel_list, vod_screen, series_screen, player_screen, epg_guide_screen, quick_channel_overlay, profile_setup_screen, plus a handful of dialogs.
+
+### What's next:
+- **V13 (next logical chunk)**: brightness-aware migration chunk 3 — media-playback surfaces. The remaining un-migrated screens split into two groups: utility (small) and media (channel_list, vod, series, player, epg, quick_switcher). Chunk 3 should tackle the channel list + bottom-nav shells first since they're the home screen and the most visible, then media playback (player/EPG) in a later chunk where the migration interacts with video overlays and gesture layers.
+- **Other unblocked candidates** (all no external deps):
+  - "Recently watched" sort mode for V06 (lifetime or recent-window; would need a recency timestamp on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-09 — CloudStream Hourly Cron (15:15 BST)
 
 **Session start:** 15:00 BST
