@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
+import '../../core/storage/watch_progress_store.dart';
 import '../providers/app_providers.dart';
 import '../providers/player_controller_notifier.dart';
 import '../widgets/quick_channel_overlay.dart';
 import 'player_screen.dart';
+import 'vod_detail_screen.dart';
 
 class ChannelListScreen extends ConsumerStatefulWidget {
   const ChannelListScreen({super.key});
@@ -86,6 +88,12 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
         children: [
           Column(
             children: [
+              // Continue Watching row — shows up to 8 most-recently-played
+              // VOD/series items with saved watch progress. Hidden when
+              // nothing has been played yet. Only visible on the "All"
+              // view (no category selected) so it doesn't compete with
+              // the filtered channel list inside a single category.
+              if (selectedCategoryId == null) const _ContinueWatchingRow(),
               const CategoryFilterChips(),
               Expanded(
                 child: streamsAsync.when(
@@ -617,6 +625,224 @@ class _FavouriteButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       onPressed: onToggle,
+    );
+  }
+}
+
+// ── Continue Watching row ─────────────────────────────────────────────────────
+
+/// Horizontal scroll of recently-watched VOD/series items. Pulls data
+/// from [continueWatchingProvider] and renders a card per entry with a
+/// progress bar, title, and "resume" affordance. Renders nothing while
+/// the provider is still loading or has no entries.
+///
+/// Only handles VOD taps for now — tapping a VOD card navigates to
+/// [VodDetailScreen] with `resume: true` (the same path the existing
+/// "Resume" button takes from inside the detail screen). Series
+/// episodes require the parent-series-id lookup, which is left for the
+/// per-episode continue-watching follow-on.
+class _ContinueWatchingRow extends ConsumerWidget {
+  const _ContinueWatchingRow();
+
+  static const int _maxCards = 8;
+
+  void _openResume(BuildContext context, WidgetRef ref, XtreamStream stream) {
+    if (stream.streamType == 'movie' || stream.streamType == 'live') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VodDetailScreen(stream: stream, autoResume: true),
+        ),
+      );
+    }
+    // Series episodes aren't surfaced in this row yet — see class comment.
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(continueWatchingProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list.take(_maxCards).toList(),
+      orElse: () => const <ContinueWatchingEntry>[],
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history, size: 18, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Continue Watching', style: AppTypography.h3),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 168,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _ContinueWatchingCard(
+                  entry: entry,
+                  onTap: () => _openResume(context, ref, entry.stream),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContinueWatchingCard extends StatelessWidget {
+  final ContinueWatchingEntry entry;
+  final VoidCallback onTap;
+
+  const _ContinueWatchingCard({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = entry.stream;
+    final hasLogo = stream.logo != null && stream.logo!.isNotEmpty;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 220,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.divider, width: 0.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Poster with progress bar overlay.
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: hasLogo
+                      ? Image.network(
+                          stream.logo!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _PosterPlaceholder(name: stream.name),
+                        )
+                      : _PosterPlaceholder(name: stream.name),
+                ),
+                Positioned(
+                  top: AppSpacing.xs,
+                  left: AppSpacing.xs,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Resume',
+                      style: AppTypography.micro.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 3,
+                    color: AppColors.surface.withValues(alpha: 0.5),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: _progressFraction(entry.progress),
+                      child: Container(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // Title + saved-time.
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stream.name,
+                    style: AppTypography.body.copyWith(fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _savedAgo(entry.progress.updatedAt),
+                    style: AppTypography.micro,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Indeterminate by default — we don't persist the total duration, so
+  /// we can't show a real fraction. A small, non-zero fill is enough to
+  /// signal "this was started" without claiming a percentage we don't have.
+  double _progressFraction(WatchProgress progress) {
+    // 25% of the bar width for anything < 5 min in, growing to 75% for
+    // 2+ hour sessions. Clamped 0.15–0.75 so the bar is always visible
+    // and never claims "almost done" without a real duration source.
+    final mins = progress.position.inMinutes;
+    if (mins <= 5) return 0.15;
+    if (mins >= 120) return 0.75;
+    return 0.15 + ((mins - 5) / 115) * 0.60;
+  }
+
+  String _savedAgo(DateTime updatedAt) {
+    final diff = DateTime.now().difference(updatedAt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 7).floor()}w ago';
+  }
+}
+
+class _PosterPlaceholder extends StatelessWidget {
+  final String name;
+  const _PosterPlaceholder({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceElevated,
+      alignment: Alignment.center,
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: AppTypography.h1.copyWith(color: AppColors.textMuted),
+      ),
     );
   }
 }
