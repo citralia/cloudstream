@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (08:20 BST)
+
+**Session start:** 07:30 BST
+
+### What was done:
+- All "Next" tasks (P205, P207, P208) still hard-blocked on external services. The 07:00 cron had noted "Most Watched" as a candidate — picked it up as **V05** since the WIP code was already in the working tree from a prior session but never finished/tested.
+- V05: Most Watched home row — fully implemented, tested, and shipped:
+  - **`PlayCountStore`** (`core/storage/play_count_store.dart`, new): SharedPreferences-backed, per-profile stream play counts. Key: `play_count_{profileId}_{streamId}`. Methods: `increment`, `getCount`, `topEntries(profileId)` (sorted count desc, streamId asc as stable tie-breaker), `clearCount`.
+  - **`player_screen.dart`**: `_saveProgress` now bumps the active profile's count for the current stream, fire-and-forget (failures never block progress save or disrupt playback). New `dart:async` import for `unawaited`.
+  - **`app_providers.dart`**: added `playCountStoreProvider`, `MostWatchedEntry` class, and `mostWatchedProvider` (FutureProvider). Provider: reads active creds → reads counts → awaits `liveStreamsProvider.future` → joins streamIds against live streams (drops orphans) → returns `List<MostWatchedEntry>`. Keyed by `creds.name` for per-profile isolation.
+  - **Bugfix in provider:** initially used `ref.watch(liveStreamsProvider).valueOrNull` — null on the first tick before the future completes, so the row would have silently been empty for fresh launches. Switched to `await ref.watch(liveStreamsProvider.future)` (caught by the test "joins play counts with live stream metadata" returning length 0 on the first run).
+  - **`channel_list_screen.dart`**: `_MostWatchedRow` + `_MostWatchedCard` widgets. Positioned above `_ContinueWatchingRow` (stronger personalisation signal). Only visible on the "All" view (no category selected). Hidden when no entries. Tap-to-play through `selectedStreamProvider` + `PlayerScreen`, same path as a regular channel-list tap. N× play-count badge in the corner of each card.
+- 13 new tests (`most_watched_test.dart`):
+  - 7 `PlayCountStore` unit tests (getCount zero-default, increment+return, per-profile isolation, topEntries empty/ordered/by-profile, clearCount)
+  - 6 `mostWatchedProvider` Riverpod injection tests (empty when no counts, no creds, no streams; join+sort desc; drops orphans; per-profile isolation via key check)
+- **64 tests total** (was 51), 0 new analyze errors/warnings (47 pre-existing `withOpacity` infos remain)
+- Merged `feature/v05-most-watched` → `develop` (6178768). CI ✅ + Release ✅ — **APK uploaded as v0.1.22**
+
+### CI status:
+- `Merge feature/v05-most-watched into develop` (6178768) — CI 🟢 Release 🟢
+- All Phase 2 (P201–P204, P206) + V01–V05 now Done
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- Remaining unblocked candidates (all purely client-side, no external deps):
+  - Channel list sort modes (number / name / recently watched) — UI only
+  - Theme: light variant — SPEC says first-class, currently dark-only
+  - EPG reminders — local notification for upcoming programmes (Xtream returns start/end)
+  - Series/season-level Resume on the continue-watching row (V04 covers episode-level; could surface "continue season 3 from episode 5" via the parent series)
+  - Most Watched / Continue Watching — fine-tuning: lifetime vs recent-window, cap at N, dedupe with favourites
+
 ## 2026-06-09 — CloudStream Hourly Cron (07:00 BST)
 
 **Session start:** 06:00 BST
