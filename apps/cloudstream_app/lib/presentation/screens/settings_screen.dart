@@ -6,6 +6,7 @@ import '../providers/app_providers.dart';
 import 'playlist_screen.dart';
 import 'debug_logs_screen.dart';
 import 'profile_switcher_screen.dart';
+import 'reminders_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -73,6 +74,20 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const _ComingSoonBadge(),
             onTap: null,
           ),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Reminders ───────────────────────────────────
+          _SectionHeader(title: 'Reminders'),
+          _RemindersTile(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RemindersListScreen()),
+              );
+            },
+          ),
+          _LeadTimeTile(),
 
           const SizedBox(height: AppSpacing.xl),
 
@@ -362,6 +377,142 @@ class _ActiveProfileTile extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Settings → Reminders → opens the [RemindersListScreen]. The
+/// trailing badge shows the count of upcoming reminders for the
+/// active connection (refreshes live as the user adds/cancels
+/// reminders elsewhere).
+class _RemindersTile extends ConsumerWidget {
+  final VoidCallback onTap;
+
+  const _RemindersTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(remindersProvider).length;
+    return _SettingsTile(
+      icon: Icons.notifications_active_outlined,
+      title: 'Scheduled reminders',
+      subtitle: count == 0
+          ? 'None scheduled'
+          : (count == 1 ? '1 upcoming' : '$count upcoming'),
+      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      onTap: onTap,
+    );
+  }
+}
+
+/// Settings → Reminders → lead-time picker. The picker writes to
+/// [defaultLeadTimeProvider]; new reminders scheduled from the EPG
+/// pick up the new value via [RemindersNotifier.add]. Existing
+/// reminders keep their lead time (set at scheduling) — that
+/// matches user expectation: "I scheduled 30 min ahead, you don't
+/// get to silently change it later."
+class _LeadTimeTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lead = ref.watch(defaultLeadTimeProvider);
+    return _SettingsTile(
+      icon: Icons.schedule,
+      title: 'Default lead time',
+      subtitle: _formatLeadTime(lead),
+      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      onTap: () => _showLeadTimePicker(context, ref, lead),
+    );
+  }
+
+  static String _formatLeadTime(Duration d) {
+    if (d.inMinutes == 0) return 'At start time';
+    if (d.inMinutes == 1) return '1 minute before';
+    if (d.inMinutes < 60) return '${d.inMinutes} minutes before';
+    if (d.inHours == 1 && d.inMinutes == 0) return '1 hour before';
+    if (d.inMinutes % 60 == 0) return '${d.inHours} hours before';
+    return '${d.inHours}h ${d.inMinutes % 60}m before';
+  }
+
+  static void _showLeadTimePicker(BuildContext context, WidgetRef ref, Duration current) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        // Five-minute steps from 0 to 30, then 15-min steps to 60.
+        const options = <Duration>[
+          Duration(minutes: 0),
+          Duration(minutes: 1),
+          Duration(minutes: 5),
+          Duration(minutes: 10),
+          Duration(minutes: 15),
+          Duration(minutes: 20),
+          Duration(minutes: 25),
+          Duration(minutes: 30),
+          Duration(minutes: 45),
+          Duration(minutes: 60),
+        ];
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Remind me…',
+                style: AppTypography.h3,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Text(
+                  'New reminders will use this lead time. Existing reminders are unaffected.',
+                  style: AppTypography.caption,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (_, i) {
+                    final opt = options[i];
+                    final selected = opt == current;
+                    return ListTile(
+                      title: Text(
+                        _formatLeadTime(opt),
+                        style: AppTypography.body.copyWith(
+                          color: selected ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: selected
+                          ? Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        ref.read(defaultLeadTimeProvider.notifier).state = opt;
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        );
+      },
     );
   }
 }

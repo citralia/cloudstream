@@ -493,6 +493,14 @@ final reminderStoreProvider = Provider<ReminderStore>((ref) {
   return ReminderStore(ref.watch(sharedPreferencesProvider));
 });
 
+/// The user's preferred "remind me X minutes before" lead time.
+/// Defaults to [ReminderStore.defaultLeadTime] (5 min). Overridable
+/// from the Settings → Reminders lead-time picker, and read by
+/// [RemindersNotifier.add] when scheduling new reminders.
+final defaultLeadTimeProvider = StateProvider<Duration>((ref) {
+  return ReminderStore.defaultLeadTime;
+});
+
 /// In-memory list of reminders for the active connection, exposed
 /// to the UI as a [StateNotifier] so `add` / `remove` can trigger
 /// rebuilds without re-reading the store on every watch.
@@ -523,7 +531,8 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
 
   /// Schedule a reminder for a programme. The caller passes the full
   /// programme details because the EPG data is already loaded; we
-  /// just persist it with a stable id and the default lead time.
+  /// just persist it with a stable id and the user's current default
+  /// lead time (from [defaultLeadTimeProvider]).
   ///
   /// Returns the stored [Reminder] (the caller uses it to show a
   /// confirmation snackbar with the actual fire time).
@@ -537,6 +546,8 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
   }) async {
     final creds = _ref.read(activeCredentialsProvider).valueOrNull;
     final profileName = creds?.name ?? '';
+    final defaultLead = _ref.read(defaultLeadTimeProvider);
+    final effectiveLead = leadTime ?? defaultLead;
     final reminder = Reminder(
       id: ReminderStore.makeId(channelId: channelId, startTime: startTime),
       channelId: channelId,
@@ -544,7 +555,7 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
       programmeTitle: programmeTitle,
       startTime: startTime,
       endTime: endTime,
-      leadTime: leadTime ?? ReminderStore.defaultLeadTime,
+      leadTime: effectiveLead,
       profileName: profileName,
     );
     await _ref.read(reminderStoreProvider).add(reminder);
