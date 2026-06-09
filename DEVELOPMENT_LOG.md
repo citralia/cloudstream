@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (00:10 BST)
+
+**Session start:** 00:10 BST
+
+### What was done:
+- Board was stale — last log entry 2026-06-04 (5 days ago) but the **favourites UI commit (21ab251) was already on `develop`** from 2026-06-08 with green CI. Backfilled into the log.
+- Identified that all "Next" tasks (P207 DVR, P208 Monetisation, P205 Firestore) had hard external blockers. Picked a real unblocked follow-on from the CloudStream skill's "What still needs to be built" list: **V01 VOD info panel**.
+- V01: VOD info panel — fully implemented and shipped:
+  - `vodInfoProvider`: new `FutureProvider.family<XtreamVodInfo, int>` in `app_providers.dart` calling `XtreamApiClient.getVodInfo(vodId)`
+  - `VodDetailScreen` refactored from hard-coded "Tap play to start watching" placeholder synopsis to real Xtream metadata:
+    - **Cover:** prefers higher-res `XtreamVodInfo.cover` over the lower-res `stream.logo` (Xtream's VOD cover is the same poster as the VOD card but at full resolution)
+    - **Metadata row:** real chips — ★ rating (parsed float), ⏱ duration (parsed from `105 min` / `1:45:00` / raw seconds → `1h 45m` / `45m`), 📅 release year (4-digit regex extraction), 👤 director — all only shown when the VOD info call has succeeded
+    - **Synopsis:** real plot from `XtreamVodInfo.plot`; loading shimmer (4 grey bars) while fetching; italic "No synopsis available" when plot is empty/null; error fallback "Could not load details — tap play to start watching" so user can still recover and play
+    - **Cast block:** appended below synopsis when `info.cast` is non-empty
+  - 5 new tests: `XtreamVodInfo.fromJson` (full, name-fallback to top-level, missing info block, seasons+episodes) + `vodInfoProvider` Riverpod injection test
+- Pushed `bf59c64` — CI ✅ (5m53s) — Release ✅ (6m25s) — APK rebuilt
+
+### CI status:
+- `feat(V01): VOD info panel — real plot, cast, director, rating, duration` ✅ passed CI + Release
+- All Phase 2 (P201–P204, P206) + V01 now Done
+
+### What's next:
+- Series/episode browsing — `getSeriesInfo()` → `XtreamSeriesInfo` → season/episode hierarchy (unblocked, no external deps)
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+### Backfill — 2026-06-08 (favourites UI, 21ab251):
+- 21ab251: `feat(favourites): UI for per-profile favourites + favourites-only filter`
+  - `favouritesOnlyProvider` (StateProvider<bool>), `filteredLiveStreamsProvider` extended to intersect with active profile favourites
+  - `ChannelTile`: ConsumerWidget, star/star_border IconButton per row that toggles favourite without triggering row's play action
+  - `CategoryFilterChips`: new "★ Favourites" chip alongside the existing "All" / category chips. "All" clears both filters.
+  - 6 ProfileStore tests + 4 filter tests. **20 tests total** (was 10). Zero new analyze warnings.
+  - Pushed to `develop` 2026-06-08T23:12 BST. CI ✅ (5m21s). Release ✅ (6m8s).
+
 ## 2026-06-04 — CloudStream Hourly Cron (13:00 BST)
 
 **Session start:** 12:15 BST
