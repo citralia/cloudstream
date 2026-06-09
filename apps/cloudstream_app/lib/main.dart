@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/debug/debug_log_service.dart';
+import 'core/notifications/reminder_scheduler.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
@@ -16,11 +17,23 @@ import 'presentation/screens/settings_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  final scheduler = LocalNotificationsReminderScheduler();
+  await scheduler.init();
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      reminderSchedulerProvider.overrideWithValue(scheduler),
+    ],
+  );
+  // One-shot rehydrate at cold start: re-schedule every persisted
+  // reminder for the active profile. This is the path the OS calls
+  // indirectly via the boot receiver (the receiver re-uses the
+  // alarm data, but we still re-sync here for the case where the
+  // user installed a new APK or changed timezones).
+  await container.read(remindersProvider.notifier).refresh();
   runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const CloudStreamApp(),
     ),
   );
