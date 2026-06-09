@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
@@ -68,7 +69,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
   void _openSortSheet() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfaceElevated,
+      backgroundColor: context.appColors.surfaceElevated,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -98,7 +99,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     final overlayVisible = ref.watch(quickSwitcherOverlayVisibleProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
         title: const Text('Live TV'),
         actions: [
@@ -143,8 +144,8 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
               const CategoryFilterChips(),
               Expanded(
                 child: streamsAsync.when(
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                  loading: () => Center(
+                    child: CircularProgressIndicator(color: context.appColors.primary),
                   ),
                   error: (error, stack) => Center(
                     child: Padding(
@@ -152,13 +153,13 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                          Icon(Icons.error_outline, color: context.appColors.error, size: 48),
                           const SizedBox(height: AppSpacing.lg),
-                          Text('Failed to load channels', style: AppTypography.h3),
+                          Text('Failed to load channels', style: context.appTypography.h3),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             error.toString(),
-                            style: AppTypography.caption,
+                            style: context.appTypography.caption,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.xl),
@@ -172,17 +173,17 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
                   ),
                   data: (streams) {
                     if (streams.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.live_tv_outlined, color: AppColors.textMuted, size: 64),
+                            Icon(Icons.live_tv_outlined, color: context.appColors.textMuted, size: 64),
                             SizedBox(height: AppSpacing.lg),
-                            Text('No channels found', style: AppTypography.h3),
+                            Text('No channels found', style: context.appTypography.h3),
                             SizedBox(height: AppSpacing.sm),
                             Text(
                               'Check your Xtream credentials\nor refresh to try again.',
-                              style: AppTypography.caption,
+                              style: context.appTypography.caption,
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -260,8 +261,8 @@ class _MiniPlayerBar extends StatelessWidget {
         onVerticalDragEnd: (_) => onTap(),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            border: const Border(top: BorderSide(color: AppColors.textMuted, width: 0.5)),
+            color: context.appColors.surfaceElevated,
+            border: Border(top: BorderSide(color: context.appColors.textMuted, width: 0.5)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: SafeArea(
@@ -273,7 +274,7 @@ class _MiniPlayerBar extends StatelessWidget {
                   width: 52,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: context.appColors.surface,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: state.currentStream?.logo != null
@@ -282,10 +283,10 @@ class _MiniPlayerBar extends StatelessWidget {
                           child: Image.network(
                             state.currentStream!.logo!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => _placeholder(),
+                            errorBuilder: (_, __, ___) => _placeholder(context),
                           ),
                         )
-                      : _placeholder(),
+                      : _placeholder(context),
                 ),
                 const SizedBox(width: 10),
                 // Channel name + status
@@ -296,14 +297,14 @@ class _MiniPlayerBar extends StatelessWidget {
                     children: [
                       Text(
                         state.currentStream?.name ?? '...',
-                        style: AppTypography.body,
+                        style: context.appTypography.body,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         _statusText,
-                        style: AppTypography.caption.copyWith(
-                          color: _statusColor,
+                        style: context.appTypography.caption.copyWith(
+                          color: _statusColor(context),
                         ),
                       ),
                     ],
@@ -313,12 +314,12 @@ class _MiniPlayerBar extends StatelessWidget {
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: _statusWidget,
+                  child: _statusWidget(context),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  color: AppColors.textMuted,
+                  color: context.appColors.textMuted,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   onPressed: onClose,
@@ -344,43 +345,43 @@ class _MiniPlayerBar extends StatelessWidget {
     }
   }
 
-  Color get _statusColor {
+  Color _statusColor(BuildContext context) {
     switch (state.status) {
       case PlayerStatus.initialising:
-        return AppColors.textMuted;
+        return context.appColors.textMuted;
       case PlayerStatus.playing:
-        return AppColors.primary;
+        return context.appColors.primary;
       case PlayerStatus.error:
-        return AppColors.error;
+        return context.appColors.error;
       case PlayerStatus.idle:
-        return AppColors.textMuted;
+        return context.appColors.textMuted;
     }
   }
 
-  Widget get _statusWidget {
+  Widget _statusWidget(BuildContext context) {
     switch (state.status) {
       case PlayerStatus.initialising:
-        return const SizedBox(
+        return SizedBox(
           width: 14,
           height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          child: CircularProgressIndicator(strokeWidth: 2, color: context.appColors.primary),
         );
       case PlayerStatus.playing:
-        return const Icon(Icons.play_arrow, color: AppColors.primary, size: 18);
+        return Icon(Icons.play_arrow, color: context.appColors.primary, size: 18);
       case PlayerStatus.error:
-        return const Icon(Icons.error_outline, color: AppColors.error, size: 18);
+        return Icon(Icons.error_outline, color: context.appColors.error, size: 18);
       case PlayerStatus.idle:
         return const SizedBox.shrink();
     }
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
     return Center(
       child: Text(
         (state.currentStream?.name.isNotEmpty ?? false)
             ? state.currentStream!.name[0].toUpperCase()
             : '?',
-        style: const TextStyle(fontSize: 14, color: AppColors.primary),
+        style: TextStyle(fontSize: 14, color: context.appColors.primary),
       ),
     );
   }
@@ -436,7 +437,7 @@ class _GroupedChannelList extends StatelessWidget {
               ),
               child: Text(
                 categoryStreams.first.name.isNotEmpty ? categoryStreams.first.name : 'All Channels',
-                style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
+                style: context.appTypography.h3.copyWith(color: context.appColors.textSecondary),
               ),
             ),
             ...categoryStreams.map((stream) => ChannelTile(
@@ -465,11 +466,11 @@ class CategoryFilterChips extends ConsumerWidget {
     return SizedBox(
       height: 52,
       child: categoriesAsync.when(
-        loading: () => const Center(
+        loading: () => Center(
           child: SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            child: CircularProgressIndicator(strokeWidth: 2, color: context.appColors.primary),
           ),
         ),
         error: (_, __) => const SizedBox.shrink(),
@@ -533,14 +534,14 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.2) : AppColors.surfaceElevated,
+          color: isSelected ? context.appColors.primary.withOpacity(0.2) : context.appColors.surfaceElevated,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.textMuted),
+          border: Border.all(color: isSelected ? context.appColors.primary : context.appColors.textMuted),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? AppColors.primary : AppColors.textMuted,
+            color: isSelected ? context.appColors.primary : context.appColors.textMuted,
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -578,11 +579,11 @@ class ChannelTile extends ConsumerWidget {
           final isFocused = Focus.of(context).hasFocus;
           return InkWell(
             onTap: onTap,
-            focusColor: AppColors.primary.withOpacity(0.1),
+            focusColor: context.appColors.primary.withOpacity(0.1),
             child: Container(
               decoration: BoxDecoration(
                 border: isFocused
-                    ? Border.all(color: AppColors.primary, width: 2)
+                    ? Border.all(color: context.appColors.primary, width: 2)
                     : null,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -594,7 +595,7 @@ class ChannelTile extends ConsumerWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
+                      color: context.appColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: stream.logo != null && stream.logo!.isNotEmpty
@@ -605,21 +606,21 @@ class ChannelTile extends ConsumerWidget {
                               width: 52,
                               height: 52,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => _placeholderLogo(),
+                              errorBuilder: (_, __, ___) => _placeholderLogo(context),
                             ),
                           )
-                        : _placeholderLogo(),
+                        : _placeholderLogo(context),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(stream.name, style: AppTypography.body,
+                        Text(stream.name, style: context.appTypography.body,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                         if (stream.epgChannel != null) ...[
                           const SizedBox(height: 2),
-                          Text(stream.epgChannel!, style: AppTypography.caption,
+                          Text(stream.epgChannel!, style: context.appTypography.caption,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ],
@@ -631,7 +632,7 @@ class ChannelTile extends ConsumerWidget {
                     onToggle: () => toggleFavourite(ref, stream.streamId),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.play_arrow, color: AppColors.textMuted),
+                  Icon(Icons.play_arrow, color: context.appColors.textMuted),
                 ],
               ),
             ),
@@ -641,11 +642,11 @@ class ChannelTile extends ConsumerWidget {
     );
   }
 
-  Widget _placeholderLogo() {
+  Widget _placeholderLogo(BuildContext context) {
     return Center(
       child: Text(
         stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
-        style: AppTypography.h2.copyWith(color: AppColors.primary),
+        style: context.appTypography.h2.copyWith(color: context.appColors.primary),
       ),
     );
   }
@@ -665,7 +666,7 @@ class _FavouriteButton extends StatelessWidget {
     return IconButton(
       icon: Icon(
         isFavourite ? Icons.star : Icons.star_border,
-        color: isFavourite ? AppColors.accent : AppColors.textMuted,
+        color: isFavourite ? context.appColors.accent : context.appColors.textMuted,
       ),
       tooltip: isFavourite ? 'Remove from favourites' : 'Add to favourites',
       padding: EdgeInsets.zero,
@@ -736,9 +737,9 @@ class _ContinueWatchingRow extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.history, size: 18, color: AppColors.textSecondary),
+              Icon(Icons.history, size: 18, color: context.appColors.textSecondary),
               const SizedBox(width: AppSpacing.sm),
-              Text('Continue Watching', style: AppTypography.h3),
+              Text('Continue Watching', style: context.appTypography.h3),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -779,9 +780,9 @@ class _ContinueWatchingCard extends StatelessWidget {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.appColors.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.divider, width: 0.5),
+          border: Border.all(color: context.appColors.divider, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -809,13 +810,13 @@ class _ContinueWatchingCard extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.9),
+                      color: context.appColors.primary.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'Resume',
-                      style: AppTypography.micro.copyWith(
-                        color: AppColors.textPrimary,
+                      style: context.appTypography.micro.copyWith(
+                        color: context.appColors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -827,11 +828,11 @@ class _ContinueWatchingCard extends StatelessWidget {
                   bottom: 0,
                   child: Container(
                     height: 3,
-                    color: AppColors.surface.withValues(alpha: 0.5),
+                    color: context.appColors.surface.withValues(alpha: 0.5),
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
                       widthFactor: _progressFraction(entry.progress),
-                      child: Container(color: AppColors.primary),
+                      child: Container(color: context.appColors.primary),
                     ),
                   ),
                 ),
@@ -848,14 +849,14 @@ class _ContinueWatchingCard extends StatelessWidget {
                 children: [
                   Text(
                     stream.name,
-                    style: AppTypography.body.copyWith(fontSize: 14),
+                    style: context.appTypography.body.copyWith(fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _savedAgo(entry.progress.updatedAt),
-                    style: AppTypography.micro,
+                    style: context.appTypography.micro,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -898,11 +899,11 @@ class _PosterPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surfaceElevated,
+      color: context.appColors.surfaceElevated,
       alignment: Alignment.center,
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: AppTypography.h1.copyWith(color: AppColors.textMuted),
+        style: context.appTypography.h1.copyWith(color: context.appColors.textMuted),
       ),
     );
   }
@@ -942,9 +943,9 @@ class _MostWatchedRow extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.trending_up, size: 18, color: AppColors.textSecondary),
+              Icon(Icons.trending_up, size: 18, color: context.appColors.textSecondary),
               const SizedBox(width: AppSpacing.sm),
-              Text('Most Watched', style: AppTypography.h3),
+              Text('Most Watched', style: context.appTypography.h3),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1014,13 +1015,13 @@ class _MostWatchedCard extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.9),
+                      color: context.appColors.accent.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       '${entry.count}×',
-                      style: AppTypography.micro.copyWith(
-                        color: AppColors.textPrimary,
+                      style: context.appTypography.micro.copyWith(
+                        color: context.appColors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1031,7 +1032,7 @@ class _MostWatchedCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               stream.name,
-              style: AppTypography.body.copyWith(fontSize: 13),
+              style: context.appTypography.body.copyWith(fontSize: 13),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1100,7 +1101,7 @@ class _SortModeSheet extends StatelessWidget {
               ),
               child: Text(
                 'Sort channels by',
-                style: AppTypography.h3,
+                style: context.appTypography.h3,
               ),
             ),
             for (final opt in _options)
@@ -1148,7 +1149,7 @@ class _SortModeRow extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              color: isSelected ? context.appColors.primary : context.appColors.textSecondary,
               size: 22,
             ),
             const SizedBox(width: AppSpacing.md),
@@ -1158,18 +1159,18 @@ class _SortModeRow extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTypography.body.copyWith(
+                    style: context.appTypography.body.copyWith(
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: isSelected
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
+                          ? context.appColors.primary
+                          : context.appColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: AppTypography.caption.copyWith(fontSize: 12),
+                    style: context.appTypography.caption.copyWith(fontSize: 12),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1179,7 +1180,7 @@ class _SortModeRow extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? AppColors.primary : AppColors.textMuted,
+              color: isSelected ? context.appColors.primary : context.appColors.textMuted,
             ),
           ],
         ),
