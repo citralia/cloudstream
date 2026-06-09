@@ -9,9 +9,25 @@ import 'player_screen.dart';
 /// Displays cover, plot, season selector, and the episode list for the
 /// selected season. Tapping an episode opens the player.
 class SeriesDetailScreen extends ConsumerStatefulWidget {
-  const SeriesDetailScreen({super.key, required this.stream});
+  const SeriesDetailScreen({
+    super.key,
+    required this.stream,
+    this.autoResumeEpisode,
+    this.autoResumeSeason,
+  });
 
   final XtreamStream stream;
+
+  /// If set, the player will auto-open for this episode on first
+  /// frame, with `startPosition` seeded from the saved watch progress.
+  /// Used by the Continue Watching row to deep-link straight into a
+  /// series episode resume. The corresponding season is selected
+  /// before playback fires.
+  final XtreamEpisode? autoResumeEpisode;
+
+  /// Season number to select when [autoResumeEpisode] is provided.
+  /// Defaults to the first available season if null.
+  final int? autoResumeSeason;
 
   @override
   ConsumerState<SeriesDetailScreen> createState() => _SeriesDetailScreenState();
@@ -19,6 +35,21 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
 
 class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   int? _selectedSeason;
+
+  /// Episode the caller wants to auto-play on first frame (e.g. from
+  /// the Continue Watching row). Set from `widget.autoResumeEpisode`
+  /// before the build runs so the post-frame callback can use it.
+  XtreamEpisode? _autoPlayEpisode;
+
+  @override
+  void initState() {
+    super.initState();
+    final auto = widget.autoResumeEpisode;
+    if (auto != null) {
+      _autoPlayEpisode = auto;
+      _selectedSeason = widget.autoResumeSeason ?? 1;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +76,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             stream: widget.stream,
             selectedSeason: _selectedSeason ?? 1,
             onSeasonSelected: (n) => setState(() => _selectedSeason = n),
+            // Deep-link params — when set, _Body fires the auto-play
+            // in a post-frame callback. One-shot: consumed (cleared)
+            // after the first build so navigating back/forward doesn't
+            // re-fire playback.
+            autoResumeEpisode: _autoPlayEpisode,
+            onAutoResumeConsumed: () => setState(() => _autoPlayEpisode = null),
           );
         },
         loading: () => const Center(
@@ -69,27 +106,53 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   }
 }
 
-class _Body extends ConsumerWidget {
+class _Body extends ConsumerStatefulWidget {
   const _Body({
     required this.seriesInfo,
     required this.stream,
     required this.selectedSeason,
     required this.onSeasonSelected,
+    this.autoResumeEpisode,
+    this.onAutoResumeConsumed,
   });
 
   final XtreamSeriesInfo seriesInfo;
   final XtreamStream stream;
   final int selectedSeason;
   final ValueChanged<int> onSeasonSelected;
+  final XtreamEpisode? autoResumeEpisode;
+  final VoidCallback? onAutoResumeConsumed;
 
+  @override
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
   XtreamSeason? _findSeason(int n) {
-    for (final s in seriesInfo.seasons) {
+    for (final s in widget.seriesInfo.seasons) {
       if (s.seasonNumber == n) return s;
     }
-    return seriesInfo.seasons.isNotEmpty ? seriesInfo.seasons.first : null;
+    return widget.seriesInfo.seasons.isNotEmpty ? widget.seriesInfo.seasons.first : null;
   }
 
-  void _playEpisode(BuildContext context, WidgetRef ref, XtreamEpisode episode) {
+  @override
+  void initState() {
+    super.initState();
+    // Schedule the deep-link auto-resume on the first frame so the
+    // body is fully laid out before we try to navigate. We do this
+    // in initState (not build) so it only fires once per screen
+    // open, not on every rebuild while waiting for seriesInfoAsync.
+    final ep = widget.autoResumeEpisode;
+    if (ep != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _playEpisode(ep, resume: true);
+        widget.onAutoResumeConsumed?.call();
+      });
+    }
+  }
+
+  void _playEpisode(XtreamEpisode episode, {bool resume = false}) async {
     // Build the Xtream series stream URL for this specific episode.
     // We synthesise an XtreamStream so PlayerScreen receives a stream reference
     // matching the existing API — streamId is the episode's stream_id, which
@@ -97,25 +160,52 @@ class _Body extends ConsumerWidget {
     final url = ref.read(seriesStreamUrlProvider(episode.streamId));
     final episodeStream = XtreamStream(
       streamId: episode.streamId,
-      name: 'S${selectedSeason.toString().padLeft(2, '0')}E${episode.episodeNumber.toString().padLeft(2, '0')} — ${episode.title}',
-      logo: stream.logo,
-      categoryId: stream.categoryId,
+      name: 'S${widget.selectedSeason.toString().padLeft(2, '0')}E${episode.episodeNumber.toString().padLeft(2, '0')} — ${episode.title}',
+      logo: widget.stream.logo,
+      categoryId: widget.stream.categoryId,
       streamType: 'series',
-      epgChannel: stream.epgChannel,
+      epgChannel: widget.stream.epgChannel,
     );
+
+    // When resuming, look up the saved position so the player starts
+    // where the user left off. Falls back to null (start from 0) on
+    // any failure — matches the VOD resume behaviour in VodDetailScreen.
+    Duration? startPosition;
+    if (resume) {
+      try {
+        final creds = await ref.read(credentialsStoreProvider).loadActiveConnection();
+        if (creds != null) {
+          final store = ref.read(watchProgressStoreProvider);
+          final progress = store.getProgress(
+            profileId: creds.name,
+            streamId: episode.streamId,
+          );
+          if (progress != null) {
+            startPosition = progress.position;
+          }
+        }
+      } catch (_) {
+        // Non-fatal — start from the beginning.
+      }
+    }
+
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
           stream: episodeStream,
           streamUrl: url,
+          startPosition: startPosition,
         ),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentSeason = _findSeason(selectedSeason);
+  Widget build(BuildContext context) {
+    final currentSeason = _findSeason(widget.selectedSeason);
+    final seriesInfo = widget.seriesInfo;
+    final stream = widget.stream;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -158,8 +248,8 @@ class _Body extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             _SeasonChips(
               seasons: seriesInfo.seasons,
-              selected: selectedSeason,
-              onTap: onSeasonSelected,
+              selected: widget.selectedSeason,
+              onTap: widget.onSeasonSelected,
             ),
             const SizedBox(height: AppSpacing.lg),
           ],
@@ -167,14 +257,14 @@ class _Body extends ConsumerWidget {
           // Episode list.
           Text(
             seriesInfo.seasons.length > 1
-                ? 'Season $selectedSeason'
+                ? 'Season ${widget.selectedSeason}'
                 : 'Episodes',
             style: AppTypography.h3,
           ),
           const SizedBox(height: AppSpacing.sm),
           _EpisodeList(
             season: currentSeason,
-            onPlay: (episode) => _playEpisode(context, ref, episode),
+            onPlay: (episode) => _playEpisode(episode),
           ),
         ],
       ),

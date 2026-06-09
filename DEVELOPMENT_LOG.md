@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (03:30 BST)
+
+**Session start:** 03:30 BST
+
+### What was done:
+- Board was fresh from the prior V03 cron (e3be65b merged, 42 tests, CI ✅). All explicit "Next" tasks (P205, P207, P208) are still blocked on external services (Firebase, R2, RevenueCat). Picked the next unblocked follow-on from the V03 reference doc: **V04 Series-episode Continue Watching** (the "Known gap" on the V03 doc — series-episode IDs are orphan in the watch-progress join).
+- V04 fully implemented and shipped:
+  - **`SeriesInfoCache`** (`app_providers.dart`): simple in-memory cache, keyed by series id, populated lazily via `getSeriesInfo(seriesId)`. Exposes `loadAll(Iterable<int>)` for bulk-pre-warm and `findEpisodeByStreamId(int)` for the reverse-lookup that powers the Continue Watching join.
+  - **`seriesInfoCacheProvider`**: a plain `Provider<SeriesInfoCache>` — independent of `seriesInfoProvider` (which is a per-id `FutureProvider.family` that re-fetches per dependent).
+  - **`ContinueWatchingEntry` discriminator** (`app_providers.dart`): added `enum ContinueWatchingKind { vod, seriesEpisode }` plus optional `parentSeries` / `parentSeason` / `episode` fields. VOD entries keep the old shape (kind defaults to `vod`).
+  - **`continueWatchingProvider`** extended: after the existing VOD/series-level join, calls `cache.loadAll(series.map((s) => s.streamId))`, then for each orphan saved id calls `cache.findEpisodeByStreamId(id)`. On a hit, synthesises an episode `XtreamStream` (SxxExx — title, parent cover as logo) and a `ContinueWatchingEntry(kind: seriesEpisode, ...)`. Misses still drop silently.
+  - **`SeriesDetailScreen.autoResumeEpisode` + `autoResumeSeason`**: new optional params. When set, the body fires `_playEpisode(ep, resume: true)` in a `WidgetsBinding.instance.addPostFrameCallback` after the first successful series-info build, then a one-shot `onAutoResumeConsumed` clears the flag so navigation back/forward doesn't re-fire. `_playEpisode` was promoted from `ConsumerWidget` to `ConsumerStatefulWidget` (`_Body` → `_BodyState`) so `initState` is the right place for the one-shot callback.
+  - **`_playEpisode` resume path**: looks up the saved `WatchProgress` via the active connection's `creds.name` (same key as `PlayerScreen._saveProgress`) and seeds `PlayerScreen.startPosition` with the saved millisecond offset. Same `try/catch` shape as `VodDetailScreen._playVod` — non-fatal on lookup failure, falls back to start-from-0.
+  - **`_ContinueWatchingRow._openResume`**: now takes a `ContinueWatchingEntry` and routes `kind: seriesEpisode` to `SeriesDetailScreen(autoResumeEpisode: entry.episode, autoResumeSeason: entry.parentSeason.seasonNumber)`. VOD entries keep the old `VodDetailScreen(autoResume: true)` path.
+- 9 new tests (`series_continue_watching_test.dart`):
+  - 4 `SeriesInfoCache` unit tests (cache hit returns same instance, `findEpisodeByStreamId` locates correct series+season+episode, null for unknown ids, `loadAll` swallows individual failures)
+  - 5 `continueWatchingProvider` Riverpod injection tests (episode resolution back to parent series, VOD + series_episode mix in one result, drops when series info fetch fails, drops when series catalogue is empty, continues surfacing VOD entries when some series fail to load)
+- **51 tests total** (was 42), 0 analyze errors, 0 new warnings
+- Pushed to `feature/v04-series-continue-watching` first, then merged to `develop`. CI running.
+
+### CI status:
+- Commit pushed to `develop` — CI + Release running
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- "Most Watched" row (SPEC vision follow-on — would need a play-count store)
+
 ## 2026-06-09 — CloudStream Hourly Cron (02:30 BST)
 
 **Session start:** 02:30 BST

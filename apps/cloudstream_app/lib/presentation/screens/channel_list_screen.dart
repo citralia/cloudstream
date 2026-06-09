@@ -8,6 +8,7 @@ import '../providers/app_providers.dart';
 import '../providers/player_controller_notifier.dart';
 import '../widgets/quick_channel_overlay.dart';
 import 'player_screen.dart';
+import 'series_detail_screen.dart';
 import 'vod_detail_screen.dart';
 
 class ChannelListScreen extends ConsumerStatefulWidget {
@@ -636,17 +637,33 @@ class _FavouriteButton extends StatelessWidget {
 /// progress bar, title, and "resume" affordance. Renders nothing while
 /// the provider is still loading or has no entries.
 ///
-/// Only handles VOD taps for now — tapping a VOD card navigates to
-/// [VodDetailScreen] with `resume: true` (the same path the existing
-/// "Resume" button takes from inside the detail screen). Series
-/// episodes require the parent-series-id lookup, which is left for the
-/// per-episode continue-watching follow-on.
+/// Resumes a Continue Watching card. VOD entries (movies, live) go
+/// through [VodDetailScreen] with `autoResume: true`. Series-episode
+/// entries (resolved via [SeriesInfoCache]) open
+/// [SeriesDetailScreen] with the matched episode pre-selected, the
+/// right season focused, and the player auto-started in resume mode.
 class _ContinueWatchingRow extends ConsumerWidget {
   const _ContinueWatchingRow();
 
   static const int _maxCards = 8;
 
-  void _openResume(BuildContext context, WidgetRef ref, XtreamStream stream) {
+  void _openResume(BuildContext context, WidgetRef ref, ContinueWatchingEntry entry) {
+    if (entry.kind == ContinueWatchingKind.seriesEpisode &&
+        entry.parentSeries != null &&
+        entry.episode != null &&
+        entry.parentSeason != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SeriesDetailScreen(
+            stream: entry.stream,
+            autoResumeEpisode: entry.episode,
+            autoResumeSeason: entry.parentSeason!.seasonNumber,
+          ),
+        ),
+      );
+      return;
+    }
+    final stream = entry.stream;
     if (stream.streamType == 'movie' || stream.streamType == 'live') {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -654,7 +671,6 @@ class _ContinueWatchingRow extends ConsumerWidget {
         ),
       );
     }
-    // Series episodes aren't surfaced in this row yet — see class comment.
   }
 
   @override
@@ -691,7 +707,7 @@ class _ContinueWatchingRow extends ConsumerWidget {
                 final entry = entries[index];
                 return _ContinueWatchingCard(
                   entry: entry,
-                  onTap: () => _openResume(context, ref, entry.stream),
+                  onTap: () => _openResume(context, ref, entry),
                 );
               },
             ),
