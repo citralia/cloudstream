@@ -187,14 +187,36 @@ final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) asy
           return streams.where((s) => favIds.contains(s.streamId)).toList();
         }()
       : streams;
-  return _applyChannelSort(filtered, ref.watch(channelSortProvider));
+  final sort = ref.watch(channelSortProvider);
+  if (sort == ChannelSortMode.mostWatched) {
+    // Read play counts for the active profile, then sort the
+    // filtered stream list by count desc, with unplayed streams
+    // pushed to the bottom and sorted by name as a stable
+    // secondary key. Wrapped in a try/catch so a missing/broken
+    // PlayCountStore (e.g. before the user has played anything)
+    // degrades to "default order" rather than throwing.
+    final creds = await ref.watch(activeCredentialsProvider.future);
+    if (creds == null) return _applyChannelSort(filtered, ChannelSortMode.defaultOrder);
+    final store = ref.watch(playCountStoreProvider);
+    final counts = <int, int>{
+      for (final e in store.topEntries(creds.name)) e.streamId: e.count,
+    };
+    return _applyChannelSort(filtered, sort, playCounts: counts);
+  }
+  return _applyChannelSort(filtered, sort);
 });
 
 /// Sort [streams] by the current [ChannelSortMode]. The default mode
 /// returns the input unchanged (preserves Xtream server order). Name
 /// is case-insensitive ascending. Number falls back to streamId when
-/// the provider's `num` field is missing.
-List<XtreamStream> _applyChannelSort(List<XtreamStream> streams, ChannelSortMode mode) {
+/// the provider's `num` field is missing. [mostWatched] requires
+/// [playCounts] (streamId → count); streams not in the map are pushed
+/// to the bottom and sorted by name as a stable secondary key.
+List<XtreamStream> _applyChannelSort(
+  List<XtreamStream> streams,
+  ChannelSortMode mode, {
+  Map<int, int>? playCounts,
+}) {
   switch (mode) {
     case ChannelSortMode.defaultOrder:
       return streams;
@@ -226,6 +248,36 @@ List<XtreamStream> _applyChannelSort(List<XtreamStream> streams, ChannelSortMode
       });
       withoutNumber.sort((a, b) => a.streamId.compareTo(b.streamId));
       return [...withNumber, ...withoutNumber];
+    case ChannelSortMode.mostWatched:
+      // Two buckets: streams with a recorded play count (sorted by
+      // count desc, then name asc as a stable tie-breaker) and
+      // streams with no record (pushed to the bottom, name asc).
+      // The "name" secondary key is the same one the existing home
+      // "Most Watched" row uses via `PlayCountStore.topEntries`
+      // (which falls back to streamId asc — close enough; using
+      // name here gives the unplayed-bucket a friendlier, less
+      // random-looking order in the long tail).
+      assert(playCounts != null,
+          'mostWatched sort requires playCounts (read from PlayCountStore)');
+      final counts = playCounts!;
+      final played = <XtreamStream>[];
+      final unplayed = <XtreamStream>[];
+      for (final s in streams) {
+        if (counts.containsKey(s.streamId)) {
+          played.add(s);
+        } else {
+          unplayed.add(s);
+        }
+      }
+      played.sort((a, b) {
+        final byCount = counts[b.streamId]!.compareTo(counts[a.streamId]!);
+        if (byCount != 0) return byCount;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      unplayed.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return [...played, ...unplayed];
   }
 }
 

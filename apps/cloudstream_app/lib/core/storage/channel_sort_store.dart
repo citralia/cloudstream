@@ -17,6 +17,15 @@ enum ChannelSortMode {
   /// we fall back to [XtreamStream.streamId] as a stable, monotonic
   /// tie-breaker.
   number,
+
+  /// By per-profile play count, descending. Reuses the
+  /// `PlayCountStore` (V05) to surface the channels the user
+  /// actually watches most. Streams with no recorded plays are
+  /// pushed to the bottom and sorted by name as a stable
+  /// secondary key — this matches the "Most Watched" home-row
+  /// ranking already on the home screen, so picking this sort
+  /// mode and switching to the "All" view should feel consistent.
+  mostWatched,
 }
 
 /// Persists the user's preferred [ChannelSortMode] in
