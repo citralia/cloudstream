@@ -5,6 +5,7 @@ import '../../core/network/xtream_client.dart';
 import '../../core/search/search_service.dart';
 import '../../core/storage/profile_store.dart';
 import '../../core/storage/play_count_store.dart';
+import '../../core/storage/reminder_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
 import '../../data/datasources/credentials_store.dart';
@@ -477,6 +478,89 @@ final watchProgressProvider = Provider.family<WatchProgress?, ({int streamId, St
 /// many 30s-segments of this stream have I watched, ever."
 final playCountStoreProvider = Provider<PlayCountStore>((ref) {
   return PlayCountStore(ref.watch(sharedPreferencesProvider));
+});
+
+// ── EPG Reminders ────────────────────────────────────────────────────────
+
+/// Persists scheduled EPG reminders. Backed by SharedPreferences —
+/// `ReminderStore` is the only thing that knows the on-disk format.
+///
+/// Currently a pure data store. The actual OS-level notification
+/// scheduling is the responsibility of a future `ReminderScheduler`
+/// service (not part of V07 chunk 1) — for now, `add` / `remove`
+/// silently persist and the UI just confirms the recording.
+final reminderStoreProvider = Provider<ReminderStore>((ref) {
+  return ReminderStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// In-memory list of reminders for the active connection, exposed
+/// to the UI as a [StateNotifier] so `add` / `remove` can trigger
+/// rebuilds without re-reading the store on every watch.
+///
+/// Filters by the active profile's name (the same name used in
+/// `Reminder.profileName`) and drops reminders for programmes that
+/// have already ended. Sort: [Reminder.fireAt] ascending.
+class RemindersNotifier extends StateNotifier<List<Reminder>> {
+  RemindersNotifier(this._ref) : super(const []) {
+    _load();
+  }
+
+  final Ref _ref;
+
+  void _load() {
+    final creds = _ref.read(activeCredentialsProvider).valueOrNull;
+    if (creds == null) {
+      state = const [];
+      return;
+    }
+    final store = _ref.read(reminderStoreProvider);
+    state = store.activeForProfile(creds.name);
+  }
+
+  /// Re-read the store from disk. Useful when the active profile
+  /// changes — the bottom-nav `Live TV` tab calls this on focus.
+  void refresh() => _load();
+
+  /// Schedule a reminder for a programme. The caller passes the full
+  /// programme details because the EPG data is already loaded; we
+  /// just persist it with a stable id and the default lead time.
+  ///
+  /// Returns the stored [Reminder] (the caller uses it to show a
+  /// confirmation snackbar with the actual fire time).
+  Future<Reminder> add({
+    required int channelId,
+    required String channelName,
+    required String programmeTitle,
+    required DateTime startTime,
+    required DateTime endTime,
+    Duration? leadTime,
+  }) async {
+    final creds = _ref.read(activeCredentialsProvider).valueOrNull;
+    final profileName = creds?.name ?? '';
+    final reminder = Reminder(
+      id: ReminderStore.makeId(channelId: channelId, startTime: startTime),
+      channelId: channelId,
+      channelName: channelName,
+      programmeTitle: programmeTitle,
+      startTime: startTime,
+      endTime: endTime,
+      leadTime: leadTime ?? ReminderStore.defaultLeadTime,
+      profileName: profileName,
+    );
+    await _ref.read(reminderStoreProvider).add(reminder);
+    _load();
+    return reminder;
+  }
+
+  Future<void> remove(String id) async {
+    await _ref.read(reminderStoreProvider).remove(id);
+    _load();
+  }
+}
+
+final remindersProvider =
+    StateNotifierProvider<RemindersNotifier, List<Reminder>>((ref) {
+  return RemindersNotifier(ref);
 });
 
 /// Discriminator for the kind of item a [ContinueWatchingEntry] represents.
