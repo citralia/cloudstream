@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/debug/debug_log_service.dart';
 import 'core/notifications/reminder_scheduler.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_extensions.dart';
 import 'presentation/providers/app_providers.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/channel_list_screen.dart';
@@ -75,9 +76,9 @@ class AuthRouter extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     return switch (authState.status) {
-      AuthStatus.unknown => const Scaffold(
+      AuthStatus.unknown => Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: CircularProgressIndicator(color: context.appColors.primary),
         ),
       ),
       AuthStatus.authenticated => const HomeScreen(),
@@ -187,9 +188,9 @@ class _TvNavBarState extends ConsumerState<_TvNavBar> {
         return KeyEventResult.handled;
       },
       child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+        decoration: BoxDecoration(
+          color: context.appColors.surface,
+          border: Border(top: BorderSide(color: context.appColors.divider, width: 0.5)),
         ),
         child: SafeArea(
           top: false,
@@ -246,7 +247,7 @@ class _NavBarItem extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: isSelected
-              ? const Border(top: BorderSide(color: AppColors.primary, width: 3))
+              ? Border(top: BorderSide(color: context.appColors.primary, width: 3))
               : null,
         ),
         child: Column(
@@ -254,7 +255,7 @@ class _NavBarItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? AppColors.primary : AppColors.textMuted,
+              color: isSelected ? context.appColors.primary : context.appColors.textMuted,
               size: 26,
             ),
             const SizedBox(height: 4),
@@ -262,7 +263,7 @@ class _NavBarItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? AppColors.primary : AppColors.textMuted,
+                color: isSelected ? context.appColors.primary : context.appColors.textMuted,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
