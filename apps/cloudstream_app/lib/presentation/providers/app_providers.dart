@@ -268,6 +268,39 @@ final vodInfoProvider = FutureProvider.family<XtreamVodInfo, int>((ref, vodId) a
   return await client.getVodInfo(vodId);
 });
 
+// ── Series ────────────────────────────────────────────────────────────────
+
+final seriesCategoriesProvider = FutureProvider<List<XtreamCategory>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getSeriesCategories();
+});
+
+final selectedSeriesCategoryIdProvider = StateProvider<int?>((ref) => null);
+
+final seriesStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getSeriesStreams();
+});
+
+final filteredSeriesStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
+  final categoryId = ref.watch(selectedSeriesCategoryIdProvider);
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getSeriesStreams(categoryId: categoryId);
+});
+
+/// Full series info (plot, seasons, episodes) for a single series.
+/// Used by SeriesDetailScreen to render the season/episode browser.
+final seriesInfoProvider = FutureProvider.family<XtreamSeriesInfo, int>((ref, seriesId) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getSeriesInfo(seriesId);
+});
+
+/// Builds the stream URL for a specific series episode, keyed by episode stream_id.
+final seriesStreamUrlProvider = Provider.family<String, int>((ref, episodeStreamId) {
+  final client = ref.watch(xtreamClientProvider);
+  return client.buildSeriesStreamUrl(episodeStreamId);
+});
+
 // ── Watch Progress ─────────────────────────────────────────────────────────
 
 /// Must be overridden at app startup with `SharedPreferences.instanceFor`.
@@ -439,15 +472,17 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Triggers rebuild when live or VOD streams change.
 final searchIndexRebuilderProvider = FutureProvider<void>((ref) async {
-  // Watch both providers so we re-index when they change.
+  // Watch all three providers so we re-index when any of them change.
   final liveAsync = ref.watch(liveStreamsProvider);
   final vodAsync = ref.watch(vodStreamsProvider);
+  final seriesAsync = ref.watch(seriesStreamsProvider);
 
   final live = liveAsync.valueOrNull ?? [];
   final vod = vodAsync.valueOrNull ?? [];
+  final series = seriesAsync.valueOrNull ?? [];
 
   final index = ref.read(searchServiceProvider);
-  index.rebuild(live: live, vod: vod);
+  index.rebuild(live: live, vod: vod, series: series);
 });
 
 /// Search results derived from query + index.
