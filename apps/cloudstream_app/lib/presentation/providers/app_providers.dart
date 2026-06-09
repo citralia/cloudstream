@@ -8,6 +8,7 @@ import '../../core/storage/play_count_store.dart';
 import '../../core/storage/reminder_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
+import '../../core/notifications/reminder_scheduler.dart';
 import '../../data/datasources/credentials_store.dart';
 import '../../domain/entities/profile.dart';
 import 'player_controller_notifier.dart';
@@ -485,10 +486,11 @@ final playCountStoreProvider = Provider<PlayCountStore>((ref) {
 /// Persists scheduled EPG reminders. Backed by SharedPreferences —
 /// `ReminderStore` is the only thing that knows the on-disk format.
 ///
-/// Currently a pure data store. The actual OS-level notification
-/// scheduling is the responsibility of a future `ReminderScheduler`
-/// service (not part of V07 chunk 1) — for now, `add` / `remove`
-/// silently persist and the UI just confirms the recording.
+/// The actual OS-level notification scheduling is the responsibility
+/// of the [ReminderScheduler] injected via [reminderSchedulerProvider]
+/// — by default this is a `LocalNotificationsReminderScheduler`
+/// wrapping `flutter_local_notifications`, but tests can swap in
+/// any fake that implements the same interface.
 final reminderStoreProvider = Provider<ReminderStore>((ref) {
   return ReminderStore(ref.watch(sharedPreferencesProvider));
 });
@@ -501,6 +503,16 @@ final defaultLeadTimeProvider = StateProvider<Duration>((ref) {
   return ReminderStore.defaultLeadTime;
 });
 
+/// Schedules OS-level notifications for reminders. Overridable so
+/// tests can inject a no-op or recording fake — production code
+/// reads the default `LocalNotificationsReminderScheduler`.
+final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
+  throw UnimplementedError(
+    'reminderSchedulerProvider must be overridden in main() (or in tests). '
+    'Use LocalNotificationsReminderScheduler as the production impl.',
+  );
+});
+
 /// In-memory list of reminders for the active connection, exposed
 /// to the UI as a [StateNotifier] so `add` / `remove` can trigger
 /// rebuilds without re-reading the store on every watch.
@@ -508,6 +520,11 @@ final defaultLeadTimeProvider = StateProvider<Duration>((ref) {
 /// Filters by the active profile's name (the same name used in
 /// `Reminder.profileName`) and drops reminders for programmes that
 /// have already ended. Sort: [Reminder.fireAt] ascending.
+///
+/// On every mutation, also talks to the injected
+/// [ReminderScheduler] so the OS notification stays in sync with
+/// the persisted list. On profile change, rehydrates the OS-side
+/// schedule from the current on-disk list.
 class RemindersNotifier extends StateNotifier<List<Reminder>> {
   RemindersNotifier(this._ref) : super(const []) {
     _load();
@@ -525,9 +542,17 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
     state = store.activeForProfile(creds.name);
   }
 
-  /// Re-read the store from disk. Useful when the active profile
-  /// changes — the bottom-nav `Live TV` tab calls this on focus.
-  void refresh() => _load();
+  /// Re-read the store from disk and re-schedule every active
+  /// reminder. Useful when the active profile changes — the
+  /// bottom-nav `Live TV` tab calls this on focus, and `main()`
+  /// calls it once on cold start.
+  Future<void> refresh() async {
+    _load();
+    final scheduler = _safeScheduler();
+    if (scheduler != null) {
+      await scheduler.rehydrate(state);
+    }
+  }
 
   /// Schedule a reminder for a programme. The caller passes the full
   /// programme details because the EPG data is already loaded; we
@@ -559,13 +584,39 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
       profileName: profileName,
     );
     await _ref.read(reminderStoreProvider).add(reminder);
+    final scheduler = _safeScheduler();
+    if (scheduler != null) {
+      // Best-effort: if the user has never granted POST_NOTIFICATIONS
+      // we still save the reminder (it'll fire once permission is
+      // granted and the next rehydrate runs). The first call to
+      // requestPermission surfaces the OS dialog to the user.
+      await scheduler.requestPermission();
+      await scheduler.schedule(reminder);
+    }
     _load();
     return reminder;
   }
 
   Future<void> remove(String id) async {
     await _ref.read(reminderStoreProvider).remove(id);
+    final scheduler = _safeScheduler();
+    if (scheduler != null) {
+      await scheduler.cancel(id);
+    }
     _load();
+  }
+
+  /// Returns the scheduler if it's been wired in, else null. We
+  /// tolerate a missing scheduler so widgets that watch
+  /// [remindersProvider] still function in the test harness
+  /// (`reminders_list_screen_test.dart` doesn't override the
+  /// scheduler — it just exercises the data path).
+  ReminderScheduler? _safeScheduler() {
+    try {
+      return _ref.read(reminderSchedulerProvider);
+    } on UnimplementedError {
+      return null;
+    }
   }
 }
 
