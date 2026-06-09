@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (02:30 BST)
+
+**Session start:** 02:30 BST
+
+### What was done:
+- V02 from the prior cron was already merged and on `develop` (b303f9d) with CI ✅ + Release ✅. Board and log had been updated.
+- Identified that all "Next" tasks (P205, P207, P208) were hard-blocked. Picked the next unblocked gap from the v02 reference doc + SPEC vision ("Home screen: personalised (Most Watched + Resume)") — the data plumbing for VOD watch progress was already in place but no UI surfaced it.
+- V03: Continue Watching row — fully implemented and shipped (e3be65b, PR #3):
+  - `continueWatchingProvider` (`app_providers.dart`): `FutureProvider<List<ContinueWatchingEntry>>` that joins saved watch-progress streamIds against the loaded VOD + series lists, drops orphan IDs (e.g. items removed from the server), sorts by `updatedAt` desc. Keyed by the active connection's `name` to match `PlayerScreen._saveProgress` (which writes with `creds.name`).
+  - `activeCredentialsProvider` indirection (`app_providers.dart`): wraps `CredentialsStore.loadActiveConnection()` in a provider so `continueWatchingProvider` can be tested without a Flutter binding.
+  - `_ContinueWatchingRow` + `_ContinueWatchingCard` + `_PosterPlaceholder` widgets in `channel_list_screen.dart`:
+    - Horizontal scroll row above the category chips, hidden entirely when no progress is saved
+    - Per card: poster (16:9 with first-letter placeholder fallback), "Resume" badge, indeterminate progress bar (15%–75% scaled on position duration), title, "Xm/h/d/w ago" timestamp
+    - Only shown on the "All" view (no category selected) so it doesn't compete with the filtered channel list
+    - Tap → `VodDetailScreen(autoResume: true)` for VOD items; series-episode resume deferred (needs parent-series-id lookup)
+  - `VodDetailScreen.autoResume` (`vod_detail_screen.dart`): new param — when true, a `WidgetsBinding.instance.addPostFrameCallback` fires `_playVod(resume: true)` on first frame, so one tap on a Continue Watching card opens the player immediately at the saved position (skipping the synopsis screen).
+  - 9 new tests (`continue_watching_test.dart`):
+    - 4 `WatchProgressStore.savedStreamIds` unit tests (empty / listing / per-profile isolation / clear)
+    - 5 `continueWatchingProvider` Riverpod injection tests with a `_FakeCredentialsStore` that bypasses `flutter_secure_storage` platform channel
+- **42 tests total** (was 33), 0 analyze errors, 0 new warnings
+- PR #3 merged to `develop` (e3be65b). CI ✅ + Release ✅ — APK rebuilt.
+
+### CI status:
+- `Merge feature/v03-continue-watching into develop` (e3be65b) — CI 🟢 Release 🟢
+- All Phase 2 (P201–P204, P206) + V01 + V02 + V03 now Done
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **Series-episode Continue Watching** (unblocked follow-on — needs parent-series-id resolution)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-09 — CloudStream Hourly Cron (01:30 BST)
 
 **Session start:** 01:30 BST

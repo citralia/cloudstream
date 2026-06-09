@@ -40,8 +40,6 @@
 | F09 | Settings screen | Done | agent | Server URL display, logout with confirm, about section |
 | F10 | Android build smoke test | Blocked | josh | Side-load on Firestick |
 
-> **Note F04-F08:** Client currently points to backend proxy. Must be updated to call Xtream API directly.
-
 ### Correct Architecture — Flutter (pending rebuild)
 
 | # | Task | Status | Owner | Notes |
@@ -83,6 +81,7 @@
 | P209 | Cast + multi-screen | Backlog | agent | AirPlay + Cast + PiP orchestration |
 | V01 | VOD info panel | **Done** | agent | vodInfoProvider + VodDetailScreen: real plot, cast, director, rating, duration, higher-res cover, loading shimmer + error fallback — bf59c64 |
 | V02 | Series/episode browsing | **Done** | agent | getSeriesStreams + seriesInfoProvider + SeriesScreen + SeriesDetailScreen (season selector, episode list, tap-to-play via buildSeriesStreamUrl); 8 new tests, 41 total, 0 analyze errors — 7d51715 |
+| V03 | Continue Watching row | **Done** | agent | continueWatchingProvider + _ContinueWatchingRow on Live TV home — joins saved watch-progress streamIds against VOD/series lists, sorts by updatedAt, hidden when empty, 9 new tests, 42 total — e3be65b |
 
 ---
 
