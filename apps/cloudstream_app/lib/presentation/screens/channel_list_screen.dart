@@ -1073,6 +1073,12 @@ class _SortModeSheet extends StatelessWidget {
       'Provider channel number; channels without a number go to the bottom',
       Icons.numbers,
     ),
+    (
+      ChannelSortMode.mostWatched,
+      'Most Watched',
+      'Your most-played channels first; channels you have never played go to the bottom',
+      Icons.trending_up,
+    ),
   ];
 
   @override
