@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (13:30 BST)
+
+**Session start:** 12:30 BST
+
+### What was done:
+- Board on entry: V07 (EPG reminders) was fully Done from the 12:30 cron (d08174b, CI ✅ + Release ✅). All explicit "Next" candidates were blocked on external services (P205 Firestore, P207 DVR/R2, P208 RevenueCat) or noted as open follow-ons (V08 light theme, V09 most-watched fine-tuning, V10 series-season-level resume).
+- Picked **V08 Light theme + Settings theme picker** — long-requested first-class light theme. SPEC §2 marks light/dark as first-class; the app shipped dark-only. Followed the brief's "first logical chunk" rule and intentionally scoped the work to the **infrastructure + user-facing picker** (the part that ships value immediately) and **explicitly deferred** the per-screen migration to a follow-on (300+ call sites would blow the 45-min window). Added an entry on the picker to set user expectations.
+- V08 fully implemented, tested, and shipped:
+  - **`LightAppColors`** (`core/theme/app_theme.dart`, new): field-for-field mirror of `AppColors` with light values — background `#F7F7FB`, surface `#FFFFFF`, surface-elevated `#EEEEF5`, primary `#5847D1` (deeper for AA contrast on white), text-primary `#111118`, etc. The deeper primary is deliberate — the original `AppColors.primary` (`#6C5CE7`) doesn't pass AA on a white background.
+  - **`LightAppTypography`** (same file, new): same sizes/weights as `AppTypography` but `color` resolves to `LightAppColors.textPrimary` / `textSecondary` / `textMuted`. Field-for-field parity with dark.
+  - **`AppTheme.light`** (same file, new): a `ThemeData(brightness: light, …)` that pulls every colour from `LightAppColors` and every text style from `LightAppTypography` — `colorScheme: light`, `appBarTheme`, `bottomNavigationBarTheme`, `cardTheme`, `inputDecorationTheme`, `elevatedButtonTheme`, `textButtonTheme`, `dividerTheme`, `snackBarTheme`. Mirrors `AppTheme.dark` shape exactly.
+  - **`ThemePreferencesStore`** (`core/storage/theme_preferences_store.dart`, new): SharedPreferences-backed persistence for `ThemeMode` (key `app_theme_mode`). `load()` returns the saved value, defaults to `ThemeMode.system` on first launch, silently falls back to `ThemeMode.system` on an unknown stored string (forward-compat — a future build that renames a mode shouldn't crash older installs). `save(mode)` writes the enum name. Same shape as `ChannelSortStore`.
+  - **`themePreferencesStoreProvider` + `themeModeProvider`** (`presentation/providers/app_providers.dart`, new): `Provider<ThemePreferencesStore>` and a `StateProvider<ThemeMode>` whose initial value comes from `store.load()`. Settings tile writes through `themeModeProvider.notifier`. The provider's state is the **in-memory mirror** — `MaterialApp.themeMode` watches it and rebuilds at runtime, so picking Light flips Material widgets (tooltips, system dialogs, scrollbars) without an app restart.
+  - **`main.dart`**: `CloudStreamApp` (ConsumerWidget) now watches `themeModeProvider` and passes both `theme: AppTheme.light` and `darkTheme: AppTheme.dark` to `MaterialApp`, with `themeMode: themeMode` — the standard Material 3 wiring. The picker → provider → MaterialApp path is therefore a single rebuild.
+  - **`_ThemeTile`** (`presentation/screens/settings_screen.dart`, new): new "Appearance" section between Playback and Reminders. Tapping the tile opens a `_showThemePicker` bottom sheet with three options (Dark / Light / Follow system), each with a brightness icon (`Icons.dark_mode_outlined`, `Icons.light_mode_outlined`, `Icons.brightness_auto_outlined`), a primary-coloured check on the active option, and an explanatory caption that **sets user expectations** about the scoped migration: "Switches the app between dark and light surfaces. Existing screens still render with dark text by default — a full per-screen migration is on the way." The explanation is deliberate — without it, a user picking Light and seeing dark screens would file a bug.
+- 11 new tests (`test/theme_mode_test.dart`):
+  - 3 `ThemePreferencesStore` (load defaults to system, save+load round-trip all three modes, unknown stored value falls back to system)
+  - 4 `themeModeProvider` Riverpod injection (reads persisted value, defaults to system, in-memory state updates immediately on `notifier.state = …`, cross-container persistence check — write via one container, re-read in a fresh container picks it up)
+  - 4 `AppTheme.dark / AppTheme.light` sanity (dark brightness, light brightness, distinct scaffold background, distinct primary color)
+- **115 tests total** (was 104), 0 new analyze errors, 0 new warnings (50 pre-existing `withOpacity` infos remain)
+- Pushed `feature/v08-light-theme` → `develop` (merge 4bb8f44). CI ✅ (5m37s) + Release ✅ (6m42s) — APK rebuilt on GitHub Release.
+- Board: marked V08 Done with the merge commit + CI status; F02 row updated to reflect light + dark both first-class; bumped `Last updated` to 2026-06-09T13:30 BST
+
+### CI status:
+- `Merge feature/v08-light-theme into develop` (4bb8f44) — CI 🟢 (5m37s) Release 🟢 (6m42s)
+- All Phase 2 (P201–P204, P206) + V01–V08 now Done
+
+### What's next:
+- **V08 follow-on**: per-screen migration to a brightness-aware context — replace `AppColors.X` references with a context-driven token (e.g. `context.colors.textPrimary`) or `Theme.of(context).colorScheme.X`. ~300 call sites across 21 screens; could be done in a single big-bang commit, or screen-by-screen in 45-min chunks.
+- **V09 candidates** (all unblocked, no external deps):
+  - "Recently watched" sort mode for V06 (lifetime or recent-window; would need a recency store on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - `defaultLeadTimeProvider` currently doesn't persist — known gap, one-line fix once a store is added
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+
 ## 2026-06-09 — CloudStream Hourly Cron (12:30 BST)
 
 **Session start:** 11:30 BST

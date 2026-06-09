@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-09T10:30:00+01:00
+> Last updated: 2026-06-09T13:30:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -30,7 +30,7 @@
 | # | Task | Status | Owner | Notes |
 |---|------|--------|-------|-------|
 | F01 | Flutter project clean structure | Done | agent | Clean Architecture dirs, pubspec with deps |
-| F02 | Design tokens + app theme | Done | agent | AppTheme dark, AppColors, AppTypography, AppSpacing |
+| F02 | Design tokens + app theme | Done | agent | AppTheme dark + AppColors, AppTypography, AppSpacing; **AppTheme.light + LightAppColors/LightAppTypography added in V08 (4bb8f44) — light + dark themes now both first-class** |
 | F03 | Xtream data models | Done | agent | Channel, Programme, Category, User entities + DTOs |
 | F04 | Xtream API client | Done | agent | Dio ApiClient + CloudStreamRemoteDataSource |
 | F05 | Login screen | Done | agent | Form validation, Xtream auth flow |
@@ -86,10 +86,11 @@
 | V05 | Most Watched home row | **Done** | agent | PlayCountStore (SharedPreferences-backed, per-profile, key `play_count_{profileId}_{streamId}`), player_screen _saveProgress bumps count every 30s + dispose, mostWatchedProvider joins counts with liveStreamsProvider (drops orphans, awaits live), _MostWatchedRow on home above Continue Watching with N× badge. 13 new tests, 64 total. **Merged to develop (6178768) — CI ✅ + Release ✅ + v0.1.22.** |
 | V06 | Channel list sort modes | **Done** | agent | ChannelSortMode enum + ChannelSortStore (SharedPreferences), channelSortProvider + filteredLiveStreamsProvider re-sort, AppBar sort-icon → _SortModeSheet (Default / Name A–Z / Number — null-num entries to bottom). 12 new tests, 76 total. **Merged to develop (c4f8107) — CI ✅ + Release ✅.** |
 | V07 | EPG reminders | **Done** | agent | V07 chunk 1 (b42f8d4) + V07 chunk 2 (e9913a0) + V07 chunk 3 (d08174b) all merged. Chunk 1: data layer + EPG long-press toggle + bell-icon. Chunk 2: RemindersListScreen (swipe-to-delete, empty state, schedule formatting), Settings lead-time picker (bottom sheet, 0/1/5/10/15/20/25/30/45/60 min), defaultLeadTimeProvider wired through RemindersNotifier.add. Chunk 3: flutter_local_notifications wiring — ReminderScheduler interface + LocalNotificationsReminderScheduler impl + reminderSchedulerProvider override, Android POST_NOTIFICATIONS / SCHEDULE_EXACT_ALARM / RECEIVE_BOOT_COMPLETED perms + ScheduledNotificationBootReceiver + core-library desugaring + multiDex, iOS requestPermissions via resolvePlatformSpecificImplementation, schedule on add / cancel on remove / rehydrate on cold start, requestPermission() on first add, profile-scoped rehydrate drops other profiles' reminders. 6 new tests (add→schedule+permission, remove→cancel, re-add after remove, rehydrate scope, missing-scheduler tolerance, other-profile drop), 104 total. **Merged to develop (d08174b) — CI ✅ + Release ✅.** |
+| V08 | Light theme + Settings theme picker | **Done** | agent | LightAppColors / LightAppTypography token classes mirror dark AppColors / AppTypography field-for-field; AppTheme.light ThemeData pulls every value from light tokens; MaterialApp picks AppTheme.dark vs AppTheme.light at runtime via themeModeProvider (no restart); ThemePreferencesStore (SharedPreferences-backed persistence, system default + forward-compat fallback); Settings → Appearance tile + bottom sheet picker (Dark / Light / Follow system) writes through to themeModeProvider. **Scope intentionally narrow** — existing screens still hardcode AppColors / AppTypography, so a 'pick Light' smoke test only flips Material widgets (tooltips, dialogs, scrollbars); a full per-screen migration to a brightness-aware context is a deliberate follow-on. 11 new tests (store persistence + system-default + unknown-fallback + provider reads-persisted + provider in-memory mirror + cross-container persistence + AppTheme.dark/light sanity), 115 total. **Merged to develop (4bb8f44) — CI ✅ + Release ✅.** |
 
 ---
 
-> Last updated: 2026-06-09T12:30:00+01:00
+> Last updated: 2026-06-09T13:30:00+01:00
 
 ---
 
