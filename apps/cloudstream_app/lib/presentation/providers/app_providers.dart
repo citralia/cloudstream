@@ -9,6 +9,7 @@ import '../../core/storage/reminder_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
 import '../../core/storage/theme_preferences_store.dart';
+import '../../core/storage/lead_time_preferences_store.dart';
 import '../../core/notifications/reminder_scheduler.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import '../../data/datasources/credentials_store.dart';
@@ -549,12 +550,22 @@ final reminderStoreProvider = Provider<ReminderStore>((ref) {
   return ReminderStore(ref.watch(sharedPreferencesProvider));
 });
 
+/// SharedPreferences-backed [LeadTimePreferencesStore]. The
+/// Settings → Reminders lead-time picker writes through this;
+/// [defaultLeadTimeProvider] reads the in-memory mirror on cold
+/// start.
+final leadTimePreferencesStoreProvider = Provider<LeadTimePreferencesStore>((ref) {
+  return LeadTimePreferencesStore(ref.watch(sharedPreferencesProvider));
+});
+
 /// The user's preferred "remind me X minutes before" lead time.
-/// Defaults to [ReminderStore.defaultLeadTime] (5 min). Overridable
-/// from the Settings → Reminders lead-time picker, and read by
-/// [RemindersNotifier.add] when scheduling new reminders.
+/// Persisted via [LeadTimePreferencesStore] under
+/// `reminder_default_lead_minutes`; the initial value comes from
+/// the store on first read (5 min default on a fresh install).
+/// Overridable from the Settings → Reminders lead-time picker, and
+/// read by [RemindersNotifier.add] when scheduling new reminders.
 final defaultLeadTimeProvider = StateProvider<Duration>((ref) {
-  return ReminderStore.defaultLeadTime;
+  return ref.watch(leadTimePreferencesStoreProvider).load();
 });
 
 /// Schedules OS-level notifications for reminders. Overridable so
