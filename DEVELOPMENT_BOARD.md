@@ -85,7 +85,11 @@
 | V04 | Series-episode Continue Watching | **Done** | agent | SeriesInfoCache (lazy LRU) + reverse-lookup: saved episode stream_id → (parent series, season, episode). ContinueWatchingEntry.kind = vod|seriesEpisode. SeriesDetailScreen.autoResumeEpisode opens right season, plays via post-frame callback, reads saved position. _openResume routes series_episode entries to SeriesDetailScreen. 9 new tests, 51 total. **Merged to develop (b9f193c) — CI ✅ + Release ✅.** |
 | V05 | Most Watched home row | **Done** | agent | PlayCountStore (SharedPreferences-backed, per-profile, key `play_count_{profileId}_{streamId}`), player_screen _saveProgress bumps count every 30s + dispose, mostWatchedProvider joins counts with liveStreamsProvider (drops orphans, awaits live), _MostWatchedRow on home above Continue Watching with N× badge. 13 new tests, 64 total. **Merged to develop (6178768) — CI ✅ + Release ✅ + v0.1.22.** |
 | V06 | Channel list sort modes | **Done** | agent | ChannelSortMode enum + ChannelSortStore (SharedPreferences), channelSortProvider + filteredLiveStreamsProvider re-sort, AppBar sort-icon → _SortModeSheet (Default / Name A–Z / Number — null-num entries to bottom). 12 new tests, 76 total. **Merged to develop (c4f8107) — CI ✅ + Release ✅.** |
-| V07 | EPG reminders | **Done** | agent | V07 chunk 1: Reminder + ReminderStore (SharedPreferences, JSON) + remindersProvider. Long-press on EPG `_ProgrammeBlock` toggles a reminder; bell-icon indicator on the block. Snackbar confirms with the local fire time. 14 new tests, 90 total. **Merged to develop (b42f8d4) — CI ✅ + Release ✅ + v0.1.25.** **V07 chunk 2 (Backlog): Reminders list screen + Settings lead-time picker + flutter_local_notifications wiring for actual OS notifications.** |
+| V07 | EPG reminders | **Done** | agent | V07 chunk 1 (b42f8d4) + V07 chunk 2 (e9913a0) both merged. Chunk 1: data layer + EPG long-press toggle + bell-icon. Chunk 2: RemindersListScreen (swipe-to-delete, empty state, schedule formatting), Settings lead-time picker (bottom sheet, 0/1/5/10/15/20/25/30/45/60 min), defaultLeadTimeProvider wired through RemindersNotifier.add. 22 new tests across the two chunks, 98 total. **V07 chunk 3 (Backlog): flutter_local_notifications wiring — Android POST_NOTIFICATIONS / SCHEDULE_EXACT_ALARM / boot-receiver, iOS notification permission, scheduling on add / cancellation on remove, timezone-aware fire time.** |
+
+---
+
+> Last updated: 2026-06-09T11:10:00+01:00
 
 ---
 

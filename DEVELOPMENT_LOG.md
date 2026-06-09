@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (11:10 BST)
+
+**Session start:** 10:35 BST
+
+### What was done:
+- On entry, the 10:00 cron had shipped V07 chunk 1 (b42f8d4) to `develop` with green CI/Release, but the docs commit had been left uncommitted in the working tree (board updated to V07 Done, 10:00 log entry added). **Committed + pushed those doc updates as e354284** (CI ✅ + Release ✅).
+- Picked up V07 chunk 2: the Reminders list screen + Settings lead-time picker. The OS-notification half of chunk 2 (`flutter_local_notifications` + Android `POST_NOTIFICATIONS` / `SCHEDULE_EXACT_ALARM` / boot-receiver + iOS permission + timezone) is a bigger piece — split out as **V07 chunk 3** for next time. This chunk ships the data path + UI hooks, all in pure client code, no extra deps.
+- V07 chunk 2 implemented, tested, and shipped:
+  - **`RemindersListScreen`** (`presentation/screens/reminders_list_screen.dart`, new): scrollable list of upcoming reminders, swipe-to-delete (`Dismissible` with red Cancel background), empty-state with hint pointing to EPG long-press, app-bar subtitle showing "N upcoming". Per-row content: bell-icon avatar tile, programme title (max 2 lines + ellipsis), channel name, schedule line ("Today 22:00" / "Tomorrow 14:30" / "Sat 18:00" / "12/06 21:00"). Snackbar on dismiss ("Reminder cancelled — <title>").
+  - **`defaultLeadTimeProvider`** (`presentation/providers/app_providers.dart`, new): `StateProvider<Duration>` defaulting to `ReminderStore.defaultLeadTime` (5 min). `RemindersNotifier.add()` now reads it as the default when the caller doesn't pass `leadTime` explicitly. Picker writes through to it; existing reminders keep their original lead time (set at scheduling) — matches user expectation that "scheduled 30 min ahead" doesn't silently get shortened.
+  - **`_RemindersTile` + `_LeadTimeTile`** (`presentation/screens/settings_screen.dart`, new): new "Reminders" section between Playback and Debug. `_RemindersTile` shows the live count of upcoming reminders (refreshes as the user adds/cancels elsewhere) and opens the new list screen. `_LeadTimeTile` opens a bottom sheet with 10 options (0, 1, 5, 10, 15, 20, 25, 30, 45, 60 min), writes the choice through to `defaultLeadTimeProvider`, with a current-value checkmark.
+- 8 new tests (`reminders_list_screen_test.dart`):
+  - 5 `defaultLeadTimeProvider` + `RemindersNotifier.add` integration tests (default = 5 min, override, add reads it, explicit arg wins, no retro-edit on saved reminders)
+  - 3 `RemindersListScreen` widget tests (empty state copy, populated row content, swipe-to-delete + snackbar)
+- **98 tests total** (was 90), 0 new analyze errors/warnings (49 pre-existing `withOpacity` infos remain)
+- Pushed `feature/v07-chunk2-reminders-list-settings` → `develop` (merge e9913a0). CI 🟡 + Release 🟡 at time of writing.
+
+### CI status:
+- `Merge feature/v07-chunk2-reminders-list-settings into develop` (e9913a0) — CI 🟡 queued, Release 🟡 queued
+
+### What's next:
+- **V07 chunk 3**: `flutter_local_notifications` wiring — add the dep, Android manifest permissions (`POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`), boot receiver to rehydrate scheduled alarms, iOS permission request, schedule on `add()`, cancel on `remove()`, local-tz-aware fire time. The data layer is already complete — chunk 3 is purely platform-side wiring.
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- Other unblocked candidates: Channel list sort by "recently watched" (would need a recency store), Theme: light variant (SPEC first-class; currently dark-only), Series/season-level Resume on Continue Watching row (V04 covers episode-level; could surface the parent series), Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites).
+
 ## 2026-06-09 — CloudStream Hourly Cron (10:00 BST)
 
 **Session start:** 09:35 BST
