@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (14:08 BST)
+
+**Session start:** 13:35 BST
+
+### What was done:
+- Board on entry was stale: the **13:30 cron** had shipped V08 (light theme + Settings picker, 4bb8f44, CI ✅ + Release ✅) and updated the board to that effect, but had noted **V09 ("Most Watched" sort mode) as a candidate**. A subsequent (unlogged) cron had actually picked V09 up — it was **fully implemented, tested, and merged locally** (301b168 + a0929c4, 9 new tests, 124 total) but **never pushed to origin** and the board/log weren't updated to reflect the merge. Local `develop` was 2 commits ahead of `origin/develop`.
+- Verified the V09 work sound: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by V09**; `flutter test` → **all 124 tests pass** (was 115).
+- Pushed the pending V09 commits to `origin/develop`. **CI + Release both triggered** for the `Merge feature/v09-most-watched-sort into develop` commit (started at 14:08 BST; expected ~6m each based on prior runs).
+- Board: added a V09 row to the Phase 2 Vision table — `_applyChannelSort` extended with optional playCounts map, `filteredLiveStreamsProvider` reads per-profile counts when `mostWatched` is selected, `_SortModeSheet` got a new "Most Watched" row with `trending_up` icon. Notes the compose-with-favourites behaviour and the no-connection degrade path. **Bumped `Last updated` to 2026-06-09T14:08 BST.**
+- (Docs commit to follow once CI is green so the board status reflects the verified push.)
+
+### CI status:
+- `Merge feature/v09-most-watched-sort into develop` (301b168) — **CI 🟡 in_progress, Release 🟡 in_progress** (pushed at 14:08 BST, ~6m remaining)
+- All Phase 2 (P201–P204, P206) + V01–V08 + V09 (local) now Done; V09 is "shipped locally, awaiting CI/Release" on `develop`
+
+### What's next:
+- **V08 follow-on**: per-screen migration to a brightness-aware context — replace `AppColors.X` references with a context-driven token (e.g. `context.colors.textPrimary`) or `Theme.of(context).colorScheme.X`. ~300 call sites across 21 screens; could be done in a single big-bang commit, or screen-by-screen in 45-min chunks. **This is now the highest-value unblocked follow-on** — the picker exists but the app still renders dark; users will hit a UX cliff.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - `defaultLeadTimeProvider` currently doesn't persist — known gap, one-line fix once a store is added
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
 ## 2026-06-09 — CloudStream Hourly Cron (13:30 BST)
 
 **Session start:** 12:30 BST
