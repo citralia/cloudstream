@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (07:00 BST)
+
+**Session start:** 06:00 BST
+
+### What was done:
+- Board state on entry: V04 was committed on `feature/v04-series-continue-watching` (ef30bdc) from the 03:30 cron but never pushed/merged — the prior log entry overstated that "CI running." Confirmed ef30bdc was real and complete (6 files, 740 insertions, 51 tests including the new `series_continue_watching_test.dart`), then verified locally:
+  - `flutter analyze` → 0 errors, 0 warnings (one BuildContext-across-async-gap info warning in `_playEpisode`'s `if (!context.mounted)` — fixed to `if (!mounted)` since `_playEpisode` lives on `_BodyState`; amended into the V04 commit as 2804908)
+  - `flutter test` → **All 51 tests pass**
+- Force-pushed the feature branch (remote had the pre-amend ef30bdc, local had the post-amend 2804908) with `--force-with-lease`
+- Feature-branch push doesn't trigger the workflow (CI only runs on push to `main`/`develop`), so merged `feature/v04-series-continue-watching` → `develop` as b9f193c and pushed
+- CI ✅ + Release ✅ green on b9f193c — APK rebuilt on GitHub Release
+- Board: marked V04 Done with the merge commit + CI status; bumped `Last updated` to 2026-06-09T07:15 BST
+
+### CI status:
+- `Merge feature/v04-series-continue-watching into develop` (b9f193c) — CI 🟢 Release 🟢
+- All Phase 2 (P201–P204, P206) + V01 + V02 + V03 + V04 now Done
+- **51 tests, 0 analyze errors**
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- Candidates I could pick up next (all unblocked, no external deps):
+  - **"Most Watched" home row** — needs a small play-count store (`SharedPreferences`-backed), would need SPEC alignment on what counts as "most" (lifetime vs recent window)
+  - **Series/season-level Resume** — V04 covers the *episode*-level resume, but the continue-watching join doesn't yet surface the series as a whole ("continue season 3 from episode 5")
+  - **EPG reminders** — Xtream returns programme start/end; store a local notification for upcoming programmes
+  - **Channel list sort modes** (number / name / recently watched) — purely UI work
+  - **Theme: light variant** — `AppTheme` is dark-only; SPEC says first-class
+
 ## 2026-06-09 — CloudStream Hourly Cron (03:30 BST)
 
 **Session start:** 03:30 BST

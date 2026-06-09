@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-09T01:30:00+01:00
+> Last updated: 2026-06-09T07:15:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -82,7 +82,7 @@
 | V01 | VOD info panel | **Done** | agent | vodInfoProvider + VodDetailScreen: real plot, cast, director, rating, duration, higher-res cover, loading shimmer + error fallback — bf59c64 |
 | V02 | Series/episode browsing | **Done** | agent | getSeriesStreams + seriesInfoProvider + SeriesScreen + SeriesDetailScreen (season selector, episode list, tap-to-play via buildSeriesStreamUrl); 8 new tests, 41 total, 0 analyze errors — 7d51715 |
 | V03 | Continue Watching row | **Done** | agent | continueWatchingProvider + _ContinueWatchingRow on Live TV home — joins saved watch-progress streamIds against VOD/series lists, sorts by updatedAt, hidden when empty, 9 new tests, 42 total — e3be65b |
-| V04 | Series-episode Continue Watching | **Done** | agent | SeriesInfoCache (lazy LRU) + reverse-lookup: saved episode stream_id → (parent series, season, episode). ContinueWatchingEntry.kind = vod|seriesEpisode. SeriesDetailScreen.autoResumeEpisode opens right season, plays via post-frame callback, reads saved position. _openResume routes series_episode entries to SeriesDetailScreen. 9 new tests, 51 total. |
+| V04 | Series-episode Continue Watching | **Done** | agent | SeriesInfoCache (lazy LRU) + reverse-lookup: saved episode stream_id → (parent series, season, episode). ContinueWatchingEntry.kind = vod|seriesEpisode. SeriesDetailScreen.autoResumeEpisode opens right season, plays via post-frame callback, reads saved position. _openResume routes series_episode entries to SeriesDetailScreen. 9 new tests, 51 total. **Merged to develop (b9f193c) — CI ✅ + Release ✅.** |
 
 ---
 
