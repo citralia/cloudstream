@@ -19,6 +19,14 @@ final credentialsStoreProvider = Provider<CredentialsStore>((ref) {
   return CredentialsStore();
 });
 
+/// The active Xtream connection (or null if no connection is set).
+/// Wraps `CredentialsStore.loadActiveConnection` in a provider so
+/// tests can override it without needing a Flutter binding.
+final activeCredentialsProvider = FutureProvider<XtreamCredentials?>((ref) async {
+  final store = ref.watch(credentialsStoreProvider);
+  return await store.loadActiveConnection();
+});
+
 // ── Auth state ─────────────────────────────────────────────────────────────
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -317,6 +325,66 @@ final watchProgressStoreProvider = Provider<WatchProgressStore>((ref) {
 final watchProgressProvider = Provider.family<WatchProgress?, ({int streamId, String profileId})>((ref, params) {
   final store = ref.watch(watchProgressStoreProvider);
   return store.getProgress(profileId: params.profileId, streamId: params.streamId);
+});
+
+/// One "Continue Watching" entry: the resolved stream + its saved progress.
+class ContinueWatchingEntry {
+  final XtreamStream stream;
+  final WatchProgress progress;
+  const ContinueWatchingEntry({required this.stream, required this.progress});
+}
+
+/// "Continue Watching" row data for the active connection.
+///
+/// Resolves every saved watch-progress streamId against the loaded VOD
+/// (and series) stream lists, joins them, and returns the top entries
+/// sorted by most recently watched. Stream IDs that no longer exist in
+/// the loaded lists (e.g. the item was removed from the server, or it
+/// was an episode whose parent series is no longer cached) are dropped.
+///
+/// Keyed by the active connection's `name` to match the writer
+/// (`PlayerScreen._saveProgress` saves with `creds.name`).
+final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((ref) async {
+  // Use the same override path as other providers so tests can swap it
+  // out for a fake that doesn't need a Flutter binding.
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return [];
+  final store = ref.watch(watchProgressStoreProvider);
+  final savedIds = store.savedStreamIds(creds.name);
+  if (savedIds.isEmpty) return [];
+
+  // Wait for the source lists to fully load. `valueOrNull` would
+  // miss the data on the first read when the provider is still
+  // resolving — `await ... .future` ensures we get the real value.
+  final vod = await ref.watch(vodStreamsProvider.future);
+  final series = await ref.watch(seriesStreamsProvider.future).catchError(
+        (_) => const <XtreamStream>[],
+      );
+
+  // Build a single lookup over both lists. Series episode IDs live in
+  // the saved keys (PlayerScreen saves with the episode's stream_id) —
+  // they are NOT in the series list (which holds series-level IDs).
+  // We treat them as orphan entries and let them be dropped here; the
+  // future per-episode "Continue Watching" follow-on will resolve them
+  // against the series-info cache.
+  final byId = <int, XtreamStream>{};
+  for (final s in vod) {
+    byId[s.streamId] = s;
+  }
+  for (final s in series) {
+    byId[s.streamId] = s;
+  }
+
+  final entries = <ContinueWatchingEntry>[];
+  for (final id in savedIds) {
+    final stream = byId[id];
+    if (stream == null) continue;
+    final progress = store.getProgress(profileId: creds.name, streamId: id);
+    if (progress == null) continue;
+    entries.add(ContinueWatchingEntry(stream: stream, progress: progress));
+  }
+  entries.sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
+  return entries;
 });
 
 // ── Profile Store ───────────────────────────────────────────────────────────

@@ -8,13 +8,29 @@ import 'player_screen.dart';
 /// VOD detail screen — shown before playback.
 /// Displays plot, cast, rating, and offers resume or start-from-beginning.
 class VodDetailScreen extends ConsumerWidget {
-  const VodDetailScreen({super.key, required this.stream});
+  const VodDetailScreen({super.key, required this.stream, this.autoResume = false});
 
   final XtreamStream stream;
+
+  /// When true, the player opens immediately with resume-from-saved-position
+  /// (or from beginning if no progress is saved). Used by the
+  /// "Continue Watching" row on the home screen — one tap → straight into
+  /// the video, skipping the intermediate synopsis screen.
+  final bool autoResume;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vodInfoAsync = ref.watch(vodInfoProvider(stream.streamId));
+
+    // Auto-resume path: kick off playback on first frame, then render
+    // the normal screen behind the player route. The detail screen stays
+    // mounted so the user can pop back to the home/continue-watching row.
+    if (autoResume) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        _playVod(context, ref, resume: true);
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
