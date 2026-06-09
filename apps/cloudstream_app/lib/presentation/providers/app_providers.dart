@@ -309,6 +309,86 @@ final seriesStreamUrlProvider = Provider.family<String, int>((ref, episodeStream
   return client.buildSeriesStreamUrl(episodeStreamId);
 });
 
+/// Lazily-cached [XtreamSeriesInfo] keyed by series id (the parent
+/// series, not an episode id). Fetched on first read and held for the
+/// life of the [ProviderContainer]. The Continue Watching joiner uses
+/// this to resolve saved episode stream IDs back to their parent
+/// series + season/episode.
+///
+/// Unlike `seriesInfoProvider` (which is `FutureProvider.family` and
+/// re-fetches per dependent), this is a simple LRU-shaped cache:
+/// `cache[id] ?? await fetch(id)` and the result is held in memory.
+class SeriesInfoCache {
+  SeriesInfoCache(this._client);
+  final XtreamApiClient _client;
+  final Map<int, XtreamSeriesInfo> _cache = {};
+
+  Future<XtreamSeriesInfo> get(int seriesId) async {
+    final cached = _cache[seriesId];
+    if (cached != null) return cached;
+    final info = await _client.getSeriesInfo(seriesId);
+    _cache[seriesId] = info;
+    return info;
+  }
+
+  /// Reverse-lookup: given an episode stream id, find the (parent
+  /// series id, season number, episode) tuple — or null if the episode
+  /// is not in any cached series. Iterates the cache only (does not
+  /// trigger fetches), so callers must preload the series they want
+  /// to scan via [load] / [loadAll].
+  ContinueWatchingEpisodeHit? findEpisodeByStreamId(int episodeStreamId) {
+    for (final entry in _cache.entries) {
+      for (final season in entry.value.seasons) {
+        for (final ep in season.episodes) {
+          if (ep.streamId == episodeStreamId) {
+            return ContinueWatchingEpisodeHit(
+              seriesId: entry.key,
+              series: entry.value,
+              seasonNumber: season.seasonNumber,
+              episode: ep,
+            );
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Bulk-load a list of series ids into the cache. Used by the
+  /// Continue Watching joiner to pre-warm all parent series at once.
+  Future<void> loadAll(Iterable<int> seriesIds) async {
+    for (final id in seriesIds) {
+      if (_cache.containsKey(id)) continue;
+      try {
+        await get(id);
+      } catch (_) {
+        // Skip individual failures — the episode will just stay
+        // orphan and be dropped from the Continue Watching row.
+      }
+    }
+  }
+}
+
+final seriesInfoCacheProvider = Provider<SeriesInfoCache>((ref) {
+  return SeriesInfoCache(ref.watch(xtreamClientProvider));
+});
+
+/// Result of resolving a saved episode stream id back to its parent
+/// series + season/episode.
+class ContinueWatchingEpisodeHit {
+  final int seriesId;
+  final XtreamSeriesInfo series;
+  final int seasonNumber;
+  final XtreamEpisode episode;
+
+  const ContinueWatchingEpisodeHit({
+    required this.seriesId,
+    required this.series,
+    required this.seasonNumber,
+    required this.episode,
+  });
+}
+
 // ── Watch Progress ─────────────────────────────────────────────────────────
 
 /// Must be overridden at app startup with `SharedPreferences.instanceFor`.
@@ -327,20 +407,41 @@ final watchProgressProvider = Provider.family<WatchProgress?, ({int streamId, St
   return store.getProgress(profileId: params.profileId, streamId: params.streamId);
 });
 
+/// Discriminator for the kind of item a [ContinueWatchingEntry] represents.
+/// A saved watch-progress id can resolve to either a VOD/series-level
+/// stream (the VOD case) or a series episode (resolved against the
+/// [SeriesInfoCache] by episode stream id).
+enum ContinueWatchingKind { vod, seriesEpisode }
+
 /// One "Continue Watching" entry: the resolved stream + its saved progress.
 class ContinueWatchingEntry {
   final XtreamStream stream;
   final WatchProgress progress;
-  const ContinueWatchingEntry({required this.stream, required this.progress});
+  final ContinueWatchingKind kind;
+
+  /// For [ContinueWatchingKind.seriesEpisode] entries: the parent
+  /// series info and the resolved episode. Null for VOD entries.
+  final XtreamSeriesInfo? parentSeries;
+  final XtreamSeason? parentSeason;
+  final XtreamEpisode? episode;
+
+  const ContinueWatchingEntry({
+    required this.stream,
+    required this.progress,
+    this.kind = ContinueWatchingKind.vod,
+    this.parentSeries,
+    this.parentSeason,
+    this.episode,
+  });
 }
 
 /// "Continue Watching" row data for the active connection.
 ///
 /// Resolves every saved watch-progress streamId against the loaded VOD
-/// (and series) stream lists, joins them, and returns the top entries
-/// sorted by most recently watched. Stream IDs that no longer exist in
-/// the loaded lists (e.g. the item was removed from the server, or it
-/// was an episode whose parent series is no longer cached) are dropped.
+/// list, the series stream list (for series-level entries), AND the
+/// [SeriesInfoCache] (which maps each episode stream id back to its
+/// parent series + season/episode). Stream IDs that no longer exist in
+/// any of these sources are dropped silently.
 ///
 /// Keyed by the active connection's `name` to match the writer
 /// (`PlayerScreen._saveProgress` saves with `creds.name`).
@@ -361,12 +462,16 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
         (_) => const <XtreamStream>[],
       );
 
-  // Build a single lookup over both lists. Series episode IDs live in
-  // the saved keys (PlayerScreen saves with the episode's stream_id) —
-  // they are NOT in the series list (which holds series-level IDs).
-  // We treat them as orphan entries and let them be dropped here; the
-  // future per-episode "Continue Watching" follow-on will resolve them
-  // against the series-info cache.
+  // Pre-load the series-info cache for every series in the catalogue.
+  // Then we can do a reverse-lookup from any saved episode stream id
+  // back to its parent series in O(1) per cache entry. Skipped when
+  // the series list is empty (nothing to resolve against).
+  final cache = ref.watch(seriesInfoCacheProvider);
+  if (series.isNotEmpty) {
+    await cache.loadAll(series.map((s) => s.streamId));
+  }
+
+  // Build a single lookup over VOD + series (for series-level entries).
   final byId = <int, XtreamStream>{};
   for (final s in vod) {
     byId[s.streamId] = s;
@@ -377,11 +482,53 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
 
   final entries = <ContinueWatchingEntry>[];
   for (final id in savedIds) {
-    final stream = byId[id];
-    if (stream == null) continue;
     final progress = store.getProgress(profileId: creds.name, streamId: id);
     if (progress == null) continue;
-    entries.add(ContinueWatchingEntry(stream: stream, progress: progress));
+
+    // 1) Direct match in VOD or series-level list.
+    final direct = byId[id];
+    if (direct != null) {
+      entries.add(ContinueWatchingEntry(
+        stream: direct,
+        progress: progress,
+        kind: ContinueWatchingKind.vod,
+      ));
+      continue;
+    }
+
+    // 2) Reverse-lookup: is `id` a series episode we have cached?
+    final hit = cache.findEpisodeByStreamId(id);
+    if (hit != null) {
+      // Synthesise a stream for the episode so the card can render
+      // its name + logo in the Continue Watching row. The parent
+      // series is the cover/logo source.
+      final ep = hit.episode;
+      final parent = hit.series;
+      final episodeStream = XtreamStream(
+        streamId: ep.streamId,
+        name: 'S${hit.seasonNumber.toString().padLeft(2, '0')}E${ep.episodeNumber.toString().padLeft(2, '0')} — ${ep.title.isNotEmpty ? ep.title : parent.name}',
+        logo: parent.cover,
+        categoryId: 0,
+        streamType: 'series',
+      );
+      // Find the parent stream (for name + logo consistency).
+      XtreamStream parentStream = byId[hit.seriesId] ?? episodeStream;
+      final parentSeason = parent.seasons.firstWhere(
+        (s) => s.seasonNumber == hit.seasonNumber,
+        orElse: () => parent.seasons.isNotEmpty
+            ? parent.seasons.first
+            : const XtreamSeason(seasonNumber: 1, episodes: []),
+      );
+      entries.add(ContinueWatchingEntry(
+        stream: parentStream,
+        progress: progress,
+        kind: ContinueWatchingKind.seriesEpisode,
+        parentSeries: parent,
+        parentSeason: parentSeason,
+        episode: ep,
+      ));
+    }
+    // else: orphan — drop silently.
   }
   entries.sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
   return entries;
