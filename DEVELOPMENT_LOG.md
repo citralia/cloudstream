@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (17:30 BST)
+
+**Session start:** 17:30 BST
+
+### What was done:
+- Board on entry was stale: a prior (unlogged) cron had shipped **V11 (brightness-aware context tokens — chunk 1)** to `develop` (23243dd). The merge brought in `lib/core/theme/theme_extensions.dart` (new `ThemeTokens` extension on `BuildContext` exposing `context.appColors` / `context.appTypography` via `Theme.of(context).brightness`), plus migrations of `login_screen.dart` + `tv_text_field.dart` (shared by login + playlist). CI ✅ (6m45s) + Release ✅ (6m40s). Board + log had not been updated.
+- Verified V11 locally: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by V11**; `flutter test` → **all 141 tests pass** (was 132, +9 from V11).
+- Pushed the V11 docs backfill (board row + last-updated timestamp). CI + Release will fire on the docs push.
+- Audited the remaining 14 screens / 2 widgets that still hardcode `AppColors.*` / `AppTypography.*` — 245 total references outside the V11-migrated files. The biggest is `channel_list_screen.dart` (62), followed by `settings_screen.dart` (44), `series_detail_screen.dart` (29), `epg_guide_screen.dart` (27), `playlist_screen.dart` (25). Picked **V12 (chunk 2: settings + profile + debug_logs + reminders + search)** as the next logical group — these are the "manage" surfaces that share visual patterns and include the Settings screen where the user toggles Light, so the light theme becomes visible in the place they're already looking.
+
+### CI status:
+- `Merge feature/v11-brightness-aware-tokens into develop` (23243dd) — **CI 🟢 (6m45s) Release 🟢 (6m40s)**
+- All Phase 2 (P201–P204, P206) + V01–V11 now Done
+
+### What's next:
+- **V12**: Brightness-aware migration chunk 2 — migrate `settings_screen.dart` + `profile_switcher_screen.dart` + `debug_logs_screen.dart` + `reminders_list_screen.dart` + `search_screen.dart` (101 references across 5 files). Same pattern as V11: add `import '.../core/theme/theme_extensions.dart';`, replace `AppColors.X` with `context.appColors.X` and `AppTypography.X` with `context.appTypography.X` at every call site, add a couple of widget tests that pump each screen inside `MaterialApp(theme: AppTheme.dark)` and `MaterialApp(theme: AppTheme.light)` and assert the right token class is used.
+- **V13+ candidates** (remaining unblocked migrations, in order of size): channel_list_screen (62 refs, the big one), series_detail_screen (29), epg_guide_screen (27), playlist_screen (25), vod_detail_screen (20), vod_screen (16), series_screen (16), player_screen (14), quick_channel_overlay widget (11), player_gesture_overlay widget (1).
+- **Backlog** (external-service blockers): P205 Firestore, P207 DVR, P208 Monetisation, B202 Firebase.
+- **C06**: Smoke test on Firestick (blocked on josh)
+
 ## 2026-06-09 — CloudStream Hourly Cron (15:15 BST)
 
 **Session start:** 15:00 BST
