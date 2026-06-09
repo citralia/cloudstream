@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (15:15 BST)
+
+**Session start:** 15:00 BST
+
+### What was done:
+- Board on entry: the 14:08 cron had pushed V09 (Most Watched sort) — CI ✅ + Release ✅ on the docs commit 49b37b8. All explicit Next candidates were either blocked (P205/P207/P208) or noted as one-line follow-ons. A prior (unlogged) cron had picked up the "defaultLeadTimeProvider doesn't persist" one-liner as **V10** — committed on `feature/v10-lead-time-persistence` (374c9cb) but never verified, never merged, never documented.
+- Verified V10 locally: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by V10**; `flutter test` → **all 132 tests pass** (was 124, +8 from V10).
+- Pushed (already on origin), merged `feature/v10-lead-time-persistence` → `develop` (931ff60) and pushed. **CI in_progress, Release queued** at time of writing (started ~15:06 BST, expected ~6m each based on prior runs).
+- Board: marked V10 Done with the merge commit + test count; also retroactively flipped V09 to "CI ✅ + Release ✅ on 49b37b8" (the docs commit completed both workflows for the V09 push). Bumped `Last updated` to 2026-06-09T15:15 BST.
+
+### CI status:
+- `Merge feature/v10-lead-time-persistence into develop` (931ff60) — **CI 🟢 (6m04s) Release 🟢 (10m54s)**
+- All Phase 2 (P201–P204, P206) + V01–V10 now Done
+
+### What's next:
+- **V08 follow-on** (highest-value unblocked): per-screen migration to a brightness-aware context — replace `AppColors.X` references with a context-driven token (e.g. `context.colors.textPrimary`) or `Theme.of(context).colorScheme.X`. ~300 call sites across 21 screens; could be done in a single big-bang commit, or screen-by-screen in 45-min chunks. The picker exists but the app still renders dark; users will hit a UX cliff.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
 ## 2026-06-09 — CloudStream Hourly Cron (14:08 BST)
 
 **Session start:** 13:35 BST
