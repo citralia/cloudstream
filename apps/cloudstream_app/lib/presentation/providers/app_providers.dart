@@ -8,7 +8,9 @@ import '../../core/storage/play_count_store.dart';
 import '../../core/storage/reminder_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
+import '../../core/storage/theme_preferences_store.dart';
 import '../../core/notifications/reminder_scheduler.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import '../../data/datasources/credentials_store.dart';
 import '../../domain/entities/profile.dart';
 import 'player_controller_notifier.dart';
@@ -511,6 +513,28 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
     'reminderSchedulerProvider must be overridden in main() (or in tests). '
     'Use LocalNotificationsReminderScheduler as the production impl.',
   );
+});
+
+// ── Theme preferences ──────────────────────────────────────────────────
+
+/// SharedPreferences-backed [ThemePreferencesStore]. The Settings
+/// → Theme tile writes through this; `MaterialApp.themeMode` reads
+/// the in-memory mirror at [themeModeProvider].
+final themePreferencesStoreProvider = Provider<ThemePreferencesStore>((ref) {
+  return ThemePreferencesStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// The user's preferred [ThemeMode]. Defaults to [ThemeMode.system]
+/// on first launch (no saved preference). The Settings → Theme tile
+/// reads this and writes back via [themeModeProvider.notifier] —
+/// which also persists through [themePreferencesStoreProvider].
+///
+/// `MaterialApp.themeMode` (in `main.dart`) watches this provider
+/// to flip between [AppTheme.dark] / [AppTheme.light] at runtime
+/// without a restart.
+final themeModeProvider = StateProvider<ThemeMode>((ref) {
+  final store = ref.watch(themePreferencesStoreProvider);
+  return store.load();
 });
 
 /// In-memory list of reminders for the active connection, exposed
