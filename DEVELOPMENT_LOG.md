@@ -4,6 +4,33 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (10:00 BST)
+
+**Session start:** 09:35 BST
+
+### What was done:
+- Board on entry: V06 (channel list sort modes) had been merged to develop at 08:20 (c4f8107, CI + Release green) but the board wasn't updated. **Patched the board to mark V06 Done** with the merge commit and CI status. The "Next" pointer still pointed at V06.
+- All explicit Next/Backlog items (P205 Firestore sync, P207 DVR, P208 Monetisation) hard-blocked on external services. **Picked V07 EPG reminders** (a pure-client feature, unblocked) and intentionally scoped to **chunk 1 only** — the full task (flutter_local_notifications + timezone + reminders list + Settings lead-time + iOS) is too big for a single 45-min window. Following the brief's "first logical chunk" rule.
+- V07 chunk 1 fully implemented, tested, and shipped:
+  - **`Reminder` model** (`core/storage/reminder_store.dart`, new): id (stable, derived from channelId + startTime.millis), channelId, channelName, programmeTitle, startTime, endTime, leadTime, profileName. Helpers: `fireAt` (= start − lead), `isPast` (now > end). JSON roundtrip via `toJson` / `fromJson`.
+  - **`ReminderStore`** (same file, new): SharedPreferences-backed under `epg_reminders_v1`. Operations: `loadAll`, `add` (idempotent on id — replace, not duplicate), `remove`, `clear`, `has`, `activeForProfile(name)` (filters by profile, drops past, sorts by `fireAt` asc), `makeId(channelId, startTime)`, `defaultLeadTime` (= 5 min). Garbage on disk → empty list (forward-compat).
+  - **`reminderStoreProvider` + `remindersProvider`** (`app_providers.dart`): plain `Provider` for the store; `StateNotifierProvider<RemindersNotifier, List<Reminder>>` for the in-memory list, keyed to the active profile. `add`/`remove` re-read from the store so the UI rebuilds. `add` returns the stored `Reminder` so the caller (the EPG long-press handler) can show the actual fire time in the snackbar.
+  - **`_ProgrammeBlock`** (`epg_guide_screen.dart`): promoted from `StatelessWidget` to `ConsumerWidget`. New `onLongPress` handler, gated on `isFuture` (past / on-now programmes can't be reminded — the lead time would be in the past, and the affordance is meaningless). Behaviour mirrors the standard TV-guide UX: long-press a future programme → schedule + bell-icon + confirmation snackbar ("Will remind you at HH:MM — <title>"); long-press an already-reminded programme → cancel + "Reminder removed" snackbar. New bell-icon (`Icons.notifications_active`) drawn in the programme block next to the existing catchup replay badge.
+  - 14 new tests (`reminder_store_test.dart`): loadAll empty default, add/load, idempotent-on-id, remove, remove-unknown no-op, clear, has, activeForProfile filter+sort, makeId stability+uniqueness, fireAt computation, JSON roundtrip, garbage-input resilience. **90 tests total** (was 76), 0 new analyze errors, 0 new warnings (47 pre-existing `withOpacity` infos remain).
+- Pushed `feature/v07-epg-reminders-data-layer` → `develop` (merge b42f8d4). CI ✅ + Release ✅ — **APK uploaded as v0.1.25**.
+
+### CI status:
+- `Merge feature/v07-epg-reminders-data-layer into develop` (b42f8d4) — CI 🟢 Release 🟢
+- V07 chunk 1 Done; V07 chunk 2 (Reminders list, Settings lead-time, OS notifications) parked in Backlog for the next cron.
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- **V07 chunk 2**: Reminders list screen, Settings lead-time picker, `flutter_local_notifications` + Android `POST_NOTIFICATIONS` / `SCHEDULE_EXACT_ALARM` / boot-receiver wiring. The data layer is now ready for it — every UI piece can read/write through `remindersProvider`.
+- Other unblocked candidates: Channel list sort by "recently watched" (would need a recency store), Theme: light variant (SPEC first-class; currently dark-only), Series/season-level Resume on Continue Watching row (V04 covers episode-level; could surface the parent series).
+
 ## 2026-06-09 — CloudStream Hourly Cron (08:20 BST)
 
 **Session start:** 07:30 BST
