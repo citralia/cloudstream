@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 import '../widgets/tv_text_field.dart';
 
@@ -50,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(serverError ?? usernameError ?? passwordError ?? 'Validation error'),
-          backgroundColor: AppColors.error,
+          backgroundColor: context.appColors.error,
         ),
       );
       return;
@@ -72,9 +73,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final isLoading = authState.status == AuthStatus.unknown;
+    final colors = context.appColors;
+    final typo = context.appTypography;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -84,21 +87,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo + tagline
-                const Icon(
+                Icon(
                   Icons.live_tv_rounded,
                   size: 72,
-                  color: AppColors.primary,
+                  color: colors.primary,
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   'CloudStream',
-                  style: AppTypography.h1.copyWith(color: AppColors.textPrimary),
+                  style: typo.h1.copyWith(color: colors.textPrimary),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Your TV. Everywhere.',
-                  style: AppTypography.caption,
+                  style: typo.caption,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.xxxl),
@@ -150,18 +153,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.1),
+                      color: colors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                      border: Border.all(color: colors.error.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                        Icon(Icons.error_outline, color: colors.error, size: 20),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             authState.error!,
-                            style: AppTypography.caption.copyWith(color: AppColors.error),
+                            style: typo.caption.copyWith(color: colors.error),
                           ),
                         ),
                       ],
@@ -210,6 +213,8 @@ class _TvButtonState extends State<_TvButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Focus(
       onFocusChange: (v) => setState(() => _isFocused = v),
       onKeyEvent: (node, event) {
@@ -226,19 +231,19 @@ class _TvButtonState extends State<_TvButton> {
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
             color: widget.isLoading
-                ? AppColors.primary.withOpacity(0.5)
+                ? colors.primary.withOpacity(0.5)
                 : _isFocused
-                    ? AppColors.primary
-                    : AppColors.primary.withOpacity(0.8),
+                    ? colors.primary
+                    : colors.primary.withOpacity(0.8),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isFocused ? AppColors.accent : Colors.transparent,
+              color: _isFocused ? colors.accent : Colors.transparent,
               width: 2,
             ),
             boxShadow: _isFocused
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.5),
+                      color: colors.primary.withOpacity(0.5),
                       blurRadius: 12,
                       spreadRadius: 0,
                     )
@@ -247,17 +252,21 @@ class _TvButtonState extends State<_TvButton> {
           ),
           alignment: Alignment.center,
           child: widget.isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: colors.textPrimary,
                   ),
                 )
               : Text(
                   widget.label,
-                  style: AppTypography.h3.copyWith(color: Colors.white),
+                  // Primary button text is always the "on" colour
+                  // — on a `primary`-coloured background, the right
+                  // token is whichever side reads as the "surface"
+                  // colour in the active theme.
+                  style: typo.h3.copyWith(color: colors.surface),
                 ),
         ),
       ),

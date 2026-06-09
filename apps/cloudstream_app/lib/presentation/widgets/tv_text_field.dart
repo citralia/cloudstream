@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 
 /// TV/Firestick-friendly text input.
 /// - Does NOT trigger the system keyboard on focus.
@@ -91,6 +92,8 @@ class _TvTextFieldState extends State<TvTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Focus(
       focusNode: _focusNode,
       onKeyEvent: (node, event) {
@@ -107,20 +110,20 @@ class _TvTextFieldState extends State<TvTextField> {
         behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _hasError
-                  ? AppColors.error
+                  ? colors.error
                   : _isFocused
-                      ? AppColors.primary
-                      : AppColors.divider,
+                      ? colors.primary
+                      : colors.divider,
               width: _isFocused || _hasError ? 2 : 1,
             ),
             boxShadow: _isFocused
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
+                      color: colors.primary.withOpacity(0.3),
                       blurRadius: 8,
                       spreadRadius: 0,
                     )
@@ -138,8 +141,8 @@ class _TvTextFieldState extends State<TvTextField> {
                 ),
                 child: Text(
                   widget.label,
-                  style: AppTypography.micro.copyWith(
-                    color: _isFocused ? AppColors.primary : AppColors.textMuted,
+                  style: typo.micro.copyWith(
+                    color: _isFocused ? colors.primary : colors.textMuted,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -157,7 +160,7 @@ class _TvTextFieldState extends State<TvTextField> {
                     if (widget.prefixIcon != null) ...[
                       Icon(
                         widget.prefixIcon,
-                        color: AppColors.textMuted,
+                        color: colors.textMuted,
                         size: 20,
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -165,8 +168,8 @@ class _TvTextFieldState extends State<TvTextField> {
                     Expanded(
                       child: Text(
                         _displayText,
-                        style: AppTypography.body.copyWith(
-                          color: AppColors.textPrimary,
+                        style: typo.body.copyWith(
+                          color: colors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -180,7 +183,7 @@ class _TvTextFieldState extends State<TvTextField> {
                             _showPassword
                                 ? Icons.visibility_off
                                 : Icons.visibility,
-                            color: AppColors.textMuted,
+                            color: colors.textMuted,
                             size: 20,
                           ),
                           onPressed: () =>
@@ -201,7 +204,7 @@ class _TvTextFieldState extends State<TvTextField> {
                   ),
                   child: Text(
                     _errorText!,
-                    style: AppTypography.micro.copyWith(color: AppColors.error),
+                    style: typo.micro.copyWith(color: colors.error),
                   ),
                 ),
             ],
@@ -420,15 +423,17 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(AppSpacing.xl),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 700),
         decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
+          color: colors.surfaceElevated,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: colors.divider),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -440,39 +445,39 @@ class _TvSoftKeyboardState extends State<TvSoftKeyboard> {
                 children: [
                   Text(
                     widget.label,
-                    style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
+                    style: typo.h3.copyWith(color: colors.textPrimary),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    icon: Icon(Icons.close, color: colors.textMuted),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            const Divider(color: AppColors.divider, height: 1),
+            const Divider(height: 1),
             // Input display
             Container(
               margin: const EdgeInsets.all(AppSpacing.md),
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.divider),
+                border: Border.all(color: colors.divider),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       _text.isEmpty ? (widget.hint ?? ' ') : _text,
-                      style: AppTypography.body.copyWith(
-                        color: _text.isEmpty ? AppColors.textMuted : AppColors.textPrimary,
+                      style: typo.body.copyWith(
+                        color: _text.isEmpty ? colors.textMuted : colors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(width: 2, height: 20, color: AppColors.primary),
+                  Container(width: 2, height: 20, color: colors.primary),
                 ],
               ),
             ),
@@ -536,6 +541,8 @@ class _KeyboardKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Padding(
       padding: const EdgeInsets.all(2),
       child: GestureDetector(
@@ -545,21 +552,24 @@ class _KeyboardKey extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             color: isFocused
-                ? AppColors.primary
+                ? colors.primary
                 : isAction
-                    ? AppColors.surface
-                    : AppColors.surfaceElevated,
+                    ? colors.surface
+                    : colors.surfaceElevated,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isFocused ? AppColors.accent : AppColors.divider,
+              color: isFocused ? colors.accent : colors.divider,
               width: isFocused ? 2 : 1,
             ),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
-            style: AppTypography.body.copyWith(
-              color: isFocused ? Colors.white : AppColors.textPrimary,
+            style: typo.body.copyWith(
+              // On a `primary`-coloured key (focused) the readable
+              // foreground is whichever side reads as the "surface"
+              // colour in the active theme.
+              color: isFocused ? colors.surface : colors.textPrimary,
               fontWeight: isAction ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
