@@ -363,6 +363,16 @@ class XtreamStream {
   final int categoryId;
   final String streamType; // 'live', 'movie', 'series'
   final String? epgChannel; // for live: maps to EPG
+  /// Optional channel number as supplied by the provider (Xtream's
+  /// `num` field on the live-streams JSON). Many providers populate
+  /// this with the playlist's channel number; when null we fall back
+  /// to [streamId] for sorting. Defaults to null so the change is
+  /// source-compatible with existing call sites and tests.
+  ///
+  /// Named `number` rather than `num` to avoid shadowing the Dart
+  /// built-in `num` type, which would make `num`-typed expressions
+  /// like `json['num'] is num` ambiguous in the constructor below.
+  final int? number;
 
   const XtreamStream({
     required this.streamId,
@@ -371,6 +381,7 @@ class XtreamStream {
     required this.categoryId,
     required this.streamType,
     this.epgChannel,
+    this.number,
   });
 
   factory XtreamStream.fromJson(Map<String, dynamic> json) {
@@ -381,6 +392,9 @@ class XtreamStream {
       categoryId: int.tryParse(json['category_id']?.toString() ?? '') ?? 0,
       streamType: json['stream_type'] as String? ?? 'live',
       epgChannel: json['epg_channel'] as String?,
+      number: json['num'] is num
+          ? (json['num'] as num).toInt()
+          : int.tryParse(json['num']?.toString() ?? ''),
     );
   }
 }

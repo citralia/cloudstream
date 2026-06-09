@@ -6,6 +6,7 @@ import '../../core/search/search_service.dart';
 import '../../core/storage/profile_store.dart';
 import '../../core/storage/play_count_store.dart';
 import '../../core/storage/watch_progress_store.dart';
+import '../../core/storage/channel_sort_store.dart';
 import '../../data/datasources/credentials_store.dart';
 import '../../domain/entities/profile.dart';
 import 'player_controller_notifier.dart';
@@ -176,9 +177,71 @@ final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) asy
   final favouritesOnly = ref.watch(favouritesOnlyProvider);
   final client = ref.watch(xtreamClientProvider);
   final streams = await client.getLiveStreams(categoryId: categoryId);
-  if (!favouritesOnly) return streams;
-  final favIds = ref.watch(activeProfileFavouritesProvider).toSet();
-  return streams.where((s) => favIds.contains(s.streamId)).toList();
+  final filtered = favouritesOnly
+      ? () {
+          final favIds = ref.watch(activeProfileFavouritesProvider).toSet();
+          return streams.where((s) => favIds.contains(s.streamId)).toList();
+        }()
+      : streams;
+  return _applyChannelSort(filtered, ref.watch(channelSortProvider));
+});
+
+/// Sort [streams] by the current [ChannelSortMode]. The default mode
+/// returns the input unchanged (preserves Xtream server order). Name
+/// is case-insensitive ascending. Number falls back to streamId when
+/// the provider's `num` field is missing.
+List<XtreamStream> _applyChannelSort(List<XtreamStream> streams, ChannelSortMode mode) {
+  switch (mode) {
+    case ChannelSortMode.defaultOrder:
+      return streams;
+    case ChannelSortMode.name:
+      final sorted = [...streams];
+      sorted.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return sorted;
+    case ChannelSortMode.number:
+      // Streams that have a provider-supplied number sort by it
+      // (asc); streams missing `number` are pushed to the bottom and
+      // sorted by `streamId` as a stable secondary key. This matches
+      // the cable-box mental model — null-num entries don't crowd
+      // out real channel numbers near the top.
+      final withNumber = <XtreamStream>[];
+      final withoutNumber = <XtreamStream>[];
+      for (final s in streams) {
+        if (s.number != null) {
+          withNumber.add(s);
+        } else {
+          withoutNumber.add(s);
+        }
+      }
+      withNumber.sort((a, b) {
+        final byNum = a.number!.compareTo(b.number!);
+        if (byNum != 0) return byNum;
+        return a.streamId.compareTo(b.streamId);
+      });
+      withoutNumber.sort((a, b) => a.streamId.compareTo(b.streamId));
+      return [...withNumber, ...withoutNumber];
+  }
+}
+
+// ── Channel sort mode ────────────────────────────────────────────────────
+
+/// Store for the user's chosen live-channel sort mode. Backed by
+/// [SharedPreferences] via [ChannelSortStore] so the selection
+/// survives across launches.
+final channelSortStoreProvider = Provider<ChannelSortStore>((ref) {
+  return ChannelSortStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// Currently-selected sort mode for the live TV channel list. Defaults
+/// to [ChannelSortMode.defaultOrder] on first launch (no saved
+/// preference). The `AppBar` sort button reads this and writes back
+/// via [channelSortProvider.notifier] — which also persists through
+/// [channelSortStoreProvider].
+final channelSortProvider = StateProvider<ChannelSortMode>((ref) {
+  final store = ref.watch(channelSortStoreProvider);
+  return store.load();
 });
 
 // ── Categories ────────────────────────────────────────────────────────────
