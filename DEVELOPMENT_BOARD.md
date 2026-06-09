@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-09T00:25:00+01:00
+> Last updated: 2026-06-09T01:30:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -82,6 +82,7 @@
 | P208 | Monetisation | Backlog | agent | RevenueCat paywall on multi-profile + sync + catch-up |
 | P209 | Cast + multi-screen | Backlog | agent | AirPlay + Cast + PiP orchestration |
 | V01 | VOD info panel | **Done** | agent | vodInfoProvider + VodDetailScreen: real plot, cast, director, rating, duration, higher-res cover, loading shimmer + error fallback — bf59c64 |
+| V02 | Series/episode browsing | **Done** | agent | getSeriesStreams + seriesInfoProvider + SeriesScreen + SeriesDetailScreen (season selector, episode list, tap-to-play via buildSeriesStreamUrl); 8 new tests, 41 total, 0 analyze errors — 7d51715 |
 
 ---
 

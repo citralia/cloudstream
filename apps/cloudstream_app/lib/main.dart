@@ -10,6 +10,7 @@ import 'presentation/screens/channel_list_screen.dart';
 import 'presentation/screens/epg_guide_screen.dart';
 import 'presentation/screens/search_screen.dart';
 import 'presentation/screens/vod_screen.dart';
+import 'presentation/screens/series_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 
 Future<void> main() async {
@@ -100,6 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             EpgGuideScreen(),
             SearchScreen(),
             VodScreen(),
+            SeriesScreen(),
             SettingsScreen(),
           ],
         ),
@@ -126,6 +128,7 @@ class _TvNavBarState extends ConsumerState<_TvNavBar> {
     (icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book, label: 'Guide'),
     (icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Search'),
     (icon: Icons.movie_outlined, activeIcon: Icons.movie, label: 'VOD'),
+    (icon: Icons.tv_outlined, activeIcon: Icons.tv, label: 'Series'),
     (icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
   ];
 

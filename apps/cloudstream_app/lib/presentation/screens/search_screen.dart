@@ -5,6 +5,7 @@ import '../../core/search/search_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
+import 'series_detail_screen.dart';
 import 'vod_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -46,18 +47,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _openStream(SearchResult result) {
     final stream = result.stream;
-    if (result.type == 'vod') {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => VodDetailScreen(stream: stream),
-        ),
-      );
-    } else {
-      // Live channel — play directly.
-      ref.read(selectedStreamProvider.notifier).state = stream;
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
-      );
+    switch (result.type) {
+      case 'vod':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => VodDetailScreen(stream: stream),
+          ),
+        );
+        break;
+      case 'series':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SeriesDetailScreen(stream: stream),
+          ),
+        );
+        break;
+      case 'live':
+      default:
+        // Live channel — play directly.
+        ref.read(selectedStreamProvider.notifier).state = stream;
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+        );
     }
   }
 
@@ -170,21 +181,7 @@ class _SearchResultTile extends StatelessWidget {
             child: Row(
               children: [
                 // Type badge.
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: result.type == 'live'
-                        ? AppColors.primary.withOpacity(0.2)
-                        : AppColors.accent.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    result.type == 'live' ? Icons.live_tv : Icons.movie,
-                    color: result.type == 'live' ? AppColors.primary : AppColors.accent,
-                    size: 18,
-                  ),
-                ),
+                _TypeBadge(type: result.type),
                 const SizedBox(width: AppSpacing.md),
                 // Channel logo or initial.
                 Container(
@@ -221,7 +218,11 @@ class _SearchResultTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        result.type == 'live' ? 'Live TV' : 'VOD',
+                        result.type == 'live'
+                            ? 'Live TV'
+                            : result.type == 'series'
+                                ? 'Series'
+                                : 'VOD',
                         style: AppTypography.micro,
                       ),
                     ],
@@ -278,6 +279,51 @@ class _EmptyState extends StatelessWidget {
           Text(subtitle, style: AppTypography.caption),
         ],
       ),
+    );
+  }
+}
+
+/// Type-tinted badge shown next to each search result.
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.type});
+
+  final String type;
+
+  ({Color bg, Color fg, IconData icon}) get _style {
+    switch (type) {
+      case 'series':
+        return (
+          bg: AppColors.primary.withOpacity(0.2),
+          fg: AppColors.primary,
+          icon: Icons.tv,
+        );
+      case 'vod':
+        return (
+          bg: AppColors.accent.withOpacity(0.2),
+          fg: AppColors.accent,
+          icon: Icons.movie,
+        );
+      case 'live':
+      default:
+        return (
+          bg: AppColors.primary.withOpacity(0.2),
+          fg: AppColors.primary,
+          icon: Icons.live_tv,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _style;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: style.bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(style.icon, color: style.fg, size: 18),
     );
   }
 }

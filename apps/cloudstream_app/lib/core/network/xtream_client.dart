@@ -187,6 +187,31 @@ class XtreamApiClient {
     }
   }
 
+  /// Fetch series streams, optionally filtered by category.
+  ///
+  /// Xtream returns the catalogue of series for the active playlist — each
+  /// item is an [XtreamStream] with `stream_type == 'series'` and a
+  /// `series_id` (encoded into [XtreamStream.streamId] since both fields are
+  /// numeric identifiers in the Xtream catalogue).
+  Future<List<XtreamStream>> getSeriesStreams({int? categoryId}) async {
+    _requireConfigured();
+    try {
+      final params = <String, dynamic>{
+        'username': _username,
+        'password': _password,
+        'action': 'get_series',
+      };
+      if (categoryId != null) params['category_id'] = categoryId;
+
+      final resp = await _dio.get('/player_api.php', queryParameters: params);
+      return (resp.data as List<dynamic>)
+          .map((j) => XtreamStream.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw XtreamApiException('Failed to fetch series: ${e.message}');
+    }
+  }
+
   /// Fetch series info (includes seasons + episodes).
   Future<XtreamSeriesInfo> getSeriesInfo(int seriesId) async {
     _requireConfigured();
@@ -445,12 +470,20 @@ class XtreamSeriesInfo {
   final String name;
   final String? plot;
   final String? cover;
+  final String? cast;
+  final String? director;
+  final String? releaseDate;
+  final String? rating;
   final List<XtreamSeason> seasons;
 
   const XtreamSeriesInfo({
     required this.name,
     this.plot,
     this.cover,
+    this.cast,
+    this.director,
+    this.releaseDate,
+    this.rating,
     this.seasons = const [],
   });
 
@@ -458,9 +491,13 @@ class XtreamSeriesInfo {
     final info = json['info'] as Map<String, dynamic>? ?? {};
     final seasonsData = info['seasons'] as List<dynamic>? ?? [];
     return XtreamSeriesInfo(
-      name: info['name'] as String? ?? '',
+      name: info['name'] as String? ?? json['name'] as String? ?? '',
       plot: info['plot'] as String?,
       cover: info['cover'] as String?,
+      cast: info['cast'] as String?,
+      director: info['director'] as String?,
+      releaseDate: info['releaseDate'] as String?,
+      rating: info['rating'] as String?,
       seasons: seasonsData.map((s) => XtreamSeason.fromJson(s as Map<String, dynamic>)).toList(),
     );
   }
