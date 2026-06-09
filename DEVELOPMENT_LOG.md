@@ -18,7 +18,7 @@
 - Board: added V13 row to the Phase 2 Vision table; bumped `Last updated` to 2026-06-09T22:15 BST.
 
 ### CI status:
-- `Merge feature/v13-brightness-aware-chunk3 into develop` (2d06ec7) — **CI 🟡 queued, Release 🟡 queued** at time of writing (started ~22:09 BST, ~6m each expected based on prior runs)
+- `Merge feature/v13-brightness-aware-chunk3 into develop` (2d06ec7) — **CI ✅ (5m56s) + Release ✅ on docs commit 5d6ba5e (CI 6m31s + Release 11m27s) → v0.1.41**
 
 ### What's next:
 - **V14 (next logical chunk)**: brightness-aware migration chunk 4 — media-playback surfaces. The remaining un-migrated screens after V13: `vod_screen`, `series_screen`, `player_screen`, `epg_guide_screen`, `quick_channel_overlay` (widget), `profile_setup_screen`, plus a few dialogs (sort sheet is already in `channel_list_screen.dart` so it's covered). The media surfaces (player/EPG/quick-switcher) have gesture/video overlay layers and a `theme` of safety considerations around not breaking the playback pipeline — chunk 4 should do the simpler `vod_screen` / `series_screen` / `profile_setup_screen` first (more uniform than player), then the playback surfaces in a separate chunk 5.
