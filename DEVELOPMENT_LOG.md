@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-06-09 — CloudStream Hourly Cron (12:30 BST)
+
+**Session start:** 11:30 BST
+
+### What was done:
+- Board on entry: V07 chunk 2 had shipped (e9913a0, CI ✅ + Release ✅) per the 11:10 log. The "Next" pointer was at **V07 chunk 3** (flutter_local_notifications wiring — the only remaining unblocked follow-on; P205/P207/P208 are still blocked on external services). Picked it up.
+- V07 chunk 3 fully implemented, tested, and shipped:
+  - **`ReminderScheduler` interface** (`lib/core/notifications/reminder_scheduler.dart`, new): four methods — `requestPermission()`, `schedule(Reminder)`, `cancel(String)`, `rehydrate(List<Reminder>)`. Defined as an abstract class so tests can swap in a recording fake without spinning up a platform channel.
+  - **`LocalNotificationsReminderScheduler`** (same file): production impl wrapping `FlutterLocalNotificationsPlugin`. `init()` (idempotent) wires the plugin, registers the Android notification channel (`epg_reminders`, Importance.high), and initialises the timezone database. `requestPermission()` dispatches to the right platform-specific implementation: iOS/macOS asks for alert/badge/sound; Android 13+ asks for `POST_NOTIFICATIONS`; older Androids return `true` (no runtime prompt). `schedule()` uses `zonedSchedule` with `AndroidScheduleMode.inexactAllowWhileIdle` and `UILocalNotificationDateInterpretation.absoluteTime`, fires at `Reminder.fireAt` (start − lead), no-ops if the time is already in the past. `cancel()` is a thin wrapper. `rehydrate()` calls `cancelAll()` then re-schedules the whole list — used at cold start to recover from device reboots. Errors are caught and `debugPrint`-logged so a denied permission never crashes the UI.
+  - **ID mapping** (`_idFromString`): `flutter_local_notifications` requires a 32-bit int id. The reminder id is `"$channelId-$epochMs"` — hashed deterministically into a 31-bit positive int.
+  - **`reminderSchedulerProvider`** (`app_providers.dart`, new): `Provider<ReminderScheduler>` that throws `UnimplementedError` by default; overridden in `main()` with the production impl and overridable in tests. `_safeScheduler()` on the notifier catches the `UnimplementedError` and returns null, so the notifier degrades gracefully when no scheduler is wired up (this is exactly the path the existing `reminders_list_screen_test.dart` exercises).
+  - **`RemindersNotifier` wiring**: `add()` now `await`s `scheduler.requestPermission()` (best-effort — fires the OS dialog the first time) then `scheduler.schedule(reminder)`. `remove()` calls `scheduler.cancel(id)`. `refresh()` is now async and calls `scheduler.rehydrate(state)` so a profile switch re-syncs the OS side. **All existing reminder-list tests still pass unchanged** because `_safeScheduler` returns null when no scheduler is overridden.
+  - **Android `AndroidManifest.xml`** (new perms + receivers):
+    - `<uses-permission>`: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `VIBRATE`
+    - `<receiver>` `com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver` listening for `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` / `QUICKBOOT_POWERON` — re-schedules saved reminders after a device reboot (Android wipes scheduled alarms on reboot)
+    - `<receiver>` `com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver` (no intent filter, just declared so the package can dispatch scheduled alarms back to the plugin)
+  - **Android `build.gradle.kts`**: `isCoreLibraryDesugaringEnabled = true` + `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")` dep. `flutter_local_notifications` 17.x uses `java.time` and requires desugaring on older Android levels; first CI run failed on this and was fixed in the same merge commit (force-pushed to develop).
+  - **`main.dart`**: builds a `ProviderContainer` (instead of `ProviderScope`) so the cold-start `remindersProvider.notifier.refresh()` call (which kicks off rehydrate) happens **before** `runApp` — this is the safest place to do it, since the UI isn't mounted yet and any permission dialog is shown over the launch screen. Uses `UncontrolledProviderScope` to wire the pre-built container.
+  - **iOS**: no `Info.plist` permission keys required for local notifications (the OS uses the runtime prompt via `requestPermissions(alert: badge: sound:)`). The plugin handles the `UNUserNotificationCenter` plumbing.
+  - **6 new tests** (`test/reminder_scheduler_test.dart`):
+    1. `add()` requests permission + schedules a notification
+    2. `remove()` cancels the matching notification by id
+    3. `add → remove → add` schedules fresh (idempotent-on-id behaviour preserved through the scheduler)
+    4. `refresh()` re-schedules every active reminder for the profile
+    5. `refresh()` drops reminders that belong to other profiles
+    6. `add()` still persists to the store when the scheduler is missing (degraded-mode path)
+- **104 tests total** (was 98), 0 new analyze errors, 0 new warnings (50 pre-existing `withOpacity` infos remain)
+- Pushed `feature/v07-chunk3-os-notifications` → `develop` (merge d08174b). Initial CI ❌ on the desugaring issue, fixed in an amended commit + force-push to develop; both CI ✅ + Release ✅ on d08174b.
+
+### CI status:
+- `Merge feature/v07-chunk3-os-notifications into develop` (d08174b) — CI 🟢 Release 🟢
+- **V07 (EPG reminders) is now fully Done** across all three chunks (data layer, UI, OS wiring)
+
+### What's next:
+- **P205**: Profile sync via Firestore (Backlog — needs Firebase credentials)
+- **P207**: DVR / recordings (Backlog, revenue-gated after P208)
+- **P208**: Monetisation (Backlog — RevenueCat paywall)
+- **C06**: Smoke test on Firestick (blocked on josh)
+- Other unblocked candidates: Channel list sort by "recently watched" (would need a recency store), Theme: light variant (SPEC first-class; currently dark-only), Series/season-level Resume on Continue Watching row (V04 covers episode-level; could surface the parent series), Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites), EPG-side: "remind me when this programme is on any channel" (would need programme-title EPG search across channels), Recording/catch-up conflict resolution (Xtream already supports both — just a UX question).
+
 ## 2026-06-09 — CloudStream Hourly Cron (11:10 BST)
 
 **Session start:** 10:35 BST
