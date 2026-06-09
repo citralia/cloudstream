@@ -89,6 +89,14 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
         children: [
           Column(
             children: [
+              // Most Watched row — top N most-played live channels for
+              // the active profile, sorted by play count desc. Hidden
+              // when no channels have been played yet. Only visible on
+              // the "All" view (no category selected) so it doesn't
+              // compete with the filtered channel list inside a single
+              // category. Positioned above Continue Watching because
+              // it's a stronger personalisation signal.
+              if (selectedCategoryId == null) const _MostWatchedRow(),
               // Continue Watching row — shows up to 8 most-recently-played
               // VOD/series items with saved watch progress. Hidden when
               // nothing has been played yet. Only visible on the "All"
@@ -858,6 +866,140 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: AppTypography.h1.copyWith(color: AppColors.textMuted),
+      ),
+    );
+  }
+}
+
+/// "Most Watched" horizontal row — surfaces the live channels the active
+/// profile plays most often, sorted by play count desc. Renders nothing
+/// while the provider is still loading or has no entries. Tapping a card
+/// plays the channel (same path as a regular channel-list tap).
+class _MostWatchedRow extends ConsumerWidget {
+  const _MostWatchedRow();
+
+  static const int _maxCards = 8;
+
+  void _openStream(BuildContext context, WidgetRef ref, XtreamStream stream) {
+    ref.read(selectedStreamProvider.notifier).state = stream;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(mostWatchedProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list.take(_maxCards).toList(),
+      orElse: () => const <MostWatchedEntry>[],
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.trending_up, size: 18, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Most Watched', style: AppTypography.h3),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 110,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _MostWatchedCard(
+                  entry: entry,
+                  onTap: () => _openStream(context, ref, entry.stream),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single Most Watched card: square channel logo (or first-letter
+/// placeholder) with the play count badge and channel name. Tapping
+/// the card plays the channel.
+class _MostWatchedCard extends StatelessWidget {
+  final MostWatchedEntry entry;
+  final VoidCallback onTap;
+
+  const _MostWatchedCard({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = entry.stream;
+    return SizedBox(
+      width: 96,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 96,
+                    height: 64,
+                    child: stream.logo != null && stream.logo!.isNotEmpty
+                        ? Image.network(
+                            stream.logo!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _PosterPlaceholder(name: stream.name),
+                          )
+                        : _PosterPlaceholder(name: stream.name),
+                  ),
+                ),
+                Positioned(
+                  top: AppSpacing.xs,
+                  right: AppSpacing.xs,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${entry.count}×',
+                      style: AppTypography.micro.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              stream.name,
+              style: AppTypography.body.copyWith(fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
