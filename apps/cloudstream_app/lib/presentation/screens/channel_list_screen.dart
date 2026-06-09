@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/storage/watch_progress_store.dart';
+import '../../core/storage/channel_sort_store.dart';
 import '../providers/app_providers.dart';
 import '../providers/player_controller_notifier.dart';
 import '../widgets/quick_channel_overlay.dart';
@@ -57,6 +58,37 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     }
   }
 
+  /// Open the sort-mode bottom sheet. The sheet lets the user pick
+  /// between default (Xtream server order), name (A–Z), and number
+  /// (provider-supplied channel number, fallback streamId). The
+  /// choice is written through [channelSortProvider] — which the
+  /// `filteredLiveStreamsProvider` watches — and persisted to
+  /// [SharedPreferences] via [ChannelSortStore] so the choice
+  /// survives across launches.
+  void _openSortSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return _SortModeSheet(
+          current: ref.read(channelSortProvider),
+          onSelected: (mode) {
+            ref.read(channelSortProvider.notifier).state = mode;
+            // Persist so the choice survives a relaunch.
+            ref.read(channelSortStoreProvider).save(mode);
+            // Invalidate the filtered streams so the UI re-runs the
+            // sort against the cached live-streams future.
+            ref.invalidate(filteredLiveStreamsProvider);
+            Navigator.of(sheetContext).pop();
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
@@ -76,6 +108,11 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
               tooltip: 'Expand player',
               onPressed: _openFullPlayer,
             ),
+          IconButton(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Sort channels',
+            onPressed: _openSortSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -997,6 +1034,146 @@ class _MostWatchedCard extends StatelessWidget {
               style: AppTypography.body.copyWith(fontSize: 13),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sort mode picker ─────────────────────────────────────────────────────────
+
+/// Modal bottom sheet for picking a live-channel sort mode. Renders
+/// the three [ChannelSortMode] options as a tappable radio list. The
+/// "selected" indicator mirrors the current [channelSortProvider]
+/// value, so opening the sheet and dismissing it is a no-op.
+class _SortModeSheet extends StatelessWidget {
+  const _SortModeSheet({required this.current, required this.onSelected});
+
+  final ChannelSortMode current;
+  final void Function(ChannelSortMode) onSelected;
+
+  static const _options = <(ChannelSortMode, String, String, IconData)>[
+    (
+      ChannelSortMode.defaultOrder,
+      'Default',
+      'Channels in the order your provider sends them',
+      Icons.list,
+    ),
+    (
+      ChannelSortMode.name,
+      'Name (A–Z)',
+      'Alphabetical by channel name',
+      Icons.sort_by_alpha,
+    ),
+    (
+      ChannelSortMode.number,
+      'Number',
+      'Provider channel number; channels without a number go to the bottom',
+      Icons.numbers,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.md,
+              ),
+              child: Text(
+                'Sort channels by',
+                style: AppTypography.h3,
+              ),
+            ),
+            for (final opt in _options)
+              _SortModeRow(
+                icon: opt.$4,
+                title: opt.$2,
+                subtitle: opt.$3,
+                isSelected: current == opt.$1,
+                onTap: () => onSelected(opt.$1),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SortModeRow extends StatelessWidget {
+  const _SortModeRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              size: 22,
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.body.copyWith(
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.caption.copyWith(fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? AppColors.primary : AppColors.textMuted,
             ),
           ],
         ),
