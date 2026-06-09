@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/xtream_client.dart';
+import '../../core/storage/reminder_store.dart';
 import '../providers/app_providers.dart';
 import '../providers/player_controller_notifier.dart';
 import 'player_screen.dart';
@@ -506,7 +507,7 @@ class _ProgrammeRow extends StatelessWidget {
 
 // ─── Programme block ──────────────────────────────────────────────────────
 
-class _ProgrammeBlock extends StatelessWidget {
+class _ProgrammeBlock extends ConsumerWidget {
   final XtreamEpgEntry entry;
   final XtreamStream stream;
   final DateTime windowStart;
@@ -523,8 +524,72 @@ class _ProgrammeBlock extends StatelessWidget {
     required this.onTap,
   });
 
+  Future<void> _onLongPress(BuildContext context, WidgetRef ref) async {
+    final now = DateTime.now().toUtc();
+    // Don't let the user "remind" themselves about something that's
+    // already on air or past — the menu shouldn't even appear in
+    // those cases (we hide it in build), but guard at the handler
+    // level too in case the timing flips between build and tap.
+    if (!now.isBefore(entry.startTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Can't remind you about a programme that's already started"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final existing = ref.read(remindersProvider).any(
+          (r) => r.id == ReminderStore.makeId(
+            channelId: stream.streamId,
+            startTime: entry.startTime,
+          ),
+        );
+    if (existing) {
+      // Toggle off: long-press on an already-reminded programme
+      // cancels the reminder. This is the standard TV-guide UX.
+      await ref.read(remindersProvider.notifier).remove(
+            ReminderStore.makeId(
+              channelId: stream.streamId,
+              startTime: entry.startTime,
+            ),
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Reminder removed: ${entry.title}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    final reminder = await ref.read(remindersProvider.notifier).add(
+          channelId: stream.streamId,
+          channelName: stream.name,
+          programmeTitle: entry.title,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+        );
+    if (context.mounted) {
+      final fire = reminder.fireAt.toLocal();
+      final hh = fire.hour.toString().padLeft(2, '0');
+      final mm = fire.minute.toString().padLeft(2, '0');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Will remind you at $hh:$mm — ${entry.title}",
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final start = entry.startTime.isBefore(windowStart) ? windowStart : entry.startTime;
     final end = entry.endTime.isAfter(windowEnd) ? windowEnd : entry.endTime;
     final left = timeToOffset(start);
@@ -537,6 +602,19 @@ class _ProgrammeBlock extends StatelessWidget {
     final isOnNow = now.isAfter(entry.startTime) && now.isBefore(entry.endTime);
     final isPast = now.isAfter(entry.endTime);
     final showCatchupBadge = isPast && entry.hasCatchup && entry.isInCatchupWindow;
+    // Future programmes can be reminded. On-now / past programmes
+    // can't (the notification time would be in the past, or
+    // meaningless).
+    final isFuture = now.isBefore(entry.startTime);
+
+    // Did the user already schedule a reminder for this programme?
+    final reminderId = ReminderStore.makeId(
+      channelId: stream.streamId,
+      startTime: entry.startTime,
+    );
+    final hasReminder = ref.watch(
+      remindersProvider.select((list) => list.any((r) => r.id == reminderId)),
+    );
 
     return Positioned(
       left: left,
@@ -545,6 +623,7 @@ class _ProgrammeBlock extends StatelessWidget {
       width: width,
       child: GestureDetector(
         onTap: () => onTap(stream, entry),
+        onLongPress: isFuture ? () => _onLongPress(context, ref) : null,
         child: Container(
           decoration: BoxDecoration(
             color: isOnNow
@@ -561,6 +640,14 @@ class _ProgrammeBlock extends StatelessWidget {
             children: [
               if (showCatchupBadge) ...[
                 const Icon(Icons.replay, size: 10, color: AppColors.accent),
+                const SizedBox(width: 3),
+              ],
+              if (hasReminder) ...[
+                Icon(
+                  Icons.notifications_active,
+                  size: 10,
+                  color: isOnNow ? Colors.white : AppColors.primary,
+                ),
                 const SizedBox(width: 3),
               ],
               Expanded(

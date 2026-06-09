@@ -1,6 +1,6 @@
 # CloudStream — Development Board
 
-> Last updated: 2026-06-09T09:20:00+01:00
+> Last updated: 2026-06-09T10:20:00+01:00
 
 ## Architecture Decision (2026-06-01)
 
@@ -84,7 +84,8 @@
 | V03 | Continue Watching row | **Done** | agent | continueWatchingProvider + _ContinueWatchingRow on Live TV home — joins saved watch-progress streamIds against VOD/series lists, sorts by updatedAt, hidden when empty, 9 new tests, 42 total — e3be65b |
 | V04 | Series-episode Continue Watching | **Done** | agent | SeriesInfoCache (lazy LRU) + reverse-lookup: saved episode stream_id → (parent series, season, episode). ContinueWatchingEntry.kind = vod|seriesEpisode. SeriesDetailScreen.autoResumeEpisode opens right season, plays via post-frame callback, reads saved position. _openResume routes series_episode entries to SeriesDetailScreen. 9 new tests, 51 total. **Merged to develop (b9f193c) — CI ✅ + Release ✅.** |
 | V05 | Most Watched home row | **Done** | agent | PlayCountStore (SharedPreferences-backed, per-profile, key `play_count_{profileId}_{streamId}`), player_screen _saveProgress bumps count every 30s + dispose, mostWatchedProvider joins counts with liveStreamsProvider (drops orphans, awaits live), _MostWatchedRow on home above Continue Watching with N× badge. 13 new tests, 64 total. **Merged to develop (6178768) — CI ✅ + Release ✅ + v0.1.22.** |
-| V06 | Channel list sort modes | **Next** | agent | Default (server order) / Name A–Z / Number — ChannelSortStore (SharedPreferences), channelSortProvider + filteredLiveStreamsProvider extension, AppBar sort-icon → bottom sheet. SPEC §4 (Dan: "Custom channel sort") + §5 ("Custom channel reorder"). |
+| V06 | Channel list sort modes | **Done** | agent | ChannelSortMode enum + ChannelSortStore (SharedPreferences), channelSortProvider + filteredLiveStreamsProvider re-sort, AppBar sort-icon → _SortModeSheet (Default / Name A–Z / Number — null-num entries to bottom). 12 new tests, 76 total. **Merged to develop (c4f8107) — CI ✅ + Release ✅.** |
+| V07 | EPG reminders | **In Progress** | agent | Reminder model + ReminderStore (SharedPreferences, JSON list) + remindersProvider (StateNotifier, profile-scoped, sorted by fireAt). Long-press on EPG `_ProgrammeBlock` toggles a reminder (bell-icon indicator on the block). Snackbar confirms with the local fire time. 14 new tests, 90 total. 0 new analyze errors. **Next chunk: Reminders list screen + Settings lead-time picker + flutter_local_notifications wiring.** |
 
 ---
 
