@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/storage/reminder_store.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 
 /// A list of every upcoming reminder scheduled for the active
@@ -28,7 +29,7 @@ class RemindersListScreen extends ConsumerWidget {
     final count = reminders.length;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,8 +38,8 @@ class RemindersListScreen extends ConsumerWidget {
             if (count > 0)
               Text(
                 count == 1 ? '1 upcoming' : '$count upcoming',
-                style: AppTypography.micro.copyWith(
-                  color: AppColors.textMuted,
+                style: context.appTypography.micro.copyWith(
+                  color: context.appColors.textMuted,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -50,8 +51,8 @@ class RemindersListScreen extends ConsumerWidget {
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               itemCount: count,
-              separatorBuilder: (_, __) => const Divider(
-                color: AppColors.divider,
+              separatorBuilder: (_, __) => Divider(
+                color: context.appColors.divider,
                 height: 1,
                 indent: AppSpacing.lg,
                 endIndent: AppSpacing.lg,
@@ -62,7 +63,7 @@ class RemindersListScreen extends ConsumerWidget {
                   key: ValueKey(r.id),
                   direction: DismissDirection.endToStart,
                   background: Container(
-                    color: AppColors.error.withOpacity(0.15),
+                    color: context.appColors.error.withOpacity(0.15),
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.lg,
@@ -70,12 +71,12 @@ class RemindersListScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.delete_outline, color: AppColors.error),
+                        Icon(Icons.delete_outline, color: context.appColors.error),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
                           'Cancel',
-                          style: AppTypography.body.copyWith(
-                            color: AppColors.error,
+                          style: context.appTypography.body.copyWith(
+                            color: context.appColors.error,
                           ),
                         ),
                       ],
@@ -117,12 +118,12 @@ class _ReminderRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.15),
+              color: context.appColors.primary.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               Icons.notifications_active,
-              color: AppColors.primary,
+              color: context.appColors.primary,
               size: 22,
             ),
           ),
@@ -135,7 +136,7 @@ class _ReminderRow extends StatelessWidget {
                   reminder.programmeTitle.isEmpty
                       ? '(untitled programme)'
                       : reminder.programmeTitle,
-                  style: AppTypography.body.copyWith(
+                  style: context.appTypography.body.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 2,
@@ -144,7 +145,7 @@ class _ReminderRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   reminder.channelName,
-                  style: AppTypography.caption,
+                  style: context.appTypography.caption,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -154,13 +155,13 @@ class _ReminderRow extends StatelessWidget {
                     Icon(
                       Icons.schedule,
                       size: 14,
-                      color: AppColors.textMuted,
+                      color: context.appColors.textMuted,
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       _formatSchedule(reminder),
-                      style: AppTypography.micro.copyWith(
-                        color: AppColors.textMuted,
+                      style: context.appTypography.micro.copyWith(
+                        color: context.appColors.textMuted,
                       ),
                     ),
                   ],
@@ -212,25 +213,25 @@ class _EmptyState extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: context.appColors.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
                 Icons.notifications_off_outlined,
                 size: 36,
-                color: AppColors.textMuted,
+                color: context.appColors.textMuted,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
               'No reminders yet',
-              style: AppTypography.h3,
+              style: context.appTypography.h3,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Long-press a programme in the EPG guide to schedule a reminder.',
-              style: AppTypography.caption,
+              style: context.appTypography.caption,
               textAlign: TextAlign.center,
             ),
           ],

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/search/search_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 import 'series_detail_screen.dart';
@@ -79,7 +80,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final indexBuilt = ref.watch(searchIndexRebuilderProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -90,14 +91,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 controller: _controller,
                 focusNode: _focusNode,
                 onChanged: _onQueryChanged,
-                style: AppTypography.body,
-                cursorColor: AppColors.primary,
+                style: context.appTypography.body,
+                cursorColor: context.appColors.primary,
                 decoration: InputDecoration(
                   hintText: 'Search channels and VOD…',
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                  prefixIcon: Icon(Icons.search, color: context.appColors.textMuted),
                   suffixIcon: query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close, color: AppColors.textMuted),
+                          icon: Icon(Icons.close, color: context.appColors.textMuted),
                           onPressed: _clear,
                         )
                       : null,
@@ -131,8 +132,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     // Still building index.
     if (indexState.isLoading || indexState.hasError) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return Center(
+        child: CircularProgressIndicator(color: context.appColors.primary),
       );
     }
 
@@ -171,7 +172,7 @@ class _SearchResultTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
-        color: AppColors.surface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
@@ -188,7 +189,7 @@ class _SearchResultTile extends StatelessWidget {
                   width: 48,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
+                    color: context.appColors.surfaceElevated,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: stream.logo != null && stream.logo!.isNotEmpty
@@ -197,10 +198,10 @@ class _SearchResultTile extends StatelessWidget {
                           child: Image.network(
                             stream.logo!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => _initial(stream.name),
+                            errorBuilder: (_, __, ___) => _initial(context, stream.name),
                           ),
                         )
-                      : _initial(stream.name),
+                      : _initial(context, stream.name),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 // Name.
@@ -210,7 +211,7 @@ class _SearchResultTile extends StatelessWidget {
                     children: [
                       Text(
                         stream.name,
-                        style: AppTypography.body.copyWith(
+                        style: context.appTypography.body.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 2,
@@ -223,14 +224,14 @@ class _SearchResultTile extends StatelessWidget {
                             : result.type == 'series'
                                 ? 'Series'
                                 : 'VOD',
-                        style: AppTypography.micro,
+                        style: context.appTypography.micro,
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
-                  color: AppColors.textMuted,
+                  color: context.appColors.textMuted,
                   size: 20,
                 ),
               ],
@@ -241,12 +242,12 @@ class _SearchResultTile extends StatelessWidget {
     );
   }
 
-  Widget _initial(String name) {
+  Widget _initial(BuildContext context, String name) {
     return Center(
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: const TextStyle(
-          color: AppColors.textMuted,
+        style: TextStyle(
+          color: context.appColors.textMuted,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -272,11 +273,11 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.textMuted, size: 56),
+          Icon(icon, color: context.appColors.textMuted, size: 56),
           const SizedBox(height: AppSpacing.lg),
-          Text(title, style: AppTypography.h3),
+          Text(title, style: context.appTypography.h3),
           const SizedBox(height: AppSpacing.xs),
-          Text(subtitle, style: AppTypography.caption),
+          Text(subtitle, style: context.appTypography.caption),
         ],
       ),
     );
@@ -289,41 +290,37 @@ class _TypeBadge extends StatelessWidget {
 
   final String type;
 
-  ({Color bg, Color fg, IconData icon}) get _style {
-    switch (type) {
-      case 'series':
-        return (
-          bg: AppColors.primary.withOpacity(0.2),
-          fg: AppColors.primary,
-          icon: Icons.tv,
-        );
-      case 'vod':
-        return (
-          bg: AppColors.accent.withOpacity(0.2),
-          fg: AppColors.accent,
-          icon: Icons.movie,
-        );
-      case 'live':
-      default:
-        return (
-          bg: AppColors.primary.withOpacity(0.2),
-          fg: AppColors.primary,
-          icon: Icons.live_tv,
-        );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final style = _style;
+    final Color bg;
+    final Color fg;
+    final IconData icon;
+    switch (type) {
+      case 'series':
+        bg = context.appColors.primary.withOpacity(0.2);
+        fg = context.appColors.primary;
+        icon = Icons.tv;
+        break;
+      case 'vod':
+        bg = context.appColors.accent.withOpacity(0.2);
+        fg = context.appColors.accent;
+        icon = Icons.movie;
+        break;
+      case 'live':
+      default:
+        bg = context.appColors.primary.withOpacity(0.2);
+        fg = context.appColors.primary;
+        icon = Icons.live_tv;
+        break;
+    }
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: style.bg,
+        color: bg,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(style.icon, color: style.fg, size: 18),
+      child: Icon(icon, color: fg, size: 18),
     );
   }
 }

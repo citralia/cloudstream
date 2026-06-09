@@ -18,8 +18,13 @@ import 'app_theme.dart';
 /// correctly in **both** dark and light themes with no other changes.
 ///
 /// Migrated files so far:
-///   - `presentation/screens/login_screen.dart` (V08 follow-on chunk 1)
-///   - `presentation/widgets/tv_text_field.dart` (used by login + playlist)
+///   - `presentation/screens/login_screen.dart` (V11)
+///   - `presentation/widgets/tv_text_field.dart` (V11; used by login + playlist)
+///   - `presentation/screens/settings_screen.dart` (V12)
+///   - `presentation/screens/profile_switcher_screen.dart` (V12)
+///   - `presentation/screens/debug_logs_screen.dart` (V12)
+///   - `presentation/screens/reminders_list_screen.dart` (V12)
+///   - `presentation/screens/search_screen.dart` (V12)
 ///
 /// The `AppColors` / `LightAppColors` / `AppTypography` /
 /// `LightAppTypography` constants stay exported for the many remaining

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 
 class DebugLogsScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,7 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
         title: const Text('Debug Logs'),
         actions: [
@@ -50,14 +51,14 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
           IconButton(
             icon: Icon(
               _autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center,
-              color: _autoScroll ? AppColors.primary : AppColors.textMuted,
+              color: _autoScroll ? context.appColors.primary : context.appColors.textMuted,
             ),
             tooltip: 'Auto-scroll',
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
           // Clear.
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
+            icon: Icon(Icons.delete_outline, color: context.appColors.textMuted),
             tooltip: 'Clear',
             onPressed: () => ref.read(debugLogProvider.notifier).clear(),
           ),
@@ -68,25 +69,25 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
           // Toggle bar.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-            color: AppColors.surface,
+            color: context.appColors.surface,
             child: Row(
               children: [
-                const Icon(Icons.bug_report, size: 18, color: AppColors.textSecondary),
+                Icon(Icons.bug_report, size: 18, color: context.appColors.textSecondary),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   'Log collection',
-                  style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+                  style: context.appTypography.body.copyWith(color: context.appColors.textPrimary),
                 ),
                 const Spacer(),
                 Switch(
                   value: logState.enabled,
-                  activeColor: AppColors.primary,
+                  activeColor: context.appColors.primary,
                   onChanged: (v) => ref.read(debugLogProvider.notifier).setEnabled(v),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.surface),
+          Divider(height: 1, color: context.appColors.surface),
           // Log viewer.
           Expanded(
             child: logState.lines.isEmpty
@@ -97,12 +98,12 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
                         Icon(
                           logState.enabled ? Icons.article_outlined : Icons.pause_circle_outline,
                           size: 48,
-                          color: AppColors.textMuted,
+                          color: context.appColors.textMuted,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
                           logState.enabled ? 'No logs yet — waiting for output…' : 'Log collection paused',
-                          style: AppTypography.body.copyWith(color: AppColors.textMuted),
+                          style: context.appTypography.body.copyWith(color: context.appColors.textMuted),
                         ),
                       ],
                     ),
@@ -119,7 +120,7 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
           // Status bar.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
-            color: AppColors.surface,
+            color: context.appColors.surface,
             child: Row(
               children: [
                 Container(
@@ -127,7 +128,7 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: logState.enabled ? Colors.green : AppColors.textMuted,
+                    color: logState.enabled ? Colors.green : context.appColors.textMuted,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -135,7 +136,7 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
                   logState.enabled
                       ? '${logState.lines.length} lines collected'
                       : 'Paused — ${logState.lines.length} lines',
-                  style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                  style: context.appTypography.caption.copyWith(color: context.appColors.textSecondary),
                 ),
               ],
             ),
@@ -152,7 +153,7 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _lineColor(line);
+    final color = _lineColor(context, line);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Text(
@@ -169,11 +170,11 @@ class _LogLine extends StatelessWidget {
     );
   }
 
-  Color _lineColor(String line) {
-    if (line.contains(' E/') || line.contains(' ERROR')) return AppColors.error;
+  Color _lineColor(BuildContext context, String line) {
+    if (line.contains(' E/') || line.contains(' ERROR')) return context.appColors.error;
     if (line.contains(' W/') || line.contains(' WARN')) return Colors.orange;
     if (line.contains(' I/')) return Colors.blue.shade300;
-    if (line.contains(' D/')) return AppColors.textMuted;
-    return AppColors.textSecondary;
+    if (line.contains(' D/')) return context.appColors.textMuted;
+    return context.appColors.textSecondary;
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../domain/entities/profile.dart';
 import '../providers/app_providers.dart';
 import 'playlist_screen.dart';
@@ -16,7 +17,7 @@ class SettingsScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
@@ -111,11 +112,11 @@ class SettingsScreen extends ConsumerWidget {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: ref.watch(debugLogProvider).enabled ? Colors.green : AppColors.textMuted,
+                    color: ref.watch(debugLogProvider).enabled ? Colors.green : context.appColors.textMuted,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+                Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 18),
               ],
             ),
             onTap: () {
@@ -139,7 +140,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.article_outlined,
             title: 'Open source',
             subtitle: 'View on GitHub',
-            trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
+            trailing: Icon(Icons.open_in_new, color: context.appColors.textMuted, size: 18),
             onTap: () {}, // TODO: url_launcher
           ),
 
@@ -149,7 +150,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.dns_outlined,
             title: 'Manage connections',
             subtitle: 'Add, edit, or remove Xtream servers',
-            trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+            trailing: Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 18),
             onTap: () {
               Navigator.push(
                 context,
@@ -168,11 +169,11 @@ class SettingsScreen extends ConsumerWidget {
               child: ElevatedButton.icon(
                 onPressed: () => _confirmLogout(context, ref),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error.withOpacity(0.15),
-                  foregroundColor: AppColors.error,
+                  backgroundColor: context.appColors.error.withOpacity(0.15),
+                  foregroundColor: context.appColors.error,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.error.withOpacity(0.3)),
+                    side: BorderSide(color: context.appColors.error.withOpacity(0.3)),
                   ),
                 ),
                 icon: const Icon(Icons.logout),
@@ -191,7 +192,7 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.appColors.surface,
         title: const Text('Sign out?'),
         content: const Text('You will need your Xtream credentials to sign back in.'),
         actions: [
@@ -204,7 +205,7 @@ class SettingsScreen extends ConsumerWidget {
               Navigator.pop(ctx);
               ref.read(authProvider.notifier).logout();
             },
-            child: Text('Sign out', style: TextStyle(color: AppColors.error)),
+            child: Text('Sign out', style: TextStyle(color: context.appColors.error)),
           ),
         ],
       ),
@@ -222,7 +223,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
       child: Text(
         title.toUpperCase(),
-        style: AppTypography.micro.copyWith(color: AppColors.primary, letterSpacing: 1.2),
+        style: context.appTypography.micro.copyWith(color: context.appColors.primary, letterSpacing: 1.2),
       ),
     );
   }
@@ -241,15 +242,15 @@ class _InfoTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.textMuted, size: 20),
+          Icon(icon, color: context.appColors.textMuted, size: 20),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: AppTypography.caption),
+                Text(label, style: context.appTypography.caption),
                 const SizedBox(height: 2),
-                Text(value, style: AppTypography.body, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(value, style: context.appTypography.body, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -283,7 +284,7 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Row(
           children: [
-            Icon(icon, color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textMuted, size: 20),
+            Icon(icon, color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textMuted, size: 20),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -291,15 +292,15 @@ class _SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTypography.body.copyWith(
-                      color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textPrimary,
+                    style: context.appTypography.body.copyWith(
+                      color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: AppTypography.caption.copyWith(
-                      color: isDisabled ? AppColors.textMuted.withOpacity(0.5) : AppColors.textSecondary,
+                    style: context.appTypography.caption.copyWith(
+                      color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textSecondary,
                     ),
                   ),
                 ],
@@ -321,10 +322,10 @@ class _ComingSoonBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.15),
+        color: context.appColors.primary.withOpacity(0.15),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text('Soon', style: AppTypography.micro.copyWith(color: AppColors.primary)),
+      child: Text('Soon', style: context.appTypography.micro.copyWith(color: context.appColors.primary)),
     );
   }
 }
@@ -339,7 +340,7 @@ class _ActiveProfileTile extends ConsumerWidget {
     final profile = ref.watch(activeProfileProvider);
     final color = profile != null
         ? Color(kProfileColors[profile.colorIndex % kProfileColors.length])
-        : AppColors.primary;
+        : context.appColors.primary;
 
     return InkWell(
       onTap: onTap,
@@ -358,7 +359,7 @@ class _ActiveProfileTile extends ConsumerWidget {
               child: Center(
                 child: Text(
                   profile?.name.isNotEmpty == true ? profile!.name[0].toUpperCase() : '?',
-                  style: AppTypography.h3.copyWith(color: color),
+                  style: context.appTypography.h3.copyWith(color: color),
                 ),
               ),
             ),
@@ -369,17 +370,17 @@ class _ActiveProfileTile extends ConsumerWidget {
                 children: [
                   Text(
                     profile?.name ?? 'No profile',
-                    style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
+                    style: context.appTypography.body.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     profile != null ? 'Tap to switch profiles' : 'Create your first profile',
-                    style: AppTypography.caption,
+                    style: context.appTypography.caption,
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+            Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 20),
           ],
         ),
       ),
@@ -405,7 +406,7 @@ class _RemindersTile extends ConsumerWidget {
       subtitle: count == 0
           ? 'None scheduled'
           : (count == 1 ? '1 upcoming' : '$count upcoming'),
-      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      trailing: Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 18),
       onTap: onTap,
     );
   }
@@ -425,7 +426,7 @@ class _LeadTimeTile extends ConsumerWidget {
       icon: Icons.schedule,
       title: 'Default lead time',
       subtitle: _formatLeadTime(lead),
-      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      trailing: Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 18),
       onTap: () => _showLeadTimePicker(context, ref, lead),
     );
   }
@@ -442,7 +443,7 @@ class _LeadTimeTile extends ConsumerWidget {
   static void _showLeadTimePicker(BuildContext context, WidgetRef ref, Duration current) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.appColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -469,21 +470,21 @@ class _LeadTimeTile extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
+                  color: context.appColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'Remind me…',
-                style: AppTypography.h3,
+                style: context.appTypography.h3,
               ),
               const SizedBox(height: AppSpacing.xs),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Text(
                   'New reminders will use this lead time. Existing reminders are unaffected.',
-                  style: AppTypography.caption,
+                  style: context.appTypography.caption,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -498,13 +499,13 @@ class _LeadTimeTile extends ConsumerWidget {
                     return ListTile(
                       title: Text(
                         _formatLeadTime(opt),
-                        style: AppTypography.body.copyWith(
-                          color: selected ? AppColors.primary : AppColors.textPrimary,
+                        style: context.appTypography.body.copyWith(
+                          color: selected ? context.appColors.primary : context.appColors.textPrimary,
                           fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                       trailing: selected
-                          ? Icon(Icons.check, color: AppColors.primary)
+                          ? Icon(Icons.check, color: context.appColors.primary)
                           : null,
                       onTap: () {
                         ref.read(defaultLeadTimeProvider.notifier).state = opt;
@@ -546,7 +547,7 @@ class _ThemeTile extends ConsumerWidget {
       icon: Icons.brightness_6_outlined,
       title: 'Theme',
       subtitle: _formatMode(mode),
-      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      trailing: Icon(Icons.chevron_right, color: context.appColors.textMuted, size: 18),
       onTap: () => _showThemePicker(context, ref, mode),
     );
   }
@@ -562,7 +563,7 @@ class _ThemeTile extends ConsumerWidget {
   static void _showThemePicker(BuildContext context, WidgetRef ref, ThemeMode current) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.appColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -581,21 +582,21 @@ class _ThemeTile extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
+                  color: context.appColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'Choose a theme',
-                style: AppTypography.h3,
+                style: context.appTypography.h3,
               ),
               const SizedBox(height: AppSpacing.xs),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Text(
                   'Switches the app between dark and light surfaces. Existing screens still render with dark text by default — a full per-screen migration is on the way.',
-                  style: AppTypography.caption,
+                  style: context.appTypography.caption,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -610,17 +611,17 @@ class _ThemeTile extends ConsumerWidget {
                     return ListTile(
                       leading: Icon(
                         _iconFor(opt),
-                        color: selected ? AppColors.primary : AppColors.textMuted,
+                        color: selected ? context.appColors.primary : context.appColors.textMuted,
                       ),
                       title: Text(
                         _formatMode(opt),
-                        style: AppTypography.body.copyWith(
-                          color: selected ? AppColors.primary : AppColors.textPrimary,
+                        style: context.appTypography.body.copyWith(
+                          color: selected ? context.appColors.primary : context.appColors.textPrimary,
                           fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                       trailing: selected
-                          ? Icon(Icons.check, color: AppColors.primary)
+                          ? Icon(Icons.check, color: context.appColors.primary)
                           : null,
                       onTap: () {
                         ref.read(themeModeProvider.notifier).state = opt;

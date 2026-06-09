@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../domain/entities/profile.dart';
 import '../providers/app_providers.dart';
 import '../widgets/tv_text_field.dart';
@@ -23,7 +24,7 @@ class _ProfileSwitcherScreenState extends ConsumerState<ProfileSwitcherScreen> {
     final activeId = ref.watch(activeProfileIdProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
         title: const Text('Profiles'),
         actions: [
@@ -39,11 +40,11 @@ class _ProfileSwitcherScreenState extends ConsumerState<ProfileSwitcherScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.person_outline, size: 64, color: AppColors.textMuted),
+                  Icon(Icons.person_outline, size: 64, color: context.appColors.textMuted),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'No profiles yet',
-                    style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
+                    style: context.appTypography.h3.copyWith(color: context.appColors.textSecondary),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   ElevatedButton.icon(
@@ -79,7 +80,7 @@ class _ProfileSwitcherScreenState extends ConsumerState<ProfileSwitcherScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Switched to ${profile.name}'),
-          backgroundColor: AppColors.primary,
+          backgroundColor: context.appColors.primary,
         ),
       );
     }
@@ -116,7 +117,7 @@ class _ProfileSwitcherScreenState extends ConsumerState<ProfileSwitcherScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: context.appColors.surface,
         title: const Text('Delete profile?'),
         content: Text(
           'Remove "${profile.name}"? This will delete all favourites and watch progress for this profile.',
@@ -128,7 +129,7 @@ class _ProfileSwitcherScreenState extends ConsumerState<ProfileSwitcherScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: Text('Delete', style: TextStyle(color: context.appColors.error)),
           ),
         ],
       ),
@@ -193,7 +194,7 @@ class _ProfileTile extends StatelessWidget {
                   child: Center(
                     child: Text(
                       profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                      style: AppTypography.h2.copyWith(color: color),
+                      style: context.appTypography.h2.copyWith(color: color),
                     ),
                   ),
                 ),
@@ -208,8 +209,8 @@ class _ProfileTile extends StatelessWidget {
                         children: [
                           Text(
                             profile.name,
-                            style: AppTypography.h3.copyWith(
-                              color: isActive ? color : AppColors.textPrimary,
+                            style: context.appTypography.h3.copyWith(
+                              color: isActive ? color : context.appColors.textPrimary,
                             ),
                           ),
                           if (isActive) ...[
@@ -222,7 +223,7 @@ class _ProfileTile extends StatelessWidget {
                               ),
                               child: Text(
                                 'Active',
-                                style: AppTypography.micro.copyWith(color: color),
+                                style: context.appTypography.micro.copyWith(color: color),
                               ),
                             ),
                           ],
@@ -231,7 +232,7 @@ class _ProfileTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         'Created ${_formatDate(profile.createdAt)}',
-                        style: AppTypography.caption,
+                        style: context.appTypography.caption,
                       ),
                     ],
                   ),
@@ -240,14 +241,14 @@ class _ProfileTile extends StatelessWidget {
                 // Actions
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
-                  color: AppColors.textMuted,
+                  color: context.appColors.textMuted,
                   onPressed: onRename,
                   tooltip: 'Rename',
                 ),
                 if (onDelete != null)
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 20),
-                    color: AppColors.error,
+                    color: context.appColors.error,
                     onPressed: onDelete,
                     tooltip: 'Delete',
                   ),
@@ -297,9 +298,9 @@ class _ProfileFormSheetState extends State<_ProfileFormSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile name is required'),
-          backgroundColor: AppColors.error,
+        SnackBar(
+          content: const Text('Profile name is required'),
+          backgroundColor: context.appColors.error,
         ),
       );
       return;
@@ -326,7 +327,7 @@ class _ProfileFormSheetState extends State<_ProfileFormSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.textMuted,
+                    color: context.appColors.textMuted,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -335,7 +336,7 @@ class _ProfileFormSheetState extends State<_ProfileFormSheet> {
 
               Text(
                 isEditing ? 'Edit profile' : 'New profile',
-                style: AppTypography.h3,
+                style: context.appTypography.h3,
               ),
               const SizedBox(height: AppSpacing.lg),
 
@@ -349,7 +350,7 @@ class _ProfileFormSheetState extends State<_ProfileFormSheet> {
               const SizedBox(height: AppSpacing.lg),
 
               // Colour picker
-              Text('Colour', style: AppTypography.caption),
+              Text('Colour', style: context.appTypography.caption),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.sm,
@@ -428,20 +429,20 @@ class _FormButtonState extends State<_FormButton> {
         onTap: widget.onPressed,
         child: Container(
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.primary : AppColors.primary.withOpacity(0.7),
+            color: _isFocused ? context.appColors.primary : context.appColors.primary.withOpacity(0.7),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isFocused ? AppColors.accent : Colors.transparent,
+              color: _isFocused ? context.appColors.accent : Colors.transparent,
               width: 2,
             ),
             boxShadow: _isFocused
-                ? [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10)]
+                ? [BoxShadow(color: context.appColors.primary.withOpacity(0.4), blurRadius: 10)]
                 : null,
           ),
           alignment: Alignment.center,
           child: Text(
             widget.label,
-            style: AppTypography.h3.copyWith(color: Colors.white),
+            style: context.appTypography.h3.copyWith(color: Colors.white),
           ),
         ),
       ),
