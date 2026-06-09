@@ -261,6 +261,13 @@ final vodStreamUrlProvider = Provider.family<String, int>((ref, streamId) {
   return client.buildVodStreamUrl(streamId);
 });
 
+/// Full VOD info (plot, cast, director, rating, duration, cover) for a single VOD stream.
+/// Used by VodDetailScreen to render real metadata instead of the placeholder synopsis.
+final vodInfoProvider = FutureProvider.family<XtreamVodInfo, int>((ref, vodId) async {
+  final client = ref.watch(xtreamClientProvider);
+  return await client.getVodInfo(vodId);
+});
+
 // ── Watch Progress ─────────────────────────────────────────────────────────
 
 /// Must be overridden at app startup with `SharedPreferences.instanceFor`.

@@ -81,6 +81,7 @@
 | P207 | DVR / recordings | Backlog | agent | Cloudflare R2 only, revenue-gated after P208 |
 | P208 | Monetisation | Backlog | agent | RevenueCat paywall on multi-profile + sync + catch-up |
 | P209 | Cast + multi-screen | Backlog | agent | AirPlay + Cast + PiP orchestration |
+| V01 | VOD info panel | **Next** | agent | Fetch XtreamVodInfo via getVodInfo(vodId), display real plot, cast, director, rating, duration in VodDetailScreen (replace placeholder synopsis), use higher-res cover from VOD info over stream.logo |
 
 ---
 
