@@ -94,8 +94,15 @@ Future<ProviderContainer> _makeContainer({
 
 void main() {
   group('defaultLeadTimeProvider', () {
-    test('defaults to ReminderStore.defaultLeadTime (5 min)', () {
-      final container = ProviderContainer();
+    test('defaults to ReminderStore.defaultLeadTime (5 min)', () async {
+      // V10: the provider now reads from LeadTimePreferencesStore on
+      // first read, so we have to provide a SharedPreferences override.
+      // An empty mock = first-launch path = 5-min default.
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ]);
       addTearDown(container.dispose);
       expect(container.read(defaultLeadTimeProvider), ReminderStore.defaultLeadTime);
     });

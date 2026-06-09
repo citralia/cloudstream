@@ -508,6 +508,13 @@ class _LeadTimeTile extends ConsumerWidget {
                           : null,
                       onTap: () {
                         ref.read(defaultLeadTimeProvider.notifier).state = opt;
+                        // Persist the choice so it survives an app
+                        // restart. Fire-and-forget — a failed write
+                        // doesn't block the UI, and the in-memory
+                        // provider is already updated.
+                        ref
+                            .read(leadTimePreferencesStoreProvider)
+                            .save(opt);
                         Navigator.pop(ctx);
                       },
                     );
