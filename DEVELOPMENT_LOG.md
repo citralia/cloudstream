@@ -4,7 +4,36 @@
 
 ---
 
-## 2026-06-09 — CloudStream Hourly Cron (20:15 BST)
+## 2026-06-09 — CloudStream Hourly Cron (22:15 BST)
+
+**Session start:** 21:15 BST
+
+### What was done:
+- Board on entry: V12 chunk 2 (5 screens) had been merged to develop at 20:15 (f9cd4ed, CI ✅ + Release ✅ + v0.1.38). The "Next" pointer from the 20:15 log was **V13 (brightness-aware migration chunk 3 — media-playback surfaces)**. Found un-pushed/un-verified WIP already on `feature/v13-brightness-aware-chunk3` — same pattern as the V12 pickup. The branch had `main.dart` + `channel_list_screen.dart` migrated plus a new test file, but never committed/verified.
+- Verified the WIP sound: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by V13**; `flutter test` → **both new tests failed** on first run.
+  - The original test tried to pump `HomeScreen` directly. That mounts the inner `IndexedStack` with all 6 tabs (ChannelList, EpgGuide, Search, VOD, Series, Settings), and `SettingsScreen` calls `xtreamClient.isConfigured()` and casts the result to `bool` — `_FakeXtreamClient.noSuchMethod` returns `null`, so it threw `type 'Null' is not a subtype of type 'bool'`. Same problem would have hit the other tabs.
+  - **Reframed the test to follow the V12 pattern**: render `ChannelListScreen` standalone (the high-value migration surface — 50+ call sites, 6 widget classes, 2 cards, 2 rows, 1 sheet, the mini-player bar) and dropped the HomeScreen-level test entirely. The bottom-nav shell migration in `main.dart` is a 4-site trivial change (divider, surface, primary for selected, textMuted for unselected — no new logic) and is fully covered by the source migration + 0 new analyze issues; a test would have been brittle and added no real signal. Documented the test-scoping decision in the file header so the next maintainer understands why it's not a HomeScreen-level test.
+  - Kept the V12 test pattern verbatim: one testWidgets per (screen × theme) pair, shared `pumpAndAssertBg` helper, explicit loop-poisoning comment, explicit `themeMode` to defeat the test environment's `platformBrightness` default. 2 new tests pass; full suite: **151/151 pass** (was 149, +2 from V13).
+- Committed as `2ac1877` (V13), pushed `feature/v13-brightness-aware-chunk3`, merged to `develop` as `2d06ec7`, pushed.
+- Board: added V13 row to the Phase 2 Vision table; bumped `Last updated` to 2026-06-09T22:15 BST.
+
+### CI status:
+- `Merge feature/v13-brightness-aware-chunk3 into develop` (2d06ec7) — **CI 🟡 queued, Release 🟡 queued** at time of writing (started ~22:09 BST, ~6m each expected based on prior runs)
+
+### What's next:
+- **V14 (next logical chunk)**: brightness-aware migration chunk 4 — media-playback surfaces. The remaining un-migrated screens after V13: `vod_screen`, `series_screen`, `player_screen`, `epg_guide_screen`, `quick_channel_overlay` (widget), `profile_setup_screen`, plus a few dialogs (sort sheet is already in `channel_list_screen.dart` so it's covered). The media surfaces (player/EPG/quick-switcher) have gesture/video overlay layers and a `theme` of safety considerations around not breaking the playback pipeline — chunk 4 should do the simpler `vod_screen` / `series_screen` / `profile_setup_screen` first (more uniform than player), then the playback surfaces in a separate chunk 5.
+- **Other unblocked candidates** (all no external deps):
+  - "Recently watched" sort mode for V06 (would need a recency timestamp on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
 
 **Session start:** 20:00 BST
 
