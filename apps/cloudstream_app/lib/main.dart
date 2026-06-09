@@ -44,10 +44,19 @@ class CloudStreamApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the persisted theme mode. When the user flips Dark /
+    // Light / System in Settings, this rebuilds with the matching
+    // pair of `theme` / `darkTheme` so Material widgets that don't
+    // hardcode AppColors.* (tooltips, system dialogs, scrollbars)
+    // pick up the chosen scheme. Existing screens still render with
+    // dark tokens — a full per-screen migration is a separate task.
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'CloudStream',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
       home: const AuthRouter(),
     );
   }

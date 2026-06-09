@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// CloudStream design tokens.
-/// Sourced from SPEC.md §2.
+/// CloudStream design tokens — **dark** variant.
+///
+/// Screens across the app reference these constants directly. Adding a
+/// light theme required no call-site changes here; the new
+/// [LightAppColors] / [LightAppTypography] tokens are used by the
+/// `AppTheme.light` `ThemeData` (which the `MaterialApp` selects when
+/// the user picks Light or System-on-light).
+///
+/// A full migration of the 300+ screen call sites to a
+/// brightness-aware context is a deliberate, separate task — the
+/// Material `ColorScheme` is the bridge that makes the `AppTheme.light`
+/// theme coherent for the *un-overridden* Material widgets even while
+/// the screens still hardcode dark tokens.
 class AppColors {
   AppColors._();
 
@@ -76,7 +87,86 @@ class AppSpacing {
 }
 
 
-/// Shared app theme for MaterialApp.
+/// Light-variant tokens. Mirrors [AppColors] field-for-field; the
+/// Material `AppTheme.light` `ThemeData` references these for the
+/// standard `ColorScheme` / `AppBarTheme` / `CardTheme` defaults so
+/// Material widgets that *don't* hardcode `AppColors.*` (tooltips,
+/// date pickers, scrollbars, system dialogs) read coherently in
+/// light mode.
+class LightAppColors {
+  LightAppColors._();
+
+  static const Color background    = Color(0xFFF7F7FB);
+  static const Color surface       = Color(0xFFFFFFFF);
+  static const Color surfaceElevated = Color(0xFFEEEEF5);
+  static const Color primary       = Color(0xFF5847D1); // slightly deeper than dark, for AA contrast on white
+  static const Color accent        = Color(0xFF0091B0);
+  static const Color error         = Color(0xFFD11A3C);
+  static const Color success       = Color(0xFF008A3D);
+  static const Color textPrimary   = Color(0xFF111118);
+  static const Color textSecondary = Color(0xFF4A4A5A);
+  static const Color textMuted     = Color(0xFF8A8A9A);
+  static const Color divider       = Color(0xFFE0E0EA);
+}
+
+
+/// Light-variant typography. Same sizing/weights as [AppTypography],
+/// but with [LightAppColors]-resolved text colours. Body text on
+/// light backgrounds is dark, captions are mid-grey, micro is light
+/// grey (inverted contrast vs. dark).
+class LightAppTypography {
+  LightAppTypography._();
+
+  static const String fontFamily = 'Inter';
+
+  static const TextStyle display = TextStyle(
+    fontSize: 48, fontWeight: FontWeight.w700,
+    color: LightAppColors.textPrimary, height: 1.1,
+  );
+
+  static const TextStyle h1 = TextStyle(
+    fontSize: 32, fontWeight: FontWeight.w700,
+    color: LightAppColors.textPrimary, height: 1.2,
+  );
+
+  static const TextStyle h2 = TextStyle(
+    fontSize: 24, fontWeight: FontWeight.w600,
+    color: LightAppColors.textPrimary, height: 1.3,
+  );
+
+  static const TextStyle h3 = TextStyle(
+    fontSize: 18, fontWeight: FontWeight.w600,
+    color: LightAppColors.textPrimary, height: 1.3,
+  );
+
+  static const TextStyle body = TextStyle(
+    fontSize: 16, fontWeight: FontWeight.w400,
+    color: LightAppColors.textPrimary, height: 1.5,
+  );
+
+  static const TextStyle caption = TextStyle(
+    fontSize: 14, fontWeight: FontWeight.w400,
+    color: LightAppColors.textSecondary, height: 1.4,
+  );
+
+  static const TextStyle micro = TextStyle(
+    fontSize: 12, fontWeight: FontWeight.w500,
+    color: LightAppColors.textMuted, height: 1.3,
+  );
+}
+
+
+/// Shared app theme for MaterialApp. Exposes a [dark] theme (the
+/// original, hardcoded dark theme the app shipped with) and a
+/// matching [light] theme for users who prefer the system-on-light
+/// appearance.
+///
+/// Existing screens still hardcode [AppColors] / [AppTypography] —
+/// when the user picks Light or System-on-light, those screens still
+/// render with dark tokens, but every Material widget that *doesn't*
+/// override its colour (tooltips, system dialogs, snackbars that read
+/// from the theme, etc.) now picks up the light scheme. A full
+/// per-screen migration is tracked as a follow-on.
 class AppTheme {
   AppTheme._();
 
@@ -152,6 +242,89 @@ class AppTheme {
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.surfaceElevated,
       contentTextStyle: AppTypography.body,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      behavior: SnackBarBehavior.floating,
+    ),
+  );
+
+  /// Light variant of the CloudStream theme. Field-for-field mirror
+  /// of [dark], but pulls every colour from [LightAppColors] and
+  /// every text style from [LightAppTypography]. Material widgets
+  /// that *don't* hardcode `AppColors.*` (tooltips, system dialogs,
+  /// scrollbars) will pick this up when the user has selected Light
+  /// or System-on-light in Settings.
+  static ThemeData get light => ThemeData(
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: LightAppColors.background,
+    colorScheme: const ColorScheme.light(
+      primary: LightAppColors.primary,
+      secondary: LightAppColors.accent,
+      surface: LightAppColors.surface,
+      error: LightAppColors.error,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: LightAppColors.background,
+      elevation: 0,
+      centerTitle: false,
+      titleTextStyle: LightAppTypography.h2,
+      iconTheme: IconThemeData(color: LightAppColors.textPrimary),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: LightAppColors.surface,
+      selectedItemColor: LightAppColors.primary,
+      unselectedItemColor: LightAppColors.textMuted,
+      type: BottomNavigationBarType.fixed,
+    ),
+    cardTheme: const CardThemeData(
+      color: LightAppColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: LightAppColors.surfaceElevated,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: LightAppColors.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: LightAppColors.error, width: 1),
+      ),
+      hintStyle: LightAppTypography.body.copyWith(color: LightAppColors.textMuted),
+      labelStyle: LightAppTypography.caption,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: LightAppColors.primary,
+        foregroundColor: LightAppColors.textPrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        textStyle: LightAppTypography.body.copyWith(fontWeight: FontWeight.w600),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: LightAppColors.primary,
+        textStyle: LightAppTypography.body.copyWith(fontWeight: FontWeight.w600),
+      ),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: LightAppColors.divider,
+      thickness: 1,
+      space: 1,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: LightAppColors.surfaceElevated,
+      contentTextStyle: LightAppTypography.body,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
     ),

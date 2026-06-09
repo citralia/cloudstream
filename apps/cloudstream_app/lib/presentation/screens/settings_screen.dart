@@ -77,6 +77,12 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.xl),
 
+          // ── Appearance ─────────────────────────────────
+          _SectionHeader(title: 'Appearance'),
+          _ThemeTile(),
+
+          const SizedBox(height: AppSpacing.xl),
+
           // ── Reminders ───────────────────────────────────
           _SectionHeader(title: 'Reminders'),
           _RemindersTile(
@@ -514,5 +520,122 @@ class _LeadTimeTile extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// Settings → Appearance → opens a bottom sheet with three
+/// [ThemeMode] options (Dark / Light / System) and writes the
+/// choice through to [themeModeProvider]. The selection is
+/// persisted via [ThemePreferencesStore] inside the provider, so
+/// the choice survives across launches. The `MaterialApp` in
+/// `main.dart` watches the same provider and rebuilds with
+/// [AppTheme.dark] / [AppTheme.light] / system without an app
+/// restart.
+class _ThemeTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    return _SettingsTile(
+      icon: Icons.brightness_6_outlined,
+      title: 'Theme',
+      subtitle: _formatMode(mode),
+      trailing: Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+      onTap: () => _showThemePicker(context, ref, mode),
+    );
+  }
+
+  static String _formatMode(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.dark: return 'Dark';
+      case ThemeMode.light: return 'Light';
+      case ThemeMode.system: return 'Follow system';
+    }
+  }
+
+  static void _showThemePicker(BuildContext context, WidgetRef ref, ThemeMode current) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        const options = <ThemeMode>[
+          ThemeMode.dark,
+          ThemeMode.light,
+          ThemeMode.system,
+        ];
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Choose a theme',
+                style: AppTypography.h3,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Text(
+                  'Switches the app between dark and light surfaces. Existing screens still render with dark text by default — a full per-screen migration is on the way.',
+                  style: AppTypography.caption,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (_, i) {
+                    final opt = options[i];
+                    final selected = opt == current;
+                    return ListTile(
+                      leading: Icon(
+                        _iconFor(opt),
+                        color: selected ? AppColors.primary : AppColors.textMuted,
+                      ),
+                      title: Text(
+                        _formatMode(opt),
+                        style: AppTypography.body.copyWith(
+                          color: selected ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: selected
+                          ? Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        ref.read(themeModeProvider.notifier).state = opt;
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static IconData _iconFor(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.dark: return Icons.dark_mode_outlined;
+      case ThemeMode.light: return Icons.light_mode_outlined;
+      case ThemeMode.system: return Icons.brightness_auto_outlined;
+    }
   }
 }
