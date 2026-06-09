@@ -4,6 +4,7 @@ import '../../core/debug/debug_log_service.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/search/search_service.dart';
 import '../../core/storage/profile_store.dart';
+import '../../core/storage/play_count_store.dart';
 import '../../core/storage/watch_progress_store.dart';
 import '../../data/datasources/credentials_store.dart';
 import '../../domain/entities/profile.dart';
@@ -407,6 +408,14 @@ final watchProgressProvider = Provider.family<WatchProgress?, ({int streamId, St
   return store.getProgress(profileId: params.profileId, streamId: params.streamId);
 });
 
+/// Per-profile play-count store, backed by SharedPreferences.
+/// `PlayerScreen._saveProgress` calls `increment()` once per ~30s of
+/// playback (and once on dispose), so the counter is effectively "how
+/// many 30s-segments of this stream have I watched, ever."
+final playCountStoreProvider = Provider<PlayCountStore>((ref) {
+  return PlayCountStore(ref.watch(sharedPreferencesProvider));
+});
+
 /// Discriminator for the kind of item a [ContinueWatchingEntry] represents.
 /// A saved watch-progress id can resolve to either a VOD/series-level
 /// stream (the VOD case) or a series episode (resolved against the
@@ -698,6 +707,41 @@ final searchIndexRebuilderProvider = FutureProvider<void>((ref) async {
 
   final index = ref.read(searchServiceProvider);
   index.rebuild(live: live, vod: vod, series: series);
+});
+
+/// One "Most Watched" entry: the resolved stream + its play count.
+class MostWatchedEntry {
+  final XtreamStream stream;
+  final int count;
+  const MostWatchedEntry({required this.stream, required this.count});
+}
+
+/// Top N most-watched live channels for the active profile, ordered by
+/// play count desc. Resolves each top streamId against the loaded live
+/// streams list — drops orphans (e.g. items removed from the server).
+/// Keyed by the active connection's `name` so each profile has its own
+/// ranking.
+final mostWatchedProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final store = ref.watch(playCountStoreProvider);
+  final raw = store.topEntries(creds.name);
+  if (raw.isEmpty) return const [];
+
+  // Await live streams rather than reading `valueOrNull` — the latter
+  // would be null on the first tick before the future completes and
+  // we'd silently return an empty list.
+  final live = await ref.watch(liveStreamsProvider.future);
+  if (live.isEmpty) return const [];
+  final byId = {for (final s in live) s.streamId: s};
+
+  final out = <MostWatchedEntry>[];
+  for (final e in raw) {
+    final s = byId[e.streamId];
+    if (s == null) continue; // dropped: not a live channel any more
+    out.add(MostWatchedEntry(stream: s, count: e.count));
+  }
+  return out;
 });
 
 /// Search results derived from query + index.

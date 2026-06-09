@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,6 +89,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         profileId: creds.name,
         streamId: widget.stream.streamId,
         positionMs: position,
+      );
+      // Bump the per-profile play count for the "Most Watched" home row.
+      // Fire-and-forget — a failure here must never block progress save
+      // or disrupt playback.
+      unawaited(
+        ref.read(playCountStoreProvider).increment(
+              profileId: creds.name,
+              streamId: widget.stream.streamId,
+            ),
       );
     } catch (_) {
       // Non-fatal
