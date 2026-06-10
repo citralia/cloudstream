@@ -253,6 +253,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
               // compete with the filtered channel list inside a single
               // category. Positioned above Continue Watching because
               // it's a stronger personalisation signal.
+              if (selectedCategoryId == null) const _RecentlyPlayedRow(),
               if (selectedCategoryId == null) const _MostWatchedRow(),
               // Continue Watching row — shows up to 8 most-recently-played
               // VOD/series items with saved watch progress. Hidden when
@@ -1126,6 +1127,142 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: context.appTypography.h1.copyWith(color: context.appColors.textMuted),
+      ),
+    );
+  }
+}
+
+/// "Recently Played" horizontal row — surfaces the live channels the
+/// active profile has played most recently, ordered by recency desc
+/// (ties broken by streamId asc). Renders nothing while the provider
+/// is still loading or has no entries. Tapping a card plays the
+/// channel (same path as a regular channel-list tap).
+///
+/// V20: pairs with the `recentlyPlayed` channel-list sort mode
+/// (V16, [ChannelSortMode.recentlyPlayed]) — both consume the same
+/// [PlayCountStore.recentEntries] data. The home row makes the
+/// recency ranking discoverable without forcing the user to switch
+/// the sort mode.
+class _RecentlyPlayedRow extends ConsumerWidget {
+  const _RecentlyPlayedRow();
+
+  static const int _maxCards = 8;
+
+  void _openStream(BuildContext context, WidgetRef ref, XtreamStream stream) {
+    ref.read(selectedStreamProvider.notifier).state = stream;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(recentlyPlayedProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list.take(_maxCards).toList(),
+      orElse: () => const <RecentlyPlayedEntry>[],
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.history, size: 18, color: context.appColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Recently Played', style: context.appTypography.h3),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 110,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _RecentlyPlayedCard(
+                  entry: entry,
+                  onTap: () => _openStream(context, ref, entry.stream),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single Recently Played card: square channel logo (or first-letter
+/// placeholder) with a "x min ago" caption (or "Just now" for the most
+/// recent) below the channel name. Tapping the card plays the channel.
+class _RecentlyPlayedCard extends StatelessWidget {
+  final RecentlyPlayedEntry entry;
+  final VoidCallback onTap;
+
+  const _RecentlyPlayedCard({required this.entry, required this.onTap});
+
+  /// Human-readable "time since" formatter. Returns "Just now" for
+  /// entries from the last minute, "<n>m ago" for under an hour,
+  /// "<n>h ago" for under a day, "<n>d ago" otherwise. Sub-minute
+  /// rounding is intentional — recency on the home screen is a quick
+  /// signal, not a precise timer.
+  String _agoLabel(int lastPlayedAtMs) {
+    final delta = DateTime.now().millisecondsSinceEpoch - lastPlayedAtMs;
+    if (delta < 60 * 1000) return 'Just now';
+    if (delta < 60 * 60 * 1000) return '${(delta / 60000).floor()}m ago';
+    if (delta < 24 * 60 * 60 * 1000) return '${(delta / 3600000).floor()}h ago';
+    return '${(delta / 86400000).floor()}d ago';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = entry.stream;
+    final ago = _agoLabel(entry.lastPlayedAtMs);
+    return SizedBox(
+      width: 96,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 96,
+                height: 64,
+                child: stream.logo != null && stream.logo!.isNotEmpty
+                    ? Image.network(
+                        stream.logo!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _PosterPlaceholder(name: stream.name),
+                      )
+                    : _PosterPlaceholder(name: stream.name),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              stream.name,
+              style: context.appTypography.body.copyWith(fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              ago,
+              style: context.appTypography.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

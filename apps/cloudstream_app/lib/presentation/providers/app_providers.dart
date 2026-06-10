@@ -1175,6 +1175,55 @@ final mostWatchedProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
   return out;
 });
 
+/// V20: One "Recently Played" entry: the resolved stream + its last-played
+/// epoch-ms timestamp. Pairs with [recentlyPlayedProvider] (the home row
+/// counterpart to [mostWatchedProvider]). Timestamp is the wall-clock ms
+/// recorded by [PlayCountStore.increment] on every 30s progress save +
+/// player dispose.
+class RecentlyPlayedEntry {
+  final XtreamStream stream;
+  final int lastPlayedAtMs;
+  const RecentlyPlayedEntry({
+    required this.stream,
+    required this.lastPlayedAtMs,
+  });
+}
+
+/// V20: Up to N most-recently-played live channels for the active profile,
+/// ordered by recency desc (ties broken by streamId asc via
+/// [PlayCountStore.recentEntries]). Resolves each streamId against the
+/// loaded live streams list — drops orphans (e.g. items removed from the
+/// server). Keyed by the active connection's `name` so each profile has
+/// its own recency list.
+///
+/// Mirrors the [mostWatchedProvider] shape but ordered by recency, not
+/// lifetime count — a casual viewer flipping between a few channels wants
+/// recency; a power user with hundreds of plays wants the lifetime
+/// leaderboard. Both rows coexist on the home screen.
+final recentlyPlayedProvider =
+    FutureProvider<List<RecentlyPlayedEntry>>((ref) async {
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final store = ref.watch(playCountStoreProvider);
+  final raw = store.recentEntries(creds.name);
+  if (raw.isEmpty) return const [];
+
+  // Await live streams rather than reading `valueOrNull` — the latter
+  // would be null on the first tick before the future completes and
+  // we'd silently return an empty list.
+  final live = await ref.watch(liveStreamsProvider.future);
+  if (live.isEmpty) return const [];
+  final byId = {for (final s in live) s.streamId: s};
+
+  final out = <RecentlyPlayedEntry>[];
+  for (final e in raw) {
+    final s = byId[e.streamId];
+    if (s == null) continue; // dropped: not a live channel any more
+    out.add(RecentlyPlayedEntry(stream: s, lastPlayedAtMs: e.lastPlayedAtMs));
+  }
+  return out;
+});
+
 /// Search results derived from query + index.
 /// Depends on searchIndexRebuilderProvider to ensure index is built first.
 final searchResultsProvider = Provider<List<SearchResult>>((ref) {
