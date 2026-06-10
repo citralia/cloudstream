@@ -201,7 +201,7 @@ jobs:
       - name: Package macOS artifact
         run: |
           cd apps/cloudstream_app/build/macos/Build/Products/Release
-          zip -r ../Runner_macOS.zip cloudstream_app.app
+          zip -r Runner_macOS.zip cloudstream_app.app
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -209,6 +209,7 @@ jobs:
           name: macos-release-${{ needs.version.outputs.new-version }}
           path: apps/cloudstream_app/build/macos/Build/Products/Release/Runner_macOS.zip
           retention-days: 30
+          if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────
   # JOB 3: Tag + GitHub Release
@@ -217,6 +218,8 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [version, build-ios, build-android, build-macos]
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
