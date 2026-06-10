@@ -59,6 +59,12 @@ class SeriesScreen extends ConsumerWidget {
           // narrow-by-category view; adding the row on top would feel
           // redundant).
           if (selectedCategoryId == null) const _ContinueWatchingRow(),
+          // V26: Most Watched row — series with the highest play
+          // counts for the active profile. See the V26 entry in the
+          // Most Watched provider docs for the subtlety around
+          // series-episode play counts being attributed to the
+          // episode's streamId (not the parent's).
+          if (selectedCategoryId == null) const _MostWatchedRow(),
           // Series grid.
           Expanded(
             child: streamsAsync.when(
@@ -522,6 +528,165 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: context.appTypography.h1.copyWith(color: context.appColors.textMuted),
+      ),
+    );
+  }
+}
+
+// ─── V26: Most Watched row (Series) ────────────────────────────────────────
+
+/// "Most Watched" horizontal row on the Series tab — surfaces the
+/// series the active profile plays most often, sorted by play count
+/// desc. Renders nothing while the provider is still loading or has
+/// no entries. Tapping a card opens [SeriesDetailScreen] (the same
+/// navigation the series grid uses).
+///
+/// Mirrors the channel-list `_MostWatchedRow` (V05 + V22) but driven
+/// by [mostWatchedSeriesProvider] (series catalogue join instead of
+/// live catalogue join). See the V26 entry in that provider's docs
+/// for the series-episode-vs-parent-id subtlety: the displayed
+/// `count` is the top episode's count, not a sum across episodes,
+/// because the player bumps the store under the episode's streamId.
+class _MostWatchedRow extends ConsumerWidget {
+  const _MostWatchedRow();
+
+  static const int _maxCards = kPersonalisationRowCap;
+
+  void _openDetail(BuildContext context, XtreamStream stream) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SeriesDetailScreen(stream: stream),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(mostWatchedSeriesProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list.take(_maxCards).toList(),
+      orElse: () => const <MostWatchedEntry>[],
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.trending_up, size: 18, color: context.appColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Most Watched', style: context.appTypography.h3),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 168,
+            // Same card shape as the Series Continue Watching row
+            // (V21): a wide cover with the play-count badge in the
+            // top-left and the series title below.
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _MostWatchedCard(
+                  entry: entry,
+                  onTap: () => _openDetail(context, entry.stream),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single Most Watched Series card: 16:9 cover (or first-letter
+/// placeholder) with the play-count badge and series title. Tapping
+/// the card opens [SeriesDetailScreen] for that series.
+class _MostWatchedCard extends StatelessWidget {
+  final MostWatchedEntry entry;
+  final VoidCallback onTap;
+
+  const _MostWatchedCard({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = entry.stream;
+    final hasLogo = stream.logo != null && stream.logo!.isNotEmpty;
+    return SizedBox(
+      width: 220,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.appColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.appColors.divider, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: hasLogo
+                        ? Image.network(
+                            stream.logo!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _PosterPlaceholder(name: stream.name),
+                          )
+                        : _PosterPlaceholder(name: stream.name),
+                  ),
+                  Positioned(
+                    top: AppSpacing.xs,
+                    left: AppSpacing.xs,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.appColors.accent.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${entry.count}× plays',
+                        style: context.appTypography.micro.copyWith(
+                          color: context.appColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Text(
+                  stream.name,
+                  style: context.appTypography.body.copyWith(fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

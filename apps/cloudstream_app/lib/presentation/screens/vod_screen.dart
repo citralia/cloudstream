@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
+import '../../core/network/xtream_client.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/storage/watch_progress_store.dart';
@@ -53,6 +54,10 @@ class VodScreen extends ConsumerWidget {
           // already narrows; adding the row on top would feel
           // redundant).
           if (selectedCategoryId == null) const _ContinueWatchingRow(),
+          // V26: Most Watched row — VOD movies with the highest play
+          // counts for the active profile. Same null-degrade /
+          // selectability rules as Continue Watching above.
+          if (selectedCategoryId == null) const _MostWatchedRow(),
           // VOD grid.
           Expanded(
             child: streamsAsync.when(
@@ -499,6 +504,169 @@ class _PosterPlaceholder extends StatelessWidget {
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: context.appTypography.h1.copyWith(color: context.appColors.textMuted),
+      ),
+    );
+  }
+}
+
+// ─── V26: Most Watched row (VOD movies) ────────────────────────────────────
+
+/// "Most Watched" horizontal row on the VOD tab — surfaces the VOD
+/// movies the active profile plays most often, sorted by play count
+/// desc. Renders nothing while the provider is still loading or has
+/// no entries. Tapping a card opens [VodDetailScreen] (the same
+/// navigation the VOD grid uses) so the user lands on the movie's
+/// detail / play / resume surface.
+///
+/// Mirrors the channel-list `_MostWatchedRow` (V05 + V22) but driven
+/// by [mostWatchedVodProvider] (VOD catalogue join instead of live
+/// catalogue join). No recency dedupe — [recentlyPlayedProvider] is
+/// live-only by V20's design, so the recency set can never contain
+/// a VOD streamId, and VOD/live cards are visually + functionally
+/// different (VOD opens a detail screen, live plays directly), so a
+/// same-streamId-in-both-views case never visually duplicates.
+class _MostWatchedRow extends ConsumerWidget {
+  const _MostWatchedRow();
+
+  static const int _maxCards = kPersonalisationRowCap;
+
+  void _openDetail(BuildContext context, XtreamStream stream) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VodDetailScreen(stream: stream),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(mostWatchedVodProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list.take(_maxCards).toList(),
+      orElse: () => const <MostWatchedEntry>[],
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.trending_up, size: 18, color: context.appColors.textSecondary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Most Watched', style: context.appTypography.h3),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 168,
+            // Same card shape as the VOD Continue Watching row (V21):
+            // a wide poster with the play-count badge in the top-left
+            // and the movie title below. The wider card vs the live
+            // channel's 96px logo keeps the row visually consistent
+            // with the Continue Watching row directly above it.
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return _MostWatchedCard(
+                  entry: entry,
+                  onTap: () => _openDetail(context, entry.stream),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single Most Watched VOD card: 16:9 poster (or first-letter
+/// placeholder) with the play-count badge and movie title. Tapping
+/// the card opens [VodDetailScreen] for that movie.
+class _MostWatchedCard extends StatelessWidget {
+  final MostWatchedEntry entry;
+  final VoidCallback onTap;
+
+  const _MostWatchedCard({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = entry.stream;
+    final hasLogo = stream.logo != null && stream.logo!.isNotEmpty;
+    return SizedBox(
+      width: 220,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.appColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.appColors.divider, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: hasLogo
+                        ? Image.network(
+                            stream.logo!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _PosterPlaceholder(name: stream.name),
+                          )
+                        : _PosterPlaceholder(name: stream.name),
+                  ),
+                  Positioned(
+                    top: AppSpacing.xs,
+                    left: AppSpacing.xs,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.appColors.accent.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${entry.count}× plays',
+                        style: context.appTypography.micro.copyWith(
+                          color: context.appColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Text(
+                  stream.name,
+                  style: context.appTypography.body.copyWith(fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

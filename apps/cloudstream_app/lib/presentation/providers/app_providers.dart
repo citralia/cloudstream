@@ -1414,6 +1414,96 @@ final mostWatchedProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
   return out;
 });
 
+/// V26: Top N most-watched **VOD movies** for the active profile, ordered
+/// by play count desc. Mirrors [mostWatchedProvider] (the live-channel
+/// counterpart) but joins [PlayCountStore.topEntries] against
+/// [vodStreamsProvider] (the VOD catalogue) instead of
+/// [liveStreamsProvider] — a VOD streamId is the movie's `streamId`,
+/// and the same `PlayerScreen._saveProgress` path that bumps live
+/// counts also bumps VOD counts (the store is content-agnostic —
+/// it keys on `play_count_{profileId}_{streamId}` regardless of
+/// catalogue).
+///
+/// Reuses the same null-degrade paths as the live version: no creds
+/// → `[]`, no play counts → `[]`, no VOD catalogue → `[]`. Awaits
+/// the catalogue's `.future` (not `valueOrNull`) for the same
+/// first-tick-null-trap avoidance V22 uses for the live provider.
+///
+/// NO recency dedupe here — by design, [recentlyPlayedProvider] is
+/// **live-only** (it joins against [liveStreamsProvider]
+/// exclusively — see V20 docs), so the recency set can never contain
+/// a VOD streamId. The "two home rows showing the same movie"
+/// problem doesn't exist for the VOD catalogue. The card and tap
+/// affordance are also different (VOD cards open `VodDetailScreen`,
+/// live cards play the channel directly), so a movie is never
+/// visually duplicated even if the underlying streamId happened to
+/// match.
+///
+/// Per-profile isolation comes free from the store key
+/// (`creds.name`), the same as [mostWatchedProvider].
+final mostWatchedVodProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final store = ref.watch(playCountStoreProvider);
+  final raw = store.topEntries(creds.name);
+  if (raw.isEmpty) return const [];
+
+  final vod = await ref.watch(vodStreamsProvider.future);
+  if (vod.isEmpty) return const [];
+  final byId = {for (final s in vod) s.streamId: s};
+
+  final out = <MostWatchedEntry>[];
+  for (final e in raw) {
+    final s = byId[e.streamId];
+    if (s == null) continue; // dropped: not a VOD stream any more
+    out.add(MostWatchedEntry(stream: s, count: e.count));
+    if (out.length >= kPersonalisationRowCap) break;
+  }
+  return out;
+});
+
+/// V26: Top N most-watched **series** for the active profile, ordered by
+/// play count desc. The series-equivalent of [mostWatchedVodProvider]
+/// and [mostWatchedProvider]. Joins [PlayCountStore.topEntries]
+/// against [seriesStreamsProvider] (the series catalogue).
+///
+/// **Subtlety:** a series-episode play also bumps the store under the
+/// episode's streamId (NOT the parent series's streamId), since the
+/// player calls `_saveProgress` with the playing stream's id, and
+/// individual episodes are the streams you actually open from
+/// `SeriesDetailScreen`. So the "most-watched series" surfaced here
+/// is really "series with the most-played single episode" — the
+/// `count` displayed on the card is the top episode's count, not a
+/// sum across episodes. The card tap opens `SeriesDetailScreen` for
+/// the parent series, and the user lands on the most-played season
+/// (or just the first season — see TODO comment in
+/// `SeriesDetailScreen.autoResumeEpisode`).
+///
+/// All other semantics match [mostWatchedVodProvider] and
+/// [mostWatchedProvider]: null-degrade paths, no recency dedupe
+/// (recency is live-only), per-profile isolation from the store
+/// key, no orphan entries (joins against the loaded catalogue).
+final mostWatchedSeriesProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final store = ref.watch(playCountStoreProvider);
+  final raw = store.topEntries(creds.name);
+  if (raw.isEmpty) return const [];
+
+  final series = await ref.watch(seriesStreamsProvider.future);
+  if (series.isEmpty) return const [];
+  final byId = {for (final s in series) s.streamId: s};
+
+  final out = <MostWatchedEntry>[];
+  for (final e in raw) {
+    final s = byId[e.streamId];
+    if (s == null) continue; // dropped: not a series stream (most-played is a live channel or VOD)
+    out.add(MostWatchedEntry(stream: s, count: e.count));
+    if (out.length >= kPersonalisationRowCap) break;
+  }
+  return out;
+});
+
 /// V20: One "Recently Played" entry: the resolved stream + its last-played
 /// epoch-ms timestamp. Pairs with [recentlyPlayedProvider] (the home row
 /// counterpart to [mostWatchedProvider]). Timestamp is the wall-clock ms
