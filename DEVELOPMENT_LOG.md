@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (15:50 BST — R01 release.yml fix)
+
+**Session start:** 15:25 BST (carry-over from V22 ship cron — release.yml was broken)
+
+### What was done:
+- Board on entry: the V22 cron had shipped **V22 — Most Watched row dedupes from Recently Played** (6633eb8, PR #10) but **never updated the board or log**. The V22 work itself is sound: `mostWatchedProvider` now watches `recentlyPlayedProvider` and excludes any streamId in the top 8 recency entries, with `kPersonalisationRowCap = 8` extracted as a shared constant. 235/235 tests pass, 0 new analyze errors.
+- **Discovered a real Release failure** by checking CI/Release status: V22's `Merge feature/v22-most-watched-recent-dedupe into develop` (6633eb8) ran CI ✅ but **Release ❌** at 15:34:43Z. The `Create GitHub Release` step got `401 Requires authentication` on all 3 retries, and the macOS artifact pattern `artifacts/macos-release-0.1.61/Runner_macOS.zip` didn't match any files.
+- **Two real bugs in `.github/workflows/release.yml`** identified by reading the failed run's logs:
+  1. **macOS zip path bug**: `cd apps/cloudstream_app/build/macos/Build/Products/Release && zip -r ../Runner_macOS.zip cloudstream_app.app` writes the zip to the *parent* dir (`Build/Products/Runner_macOS.zip`) but the upload step at line 210 looks for `Release/Runner_macOS.zip`. The upload step was `if-no-files-found: warn` so the build job was green, but the artifact was never uploaded — and the release step's `files:` glob then matched nothing. The download-artifact step in the release job confirms: "Found 2 artifact(s)" (Android + iOS), no macOS.
+  2. **401 on Create GitHub Release**: the workflow-level `permissions: contents: write` should propagate to the `release:` job, and the `git push origin v0.1.61 --force` step in the same job DID succeed (`* [new tag] v0.1.61 -> v0.1.61`). So the token works for git. But `softprops/action-gh-release@v2` got 401 on its API calls — known sensitivity to job-level explicit permissions, and recent GitHub Actions token scoping has tightened (GITHUB_TOKEN default scopes have been narrowed over time).
+- **R01 — release.yml fixes** (committed, branch `feature/r01-release-yml-fixes`):
+  1. macOS zip now `zip -r Runner_macOS.zip cloudstream_app.app` (in-place inside `Release/`).
+  2. macOS upload step upgraded from `if-no-files-found: warn` to `if-no-files-found: error` — any future path mismatch will fail the build job loudly instead of silently dropping the artifact.
+  3. `release:` job gets an explicit `permissions: contents: write` block (defensive — workflow-level permissions should propagate, but job-level explicit is what the action and recent token scoping expect).
+- **Pushed `feature/r01-release-yml-fixes` → `develop` (merge_commit, docs commit message)**. CI ✅ (5m47s: Analyze 36s + Test 54s + iOS 3m21s + macOS 3m41s + Android 4m18s) + **Release ✅ (5m54s: Determine Version 8s + iOS 3m02s + macOS 3m02s + Android 4m18s + Create Release 1m05s)** — **APK uploaded as v0.1.63**, and the `Create GitHub Release` step no longer 401'd (defensive permissions fix held). The v0.1.61 tag was already on origin from the broken release, so the new release is v0.1.63 (v0.1.62 was skipped because the new workflow push was treated as a regular push-trigger, and the `Determine Version` job bumped from the latest v0.1.61 tag).
+- **Board + log updated** to reflect V22 (shipped but Release broken) + R01 (release.yml fixes; v0.1.63 with all 3 platform artifacts).
+
+### CI status:
+- `Merge feature/r01-release-yml-fixes into develop` (6c3fe5f → 6c3fe5f) — **CI ✅ (5m47s) + Release ✅ (5m54s) → v0.1.63**, all 3 platform artifacts uploaded (Android APK, macOS zip, iOS zip — `Found 3 artifact(s)` in the download step this time, confirming the macOS path fix worked).
+
+### What's next:
+- **R01 closes the V22 Release failure.** The release pipeline is healthy again — v0.1.63 on the GitHub Release page has all 3 platform artifacts. The macOS zip is now in `Build/Products/Release/Runner_macOS.zip` (matches the upload path), and the `release:` job's explicit `permissions: contents: write` cleared the 401 on `softprops/action-gh-release@v2`.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites/hidden)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - **R02 candidate**: the v0.1.61 and v0.1.62 tags are now stranded on origin (v0.1.61 from the failed release, v0.1.62 from the R01 push trigger). Worth a 1-line cleanup: delete them locally + on origin, or just leave them as historical markers. Low-priority.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
+
 ## 2026-06-10 — CloudStream Hourly Cron (15:25 BST — V21 ship)
 
 **Session start:** 12:30 BST (carry-over from 12:25 V20 ship; CI wait extended the run)
