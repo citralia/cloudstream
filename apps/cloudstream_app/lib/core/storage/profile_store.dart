@@ -97,7 +97,7 @@ class ProfileStore {
 
   /// Keys for a profile's isolated state live under:
   ///   profile_{id}_{suffix}
-  /// where suffix is one of: 'favourites', 'recent_channels'.
+  /// where suffix is one of: 'favourites', 'recent_channels', 'hidden_channels'.
 
   static String _profileKey(String profileId, String suffix) =>
       'profile_${profileId}_$suffix';
@@ -143,6 +143,58 @@ class ProfileStore {
     } else {
       favs.add(streamId);
       await setFavourites(profileId, favs);
+      return true;
+    }
+  }
+
+  // ── Hidden channels (V18) ─────────────────────────────────────────────────
+
+  /// Get hidden stream IDs for a profile.
+  /// Hidden channels are filtered out of the live TV channel list by default
+  /// (and are accessible via the "Hidden" filter chip).
+  List<int> getHidden(String profileId) {
+    final raw = _prefs.getString(_profileKey(profileId, 'hidden_channels'));
+    if (raw == null) return [];
+    try {
+      return (jsonDecode(raw) as List<dynamic>).cast<int>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> setHidden(String profileId, List<int> streamIds) async {
+    await _prefs.setString(
+        _profileKey(profileId, 'hidden_channels'), jsonEncode(streamIds));
+  }
+
+  /// Add a stream ID to the hidden set for a profile (no-op if already hidden).
+  Future<void> addHidden(String profileId, int streamId) async {
+    final hidden = getHidden(profileId);
+    if (!hidden.contains(streamId)) {
+      hidden.add(streamId);
+      await setHidden(profileId, hidden);
+    }
+  }
+
+  /// Remove a stream ID from the hidden set for a profile (no-op if not hidden).
+  Future<void> removeHidden(String profileId, int streamId) async {
+    final hidden = getHidden(profileId);
+    if (hidden.remove(streamId)) {
+      await setHidden(profileId, hidden);
+    }
+  }
+
+  /// Toggle a stream ID in/out of the hidden set for a profile.
+  /// Returns the new is-hidden boolean.
+  Future<bool> toggleHidden(String profileId, int streamId) async {
+    final hidden = getHidden(profileId);
+    if (hidden.contains(streamId)) {
+      hidden.remove(streamId);
+      await setHidden(profileId, hidden);
+      return false;
+    } else {
+      hidden.add(streamId);
+      await setHidden(profileId, hidden);
       return true;
     }
   }
