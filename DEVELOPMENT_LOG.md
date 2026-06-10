@@ -1,6 +1,50 @@
-# CloudStream — Development Log
+## 2026-06-10 — CloudStream Hourly Cron (20:20 BST — V24 ship)
 
-> Reverse chronological. Most recent entries at top.
+**Session start:** 20:14 BST
+
+### What was done:
+- Board on entry: the prior cron (18:25 BST) had shipped V23 (e6c1689, PR #12) — CI ✅ + Release ✅ → v0.1.64 — and updated the board + log to that effect. The "what's next" list from the 18:25 log mentioned several unblocked candidates, with the V22-style cross-row dedupe pattern applied to Continue Watching series-episode entries already shipped as V23. The natural next gap (also flagged in the 18:25 "what's next") was the **V03 follow-on**: `PlayerScreen._saveProgress` saves watch progress for ANY stream (live channels included) on the same 30s cadence as VOD/series, but `continueWatchingProvider` only resolved saved streamIds against the VOD + series catalogues — so a user watching a live channel for >30s had their progress persisted silently and never saw a Continue Watching card. Picked it up as **V24**.
+- **V24** fully implemented, tested, and shipped (f6ed1ab, PR #13):
+  - **New `ContinueWatchingKind.liveChannel` enum value** (extends V03's `vod|seriesEpisode` to a 3-state enum). Always null `parentSeriesId` (a live channel is a single item, not a container of sub-items — mirrors VOD entries per the V23 dedupe partition).
+  - **Third resolution branch in `continueWatchingProvider`** (`app_providers.dart`): after the existing VOD-direct and series-episode-reverse-lookup branches, resolves any still-unresolved saved streamId against `liveStreamsProvider` (drops orphans, awaits `.future` for the same first-tick-null-trap avoidance as the VOD/series branches — the V20 Recently Played row learned this lesson and V24 inherits it). Tags the resulting entries with `kind = liveChannel` + `parentSeriesId = null`.
+  - **V23 dedupe partition handles the new kind correctly with zero changes**: the partition keys on `parentSeriesId != null` (group-by-parent for `seriesEpisodes`) and the rest is a pass-through. Live channels are "everything else" and pass through unchanged — exactly mirrors VOD entries. The V23 invariant ("one Continue Watching card per parent series, not one per episode") still holds.
+  - **`continueWatchingLiveProvider` filter** (symmetric to the V21 VOD/Series split) exposed for future callers. Currently only consumed by the channel-list `_ContinueWatchingRow` — the V24 entries appear naturally there because that row already shows the union of all `continueWatchingProvider` kinds.
+  - **UI routing** (`channel_list_screen.dart` `_openResume`): live entries open the live player directly (`selectedStreamProvider` state + `PlayerScreen`) — no VOD detail screen, no resume position. Live streams don't seek; the "Resume" badge is "I was watching this, tap to jump back", not a true seek-and-resume. The VOD branch still handles `'vod'` entries (movies + a defensive VOD-tagged live stream) through `VodDetailScreen` with `autoResume`. The series branch is unchanged.
+  - **`flutter analyze`**: 50 issues (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning. **0 new issues introduced by V24** (no entries in `app_providers.dart`, `channel_list_screen.dart`, or the new test file).
+  - **`flutter test`**: 254/254 pass (was 242, +12 from V24). New file `test/v24_live_continue_watching_test.dart` follows the V23 `v23_series_grouping_dedupe_test.dart` and V22 `v22_most_watched_dedupe_test.dart` patterns — same `_FakeCredentialsStore` + `_FakeXtreamClient` test doubles (declared in-file for self-containment), same `makeContainer` helper, one `test` per scenario, no test loops. Test split:
+    1. **No-connection default** (regression guard — the provider must not throw or return spurious entries when no active credentials)
+    2. **Single live stream with progress → 1 entry** (the headline V24 behaviour)
+    3. **VOD + live mixed** (both branches resolve into the same `entries` list, sorted by `updatedAt` desc)
+    4. **VOD + series + live mixed** (all three resolution branches compose; V23 series dedupe still keys on `parentSeriesId`; live entries pass through)
+    5. **Orphan live drop** (saved streamId not in `liveStreamsProvider` — e.g. user logged in to a different server since watching — silently dropped, no crash, no card)
+    6. **Per-profile isolation** (regression guard for the V21 split — `creds.name` keyed storage)
+    7. **`liveStreamsProvider` failure resilience** (provider throws → `continueWatchingProvider` falls through gracefully, doesn't propagate the throw to the UI)
+    8. **V23 series dedupe still works with live in the mix** (3 episodes of "Breaking Bad" + 2 live channels + 1 movie → 4 cards: 1 Breaking Bad, 2 live, 1 movie — regression guard for the V23 invariant)
+    9. **V22 most-watched dedupe regression guard** (the cross-row dedupe pattern from V22 is unaffected by the V24 third resolution branch)
+    10. **`continueWatchingLiveProvider` — no-connection** (empty)
+    11. **`continueWatchingLiveProvider` — filters out VOD + series** (only `kind == liveChannel` entries surface)
+    12. **`continueWatchingLiveProvider` — empty live is empty** (provider returns empty list, not error)
+- Pushed `feature/v24-live-continue-watching` → `develop` (squash merge `f6ed1ab`, PR #13). **CI ✅ (6m56s) + Release ✅ (6m43s) → v0.1.66.** Per the R01/skill discipline: investigated Release status IMMEDIATELY after merge. Both green. **APK uploaded as v0.1.66.**
+
+### CI status:
+- `Merge feature/v24-live-continue-watching into develop` (f6ed1ab) — **CI ✅ (6m56s) + Release ✅ (6m43s) → v0.1.66**
+- All Phase 2 (P201–P204, P206) + V01–V24 + R01 now Done
+- 254/254 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V24 closes the V03 follow-on gap.** Continue Watching now surfaces VOD movies, series episodes (deduped per parent series, V23), AND live TV channels the user has been watching for >30s. A user who toggles between "BBC One" for the news and "ITV" for a movie will see both cards on the home row and can jump back to either with one tap. No more "which channel was I on again?" friction.
+- **Other unblocked candidates** (all no external deps):
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Personalisation-row fine-tuning: lifetime vs recent-window, cap at N for the home rows, additional dedupe edges (e.g. V20 Recently Played row deduping from V03 Continue Watching — symmetric to the V22 Most Watched ↔ Recently Played dedupe)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `profile_setup_screen` brightness-aware migration (still in the 50-issue pre-existing set; out of scope for the personalisation work)
+- **R02 candidate**: the v0.1.61 / v0.1.63 / v0.1.64 / v0.1.65 / v0.1.66 tags are all on origin and published to the GitHub Releases page. v0.1.61 is a stranded release (the V22 release failure pushed the tag but never created the GitHub Release against it — the `Determine Version` job correctly bumped from the most recent **release** tag, so v0.1.60 → v0.1.62 with v0.1.61 skipped). v0.1.63 is from the R01 docs commit (no new APK content, just a release-version bump). v0.1.65 is from the V23 docs commit. v0.1.66 is V24. Cleanup is a 1-line `git tag -d` + `git push origin :refs/tags/vX.Y.Z` per tag, plus a `gh release delete` if we want the release pages gone. Low-priority — not blocking anything.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
 
 ---
 
