@@ -775,9 +775,10 @@ final remindersProvider =
 
 /// Discriminator for the kind of item a [ContinueWatchingEntry] represents.
 /// A saved watch-progress id can resolve to either a VOD/series-level
-/// stream (the VOD case) or a series episode (resolved against the
-/// [SeriesInfoCache] by episode stream id).
-enum ContinueWatchingKind { vod, seriesEpisode }
+/// stream (the VOD case), a series episode (resolved against the
+/// [SeriesInfoCache] by episode stream id), or — V24 — a live TV
+/// channel the user has been watching for >30s.
+enum ContinueWatchingKind { vod, seriesEpisode, liveChannel }
 
 /// One "Continue Watching" entry: the resolved stream + its saved progress.
 class ContinueWatchingEntry {
@@ -816,10 +817,13 @@ class ContinueWatchingEntry {
 /// "Continue Watching" row data for the active connection.
 ///
 /// Resolves every saved watch-progress streamId against the loaded VOD
-/// list, the series stream list (for series-level entries), AND the
+/// list, the series stream list (for series-level entries), the
 /// [SeriesInfoCache] (which maps each episode stream id back to its
-/// parent series + season/episode). Stream IDs that no longer exist in
-/// any of these sources are dropped silently.
+/// parent series + season/episode), AND — V24 — the live TV channel
+/// list (a user watching a live channel for >30s has watch progress
+/// saved just like a VOD — closing the V03 follow-on gap where live
+/// channels never appeared in the Continue Watching row). Stream IDs
+/// that no longer exist in any of these sources are dropped silently.
 ///
 /// Keyed by the active connection's `name` to match the writer
 /// (`PlayerScreen._saveProgress` saves with `creds.name`).
@@ -839,6 +843,13 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
   final series = await ref.watch(seriesStreamsProvider.future).catchError(
         (_) => const <XtreamStream>[],
       );
+  // V24: also wait for live streams so we can resolve saved progress
+  // for live channels. Tolerate failures (e.g. server down on a
+  // reconnect) — the provider still surfaces VOD + series entries,
+  // the live ones just get dropped this tick.
+  final live = await ref.watch(liveStreamsProvider.future).catchError(
+        (_) => const <XtreamStream>[],
+      );
 
   // Pre-load the series-info cache for every series in the catalogue.
   // Then we can do a reverse-lookup from any saved episode stream id
@@ -850,6 +861,11 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
   }
 
   // Build a single lookup over VOD + series (for series-level entries).
+  // V24: live channels are a separate lookup so we can tag the
+  // resulting entries with ContinueWatchingKind.liveChannel without
+  // accidentally mis-tagging a series-level entry that happens to
+  // also exist in the live catalogue (rare but possible — a series
+  // stream that doubles as a live channel).
   final byId = <int, XtreamStream>{};
   for (final s in vod) {
     byId[s.streamId] = s;
@@ -857,6 +873,9 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
   for (final s in series) {
     byId[s.streamId] = s;
   }
+  final liveById = <int, XtreamStream>{
+    for (final s in live) s.streamId: s,
+  };
 
   final entries = <ContinueWatchingEntry>[];
   for (final id in savedIds) {
@@ -906,6 +925,26 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
         episode: ep,
         parentSeriesId: hit.seriesId,
       ));
+      continue;
+    }
+
+    // 3) V24: Direct match in the live TV channel catalogue. A
+    // user watching a live channel for >30s has watch progress
+    // saved by PlayerScreen._saveProgress. The "Resume" tap on the
+    // resulting Continue Watching card opens the live player
+    // directly (no resume position — live streams don't seek;
+    // it's an "I was watching this" affordance, not a true
+    // resume). A live channel is a single item, not a container
+    // of sub-items, so the V23 group-by-parent dedupe doesn't
+    // apply (mirrors how VOD entries are handled).
+    final liveStream = liveById[id];
+    if (liveStream != null) {
+      entries.add(ContinueWatchingEntry(
+        stream: liveStream,
+        progress: progress,
+        kind: ContinueWatchingKind.liveChannel,
+      ));
+      continue;
     }
     // else: orphan — drop silently.
   }
@@ -917,6 +956,13 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
   // recent episode's S/E/title badge), not three duplicate parent
   // cards. VOD entries are unaffected — a movie is a single item,
   // not a container of sub-items, so there's no "group" to dedupe.
+  //
+  // V24: live-channel entries are also passed through unchanged
+  // (a live channel is a single item, not a container of
+  // sub-items — same rationale as VOD). They live in the
+  // "everything except seriesEpisode" bucket alongside VOD
+  // entries, so the existing V23 partition + dedupe logic
+  // handles them correctly with no changes.
   //
   // The dedupe is stable: ties on `updatedAt` resolve by streamId
   // asc (matches the V05 / V09 / V16 tie-breaker convention). The
@@ -957,7 +1003,10 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
 /// entries where the saved watch progress resolved to a VOD stream
 /// (`ContinueWatchingKind.vod`). Drives the new Continue Watching row on
 /// the VOD home tab ([VodScreen]). Series-episode entries are routed
-/// through [continueWatchingSeriesProvider] instead.
+/// through [continueWatchingSeriesProvider] instead. Live-channel
+/// entries (V24) are routed through [continueWatchingLiveProvider] —
+/// they belong on the channel list, not the VOD tab, since "I was
+/// watching this live channel" doesn't fit a VOD-browsing context.
 ///
 /// Defers to [continueWatchingProvider]'s own null-degrade paths (no
 /// creds → [], no saved ids → [], no live catalogue → []) — the filter
@@ -983,7 +1032,8 @@ final continueWatchingVodProvider =
 /// resolved to a series episode via the [SeriesInfoCache]
 /// (`ContinueWatchingKind.seriesEpisode`). Drives the new Continue
 /// Watching row on the Series home tab ([SeriesScreen]). VOD entries
-/// are routed through [continueWatchingVodProvider] instead.
+/// are routed through [continueWatchingVodProvider] instead. Live
+/// entries (V24) are routed through [continueWatchingLiveProvider].
 ///
 /// Same null-degrade contract as [continueWatchingVodProvider].
 final continueWatchingSeriesProvider =
@@ -993,6 +1043,36 @@ final continueWatchingSeriesProvider =
   final all = await ref.watch(continueWatchingProvider.future);
   return all
       .where((e) => e.kind == ContinueWatchingKind.seriesEpisode)
+      .toList();
+});
+
+/// V24: Live-channel-only Continue Watching — filters
+/// [continueWatchingProvider] to entries where the saved watch progress
+/// resolved to a live TV channel (`ContinueWatchingKind.liveChannel`).
+///
+/// A user watching a live channel for >30s has watch progress saved
+/// by `PlayerScreen._saveProgress` (the save cadence is the same as
+/// for VOD/series). The resulting Continue Watching card lives on the
+/// Live TV home tab — same place as the channel list — and tap-routes
+/// to the live player (no resume position; live streams don't seek).
+///
+/// The V21 split put VOD + Series Continue Watching on their own
+/// tabs. Live channels have no dedicated tab (the Live TV tab IS the
+/// channel list), so [continueWatchingLiveProvider] is only consumed
+/// by the channel-list `_ContinueWatchingRow` — but exposed as a
+/// provider for symmetry with the V21 split, and to make it easy to
+/// add a "Live TV resume" badge in the future without touching the
+/// main joiner.
+///
+/// Same null-degrade contract as [continueWatchingVodProvider] /
+/// [continueWatchingSeriesProvider].
+final continueWatchingLiveProvider =
+    FutureProvider<List<ContinueWatchingEntry>>((ref) async {
+  // See [continueWatchingVodProvider] for why we `await` the source
+  // future rather than watching the AsyncValue.
+  final all = await ref.watch(continueWatchingProvider.future);
+  return all
+      .where((e) => e.kind == ContinueWatchingKind.liveChannel)
       .toList();
 });
 
