@@ -1190,11 +1190,31 @@ class MostWatchedEntry {
   const MostWatchedEntry({required this.stream, required this.count});
 }
 
+/// Maximum number of cards surfaced in each home personalisation row
+/// (Recently Played + Most Watched + Continue Watching). Kept in one
+/// place so V22's recency-vs-frequency dedupe stays in sync with the
+/// row widget caps — `mostWatchedProvider` reads the same N to compute
+/// the overlap-exclusion set, so changing the cap here updates both
+/// rows in lockstep.
+const int kPersonalisationRowCap = 8;
+
 /// Top N most-watched live channels for the active profile, ordered by
 /// play count desc. Resolves each top streamId against the loaded live
 /// streams list — drops orphans (e.g. items removed from the server).
 /// Keyed by the active connection's `name` so each profile has its own
 /// ranking.
+///
+/// V22: also watches [recentlyPlayedProvider] and excludes any stream
+/// that already appears in the top [kPersonalisationRowCap] recency
+/// entries. The recency row is the "fresher" personalisation signal
+/// (a user who just played CNN 30 seconds ago wants CNN in Recently
+/// Played, not duplicated into Most Watched). If a channel is not in
+/// the recency set it still surfaces in Most Watched; if the recency
+/// row already covers ≥ N unique channels the Most Watched row hides
+/// entirely (it would only contain duplicates of channels the user
+/// just saw). Awaiting both providers' `.future` means the dedupe is
+/// deterministic — both rows can't be in a half-loaded state where
+/// one has data and the other doesn't.
 final mostWatchedProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
   final creds = await ref.watch(activeCredentialsProvider.future);
   if (creds == null) return const [];
@@ -1209,11 +1229,24 @@ final mostWatchedProvider = FutureProvider<List<MostWatchedEntry>>((ref) async {
   if (live.isEmpty) return const [];
   final byId = {for (final s in live) s.streamId: s};
 
+  // V22: compute the recency-overlap exclusion set. Watching the
+  // recency provider here means mostWatchedProvider re-runs when
+  // recency changes (e.g. after a new play) — Riverpod's default
+  // auto-dispose would re-watch on every build, but since both
+  // providers are keepAlive-decorated upstream the dependency is
+  // stable.
+  final recent = await ref.watch(recentlyPlayedProvider.future);
+  final excludeIds = <int>{
+    for (final r in recent.take(kPersonalisationRowCap)) r.stream.streamId,
+  };
+
   final out = <MostWatchedEntry>[];
   for (final e in raw) {
     final s = byId[e.streamId];
     if (s == null) continue; // dropped: not a live channel any more
+    if (excludeIds.contains(e.streamId)) continue; // V22: recency row already shows it
     out.add(MostWatchedEntry(stream: s, count: e.count));
+    if (out.length >= kPersonalisationRowCap) break;
   }
   return out;
 });

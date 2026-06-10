@@ -858,7 +858,7 @@ class _FavouriteButton extends StatelessWidget {
 class _ContinueWatchingRow extends ConsumerWidget {
   const _ContinueWatchingRow();
 
-  static const int _maxCards = 8;
+  static const int _maxCards = kPersonalisationRowCap;
 
   void _openResume(BuildContext context, WidgetRef ref, ContinueWatchingEntry entry) {
     if (entry.kind == ContinueWatchingKind.seriesEpisode &&
@@ -1146,7 +1146,7 @@ class _PosterPlaceholder extends StatelessWidget {
 class _RecentlyPlayedRow extends ConsumerWidget {
   const _RecentlyPlayedRow();
 
-  static const int _maxCards = 8;
+  static const int _maxCards = kPersonalisationRowCap;
 
   void _openStream(BuildContext context, WidgetRef ref, XtreamStream stream) {
     ref.read(selectedStreamProvider.notifier).state = stream;
@@ -1275,7 +1275,7 @@ class _RecentlyPlayedCard extends StatelessWidget {
 class _MostWatchedRow extends ConsumerWidget {
   const _MostWatchedRow();
 
-  static const int _maxCards = 8;
+  static const int _maxCards = kPersonalisationRowCap;
 
   void _openStream(BuildContext context, WidgetRef ref, XtreamStream stream) {
     ref.read(selectedStreamProvider.notifier).state = stream;
