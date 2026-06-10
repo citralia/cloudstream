@@ -996,7 +996,37 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
     ...dedupedEpisodes.values,
   ];
   deduped.sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
-  return deduped;
+
+  // V25: dedupe live-channel entries against the Recently Played
+  // row. The user is currently watching BBC One for >30s — that
+  // saves watch progress (V24 branch below already handles that) AND
+  // a recency stamp via PlayCountStore.increment (called from
+  // PlayerScreen._saveProgress every 30s). Both rows would then
+  // surface a card for the same channel with the same tap target
+  // (play BBC One) — the same "two rows showing the same channel"
+  // problem V22 fixed for Most Watched. Drop any live-channel entry
+  // whose streamId is in the recency-top-N set.
+  //
+  // VOD and series-episode entries are NOT deduped here:
+  // `recentlyPlayedProvider` is live-only (it joins against
+  // `liveStreamsProvider` exclusively, per V20's implementation), so
+  // the recency set can never contain a VOD or series streamId.
+  // Movies + series episodes always remain in Continue Watching
+  // even if the user recently watched them.
+  //
+  // Awaiting `.future` rather than reading `valueOrNull` makes the
+  // dedupe deterministic (same first-tick-null-trap avoidance V22
+  // uses for `mostWatchedProvider`). If recency is still loading,
+  // we don't ship a half-loaded Continue Watching row.
+  final recent = await ref.watch(recentlyPlayedProvider.future);
+  final excludeIds = <int>{
+    for (final r in recent.take(kPersonalisationRowCap)) r.stream.streamId,
+  };
+  return deduped
+      .where((e) =>
+          e.kind != ContinueWatchingKind.liveChannel ||
+          !excludeIds.contains(e.stream.streamId))
+      .toList();
 });
 
 /// V21: VOD-only Continue Watching — filters [continueWatchingProvider] to
