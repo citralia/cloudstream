@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/pip/pip_service.dart';
 import '../../domain/entities/cloud_stream_player.dart';
@@ -83,6 +84,15 @@ class XtreamStreamSession implements CloudStreamPlayer {
       allowFullScreen: true,
       allowMuting: true,
       showControls: true,
+      // The Chewie config block runs eagerly inside _initController,
+      // which is a method on a non-Widget class (no BuildContext
+      // available). The player always paints on top of a black
+      // video surface, so the brightness-correct tokens are not
+      // materially visible here — the same trade-off as
+      // `player_controller_notifier.dart`. Theme-aware colours
+      // (loading indicator, error widget) are resolved lazily
+      // inside the build path through `errorBuilder` below, which
+      // does receive a context.
       materialProgressColors: ChewieProgressColors(
         playedColor: AppColors.primary,
         handleColor: AppColors.accent,
@@ -91,22 +101,26 @@ class XtreamStreamSession implements CloudStreamPlayer {
       ),
       placeholder: Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
-      errorBuilder: (context, msg) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
-            const SizedBox(height: 16),
-            Text('Playback error', style: AppTypography.h3),
-            const SizedBox(height: 8),
-            Text(msg, style: AppTypography.caption, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
+      errorBuilder: (context, msg) {
+        final colors = context.appColors;
+        final typo = context.appTypography;
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: colors.error, size: 48),
+              const SizedBox(height: 16),
+              Text('Playback error', style: typo.h3),
+              const SizedBox(height: 8),
+              Text(msg, style: typo.caption, textAlign: TextAlign.center),
+            ],
+          ),
+        );
+      },
     );
 
     _volume = _videoController!.value.volume;
