@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/storage/reminder_store.dart';
 import '../providers/app_providers.dart';
@@ -123,7 +124,7 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
     final streamsAsync = ref.watch(filteredLiveStreamsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
         title: const Text('Guide'),
         actions: [
@@ -141,8 +142,8 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
         ],
       ),
       body: streamsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: context.appColors.primary),
         ),
         error: (error, _) => Center(
           child: Padding(
@@ -150,11 +151,11 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                Icon(Icons.error_outline, color: context.appColors.error, size: 48),
                 const SizedBox(height: AppSpacing.lg),
-                Text('Failed to load channels', style: AppTypography.h3),
+                Text('Failed to load channels', style: context.appTypography.h3),
                 const SizedBox(height: AppSpacing.sm),
-                Text(error.toString(), style: AppTypography.caption, textAlign: TextAlign.center),
+                Text(error.toString(), style: context.appTypography.caption, textAlign: TextAlign.center),
                 const SizedBox(height: AppSpacing.xl),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(filteredLiveStreamsProvider),
@@ -166,13 +167,13 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
         ),
         data: (streams) {
           if (streams.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.menu_book_outlined, color: AppColors.textMuted, size: 64),
-                  SizedBox(height: AppSpacing.lg),
-                  Text('No channels', style: AppTypography.h3),
+                  Icon(Icons.menu_book_outlined, color: context.appColors.textMuted, size: 64),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text('No channels', style: context.appTypography.h3),
                 ],
               ),
             );
@@ -280,9 +281,9 @@ class _EpgGridState extends State<_EpgGrid> {
             children: [
               Container(
                 width: TimelineMetrics.channelColumnWidth,
-                color: AppColors.surface,
+                color: context.appColors.surface,
                 alignment: Alignment.center,
-                child: Text('CHANNEL', style: AppTypography.caption),
+                child: Text('CHANNEL', style: context.appTypography.caption),
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -296,6 +297,9 @@ class _EpgGridState extends State<_EpgGrid> {
                         windowStart: widget.windowStart,
                         windowEnd: widget.windowEnd,
                         pixelsPerMinute: TimelineMetrics.pixelsPerMinute,
+                        lineColor: context.appColors.surfaceElevated,
+                        textColor: context.appColors.textMuted,
+                        halfLineColor: context.appColors.textMuted.withOpacity(0.3),
                       ),
                     ),
                   ),
@@ -386,8 +390,8 @@ class _ChannelLabelCell extends StatelessWidget {
       child: Container(
         height: TimelineMetrics.rowHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.appColors.surfaceElevated, width: 1)),
         ),
         child: Row(
           children: [
@@ -398,16 +402,16 @@ class _ChannelLabelCell extends StatelessWidget {
                 child: Image.network(
                   stream.logo!,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => _initial(),
+                  errorBuilder: (_, __, ___) => _initial(context),
                 ),
               )
             else
-              _initial(),
+              _initial(context),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 stream.name,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12, color: context.appColors.textSecondary),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -418,18 +422,18 @@ class _ChannelLabelCell extends StatelessWidget {
     );
   }
 
-  Widget _initial() {
+  Widget _initial(BuildContext context) {
     return Container(
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: context.appColors.surfaceElevated,
         borderRadius: BorderRadius.circular(4),
       ),
       alignment: Alignment.center,
       child: Text(
         stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
-        style: const TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 14, color: context.appColors.primary, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -461,14 +465,14 @@ class _ProgrammeRow extends StatelessWidget {
     if (isLoading) {
       return Container(
         height: TimelineMetrics.rowHeight,
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.appColors.surfaceElevated, width: 1)),
         ),
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            child: CircularProgressIndicator(strokeWidth: 2, color: context.appColors.primary),
           ),
         ),
       );
@@ -483,8 +487,8 @@ class _ProgrammeRow extends StatelessWidget {
     if (visible.isEmpty) {
       return Container(
         height: TimelineMetrics.rowHeight,
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.surfaceElevated, width: 1)),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.appColors.surfaceElevated, width: 1)),
         ),
       );
     }
@@ -627,26 +631,26 @@ class _ProgrammeBlock extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             color: isOnNow
-                ? AppColors.primary.withOpacity(0.85)
-                : AppColors.surfaceElevated,
+                ? context.appColors.primary.withOpacity(0.85)
+                : context.appColors.surfaceElevated,
             borderRadius: BorderRadius.circular(4),
             border: isOnNow
-                ? Border.all(color: AppColors.primary, width: 2)
-                : Border.all(color: AppColors.textMuted.withOpacity(0.3)),
+                ? Border.all(color: context.appColors.primary, width: 2)
+                : Border.all(color: context.appColors.textMuted.withOpacity(0.3)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           alignment: Alignment.centerLeft,
           child: Row(
             children: [
               if (showCatchupBadge) ...[
-                const Icon(Icons.replay, size: 10, color: AppColors.accent),
+                Icon(Icons.replay, size: 10, color: context.appColors.accent),
                 const SizedBox(width: 3),
               ],
               if (hasReminder) ...[
                 Icon(
                   Icons.notifications_active,
                   size: 10,
-                  color: isOnNow ? Colors.white : AppColors.primary,
+                  color: isOnNow ? Colors.white : context.appColors.primary,
                 ),
                 const SizedBox(width: 3),
               ],
@@ -656,7 +660,7 @@ class _ProgrammeBlock extends ConsumerWidget {
                         entry.title,
                         style: TextStyle(
                           fontSize: 11,
-                          color: isOnNow ? Colors.white : AppColors.textSecondary,
+                          color: isOnNow ? Colors.white : context.appColors.textSecondary,
                           fontWeight: isOnNow ? FontWeight.w600 : FontWeight.normal,
                         ),
                         maxLines: 2,
@@ -731,7 +735,7 @@ class _NowLineState extends State<_NowLine> {
       left: visibleOffset,
       top: 0,
       bottom: 0,
-      child: Container(width: 2, color: AppColors.error),
+      child: Container(width: 2, color: context.appColors.error),
     );
   }
 }
@@ -742,21 +746,27 @@ class _TimeRulerPainter extends CustomPainter {
   final DateTime windowStart;
   final DateTime windowEnd;
   final double pixelsPerMinute;
+  final Color lineColor;
+  final Color textColor;
+  final Color halfLineColor;
 
   _TimeRulerPainter({
     required this.windowStart,
     required this.windowEnd,
     required this.pixelsPerMinute,
+    required this.lineColor,
+    required this.textColor,
+    required this.halfLineColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.surfaceElevated
+      ..color = lineColor
       ..strokeWidth = 1;
 
     final textStyle = TextStyle(
-      color: AppColors.textMuted,
+      color: textColor,
       fontSize: 10,
     );
 
@@ -781,7 +791,7 @@ class _TimeRulerPainter extends CustomPainter {
       final halfOffset = offset + (30 * pixelsPerMinute);
       if (halfOffset < size.width) {
         final halfPaint = Paint()
-          ..color = AppColors.textMuted.withOpacity(0.3)
+          ..color = halfLineColor
           ..strokeWidth = 1;
         canvas.drawLine(
           Offset(halfOffset, size.height * 0.6),
@@ -798,5 +808,8 @@ class _TimeRulerPainter extends CustomPainter {
   bool shouldRepaint(_TimeRulerPainter old) =>
       windowStart != old.windowStart ||
       windowEnd != old.windowEnd ||
-      pixelsPerMinute != old.pixelsPerMinute;
+      pixelsPerMinute != old.pixelsPerMinute ||
+      lineColor != old.lineColor ||
+      textColor != old.textColor ||
+      halfLineColor != old.halfLineColor;
 }

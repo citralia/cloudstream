@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 
 /// An overlay shown at the bottom of the player that lists recent channels
@@ -58,12 +58,12 @@ class _QuickChannelOverlayState extends ConsumerState<QuickChannelOverlay> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.swap_horiz, color: AppColors.primary, size: 18),
+                    Icon(Icons.swap_horiz, color: context.appColors.primary, size: 18),
                     const SizedBox(width: 6),
                     Text(
                       'Quick Switch',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.primary,
+                      style: context.appTypography.caption.copyWith(
+                        color: context.appColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -110,9 +110,9 @@ class _RecentChannelChip extends StatelessWidget {
       child: Container(
         width: 100,
         decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
+          color: context.appColors.surfaceElevated,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.textMuted.withOpacity(0.3)),
+          border: Border.all(color: context.appColors.textMuted.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -125,17 +125,17 @@ class _RecentChannelChip extends StatelessWidget {
                     stream.logo!,
                     fit: BoxFit.contain,
                     width: 60,
-                    errorBuilder: (_, __, ___) => _initial(),
+                    errorBuilder: (_, __, ___) => _initial(context),
                   ),
                 ),
               )
             else
-              _initial(),
+              _initial(context),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Text(
                 stream.name,
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 11, color: context.appColors.textSecondary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -147,13 +147,13 @@ class _RecentChannelChip extends StatelessWidget {
     );
   }
 
-  Widget _initial() {
+  Widget _initial(BuildContext context) {
     return Center(
       child: Text(
         stream.name.isNotEmpty ? stream.name[0].toUpperCase() : '?',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 20,
-          color: AppColors.primary,
+          color: context.appColors.primary,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -203,7 +203,7 @@ class _ChannelNumberBarState extends State<ChannelNumberBar> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.dialpad, color: AppColors.primary, size: 18),
+          Icon(Icons.dialpad, color: context.appColors.primary, size: 18),
           const SizedBox(width: 8),
           Text(
             _digits.isEmpty ? '—' : _digits,
@@ -218,14 +218,14 @@ class _ChannelNumberBarState extends State<ChannelNumberBar> {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: backspace,
-            child: const Icon(Icons.backspace_outlined, color: AppColors.textMuted, size: 18),
+            child: Icon(Icons.backspace_outlined, color: context.appColors.textMuted, size: 18),
           ),
           const SizedBox(width: 4),
           GestureDetector(
             onTap: clear,
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Text('CLR', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Text('CLR', style: TextStyle(fontSize: 11, color: context.appColors.textMuted)),
             ),
           ),
           const SizedBox(width: 8),
@@ -234,7 +234,7 @@ class _ChannelNumberBarState extends State<ChannelNumberBar> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: context.appColors.primary,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text('GO', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),

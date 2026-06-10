@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/pip/pip_service.dart';
 import '../providers/app_providers.dart';
@@ -110,6 +111,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final streamUrl = widget.streamUrl ??
           ref.read(streamUrlProvider(widget.stream.streamId));
 
+      // Capture theme tokens before any await — these are the tokens
+      // the player's `errorBuilder` and `placeholder` will read once
+      // the controller finishes initialising. Chewie invokes those
+      // builders long after the await, so reading `context.appColors`
+      // inside them would trip the `use_build_context_synchronously`
+      // lint and risk a stale `context` (State.dispose can race).
+      final colors = context.appColors;
+      final typo = context.appTypography;
+
       // Initialise video player with the HLS manifest
       _videoController = VideoPlayerController.networkUrl(Uri.parse(streamUrl!));
       _videoController!.addListener(_onPositionChanged);
@@ -128,15 +138,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         allowMuting: true,
         showControls: true,
         materialProgressColors: ChewieProgressColors(
-          playedColor: AppColors.primary,
-          handleColor: AppColors.accent,
-          backgroundColor: AppColors.surface,
-          bufferedColor: AppColors.textMuted,
+          playedColor: colors.primary,
+          handleColor: colors.accent,
+          backgroundColor: colors.surface,
+          bufferedColor: colors.textMuted,
         ),
         placeholder: Container(
           color: Colors.black,
-          child: const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
+          child: Center(
+            child: CircularProgressIndicator(color: colors.primary),
           ),
         ),
         errorBuilder: (context, errorMessage) {
@@ -144,13 +154,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                Icon(Icons.error_outline, color: colors.error, size: 48),
                 const SizedBox(height: 16),
-                Text('Playback error', style: AppTypography.h3),
+                Text('Playback error', style: typo.h3),
                 const SizedBox(height: 8),
                 Text(
                   errorMessage,
-                  style: AppTypography.caption,
+                  style: typo.caption,
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -211,8 +221,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             // Video player
             Positioned.fill(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.appColors.primary),
                     )
                   : _error != null
                       ? _ErrorView(
@@ -272,7 +282,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           children: [
                             Text(
                               widget.stream.name,
-                              style: AppTypography.h3.copyWith(color: Colors.white),
+                              style: context.appTypography.h3.copyWith(color: Colors.white),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -280,7 +290,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 _currentProgramme!.title,
-                                style: AppTypography.caption.copyWith(color: Colors.white70),
+                                style: context.appTypography.caption.copyWith(color: Colors.white70),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -314,13 +324,13 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 64),
+            Icon(Icons.error_outline, color: context.appColors.error, size: 64),
             const SizedBox(height: AppSpacing.lg),
-            Text('Playback failed', style: AppTypography.h2),
+            Text('Playback failed', style: context.appTypography.h2),
             const SizedBox(height: AppSpacing.sm),
             Text(
               error,
-              style: AppTypography.caption,
+              style: context.appTypography.caption,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
