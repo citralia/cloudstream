@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (05:15 BST)
+
+**Session start:** 05:15 BST
+
+### What was done:
+- Board on entry: V15 (brightness-aware migration chunk 3 — playlist + player widgets) was fully Done from the 02:25 cron (8db2164 → 16e4dfc docs, CI ✅ + Release ✅ → v0.1.49). All explicit Next candidates either needed external services (P205 Firestore sync, P207 DVR, P208 RevenueCat, B202 Firebase) or were minor one-line follow-ons. The "what's next" list from the 02:25 log pointed to "Recently watched sort mode for V06 (would need a recency timestamp on top of the existing `PlayCountStore`)" — a clean, fully-unblocked follow-on that builds on the existing V05 store + V09 sort plumbing. Picked it up as **V16**.
+- **V16** fully implemented, tested, and shipped (9178571, PR #4):
+  - **`PlayCountStore` extended** (`core/storage/play_count_store.dart`):
+    - New `getLastPlayedAtMs(profileId, streamId) -> int?` reads the per-stream wall-clock millisecond timestamp.
+    - New `recentEntries(profileId)` returns all played streams ordered by recency desc (most-recent first), with `streamId asc` as a stable tie-breaker for streams played in the same instant.
+    - `increment({at: DateTime?})` now also stamps the last-played time (epoch ms, UTC). The `at:` parameter is injectable for tests; production callers let it default to `DateTime.now()`.
+    - `clearCount` now drops both the count and the last-played stamp (was only dropping the count — a real bug for anyone who had used the store and then wanted to reset).
+  - **New `ChannelSortMode.recentlyPlayed` enum value** (`core/storage/channel_sort_store.dart`): complements the existing `mostWatched` — a casual viewer flipping between a few channels wants recency, a power user with hundreds of plays wants the lifetime-frequency leaderboard.
+  - **`filteredLiveStreamsProvider` extended** (`presentation/providers/app_providers.dart`): a new branch for `recentlyPlayed` reads `playCountStoreProvider.recentEntries(creds.name)` and routes through `_applyChannelSort(mode: recentlyPlayed, lastPlayedAtMs: …)`. Same active-connection guard as `mostWatched` (degrades to `defaultOrder` when no creds) — and same try/catch-free path since `recentEntries` is a pure read of `SharedPreferences.getKeys()` and can't throw.
+  - **`_applyChannelSort` extended** with a new `lastPlayedAtMs: Map<int, int>?` named arg (mutex with the existing `playCounts:`). Same two-bucket structure as `mostWatched` (played → bottom, unplayed → name asc), but the played bucket sorts by timestamp desc instead of count desc. The bucket boundary uses **map membership**, not `timestamp > 0` — a documented deliberate choice. Legacy v0.1.x–v0.1.48 installs have count keys but no last-played stamp; `recentEntries` surfaces those as epoch-0, so a `timestamp > 0` check would let them compete with genuinely-recent plays at the top of the recency order. Membership is the conservative call. (See the in-code comment.)
+  - **`_SortModeSheet` extended** (`presentation/screens/channel_list_screen.dart`): new 5th row with `Icons.history`, "Recently Played" title, and "Most-recently-played channels first; channels you have never played go to the bottom" subtitle.
+  - **`flutter analyze`**: 50 issues found (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning. **0 new issues introduced by V16** (no entries in any of the 3 modified files or the new test file).
+  - **`flutter test`**: 181/181 tests pass (was 165, +16 from V16). New file `test/recently_played_sort_test.dart` follows the V09 / V12 pattern: same `_FakeCredentialsStore` + `_FakeXtreamClient` test doubles (declared in-file for self-containment), same `makeContainer` helper that overrides the storage + client providers, one `testWidgets`-equivalent `test` per scenario, no test loops. The test split mirrors the V09 split: 9 unit tests for the new `PlayCountStore` API surface (`getLastPlayedAtMs` null-default, `increment(at:)` stamps the time, subsequent increments overwrite the stamp + bump the count, `recentEntries` ordering + ties + per-profile isolation, `clearCount` dual-key cleanup, legacy entry epoch-0 fallback) + 7 sort-mode integration tests (recency-desc ordering, empty/no-conn degrade, composes with category + favourites filters, per-profile isolation, **`mostWatched` vs `recentlyPlayed` re-rank on the same data** as the last test — proves the two modes are not aliases).
+- Pushed `feature/v16-recently-played-sort` → `develop` (merge 9178571, squash, PR #4). CI ✅ + Release ✅ — **APK uploaded as v0.1.50**.
+
+### CI status:
+- `Merge feature/v16-recently-played-sort into develop` (9178571) — **CI ✅ + Release ✅ → v0.1.50**
+- All Phase 2 (P201–P204, P206) + V01–V16 now Done
+- The V08/V11/V12/V13/V14/V15 brightness sweep is complete (V15 closed the last 3 files); V16 closes the last unblocked V06 follow-on noted in the V15 log. The channel list now has 5 sort modes (Default / Name / Number / Most Watched / Recently Played).
+
+### What's next:
+- **V16 closes the last unblocked V06 follow-on.** No more "Recently watched" sort mode to do. The remaining "what's next" list from the 02:25 log was:
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites) — UX choice
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (02:25 BST)
 
 **Session start:** 02:20 BST
