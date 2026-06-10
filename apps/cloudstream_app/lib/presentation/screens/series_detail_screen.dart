@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 
@@ -54,16 +55,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final seriesInfoAsync = ref.watch(seriesInfoProvider(widget.stream.streamId));
+    final colors = context.appColors;
+    final typo = context.appTypography;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: colors.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(widget.stream.name, style: AppTypography.h3, overflow: TextOverflow.ellipsis),
+        title: Text(widget.stream.name, style: typo.h3, overflow: TextOverflow.ellipsis),
       ),
       body: seriesInfoAsync.when(
         data: (info) {
@@ -84,8 +87,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             onAutoResumeConsumed: () => setState(() => _autoPlayEpisode = null),
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: colors.primary),
         ),
         error: (e, _) => Center(
           child: Padding(
@@ -93,10 +96,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                Icon(Icons.error_outline, color: colors.error, size: 48),
                 const SizedBox(height: AppSpacing.md),
                 Text('Failed to load series: $e',
-                    style: AppTypography.body, textAlign: TextAlign.center),
+                    style: typo.body, textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -206,6 +209,7 @@ class _BodyState extends ConsumerState<_Body> {
     final currentSeason = _findSeason(widget.selectedSeason);
     final seriesInfo = widget.seriesInfo;
     final stream = widget.stream;
+    final typo = context.appTypography;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -217,7 +221,7 @@ class _BodyState extends ConsumerState<_Body> {
 
           // Title.
           Text(seriesInfo.name.isNotEmpty ? seriesInfo.name : stream.name,
-              style: AppTypography.h1),
+              style: typo.h1),
 
           const SizedBox(height: AppSpacing.sm),
 
@@ -228,23 +232,23 @@ class _BodyState extends ConsumerState<_Body> {
 
           // Plot.
           if (seriesInfo.plot != null && seriesInfo.plot!.trim().isNotEmpty) ...[
-            Text('Plot', style: AppTypography.h3),
+            Text('Plot', style: typo.h3),
             const SizedBox(height: AppSpacing.sm),
-            Text(seriesInfo.plot!, style: AppTypography.body),
+            Text(seriesInfo.plot!, style: typo.body),
             const SizedBox(height: AppSpacing.lg),
           ],
 
           // Cast (sometimes returned by Xtream for series).
           if (seriesInfo.cast != null && seriesInfo.cast!.trim().isNotEmpty) ...[
-            Text('Cast', style: AppTypography.h3),
+            Text('Cast', style: typo.h3),
             const SizedBox(height: AppSpacing.sm),
-            Text(seriesInfo.cast!, style: AppTypography.body),
+            Text(seriesInfo.cast!, style: typo.body),
             const SizedBox(height: AppSpacing.lg),
           ],
 
           // Season selector.
           if (seriesInfo.seasons.length > 1) ...[
-            Text('Seasons', style: AppTypography.h3),
+            Text('Seasons', style: typo.h3),
             const SizedBox(height: AppSpacing.sm),
             _SeasonChips(
               seasons: seriesInfo.seasons,
@@ -259,7 +263,7 @@ class _BodyState extends ConsumerState<_Body> {
             seriesInfo.seasons.length > 1
                 ? 'Season ${widget.selectedSeason}'
                 : 'Episodes',
-            style: AppTypography.h3,
+            style: typo.h3,
           ),
           const SizedBox(height: AppSpacing.sm),
           _EpisodeList(
@@ -305,18 +309,19 @@ class _PlaceholderCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       height: 300,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: colors.surfaceElevated,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: AppColors.textMuted,
+          style: TextStyle(
+            color: colors.textMuted,
             fontSize: 64,
             fontWeight: FontWeight.bold,
           ),
@@ -334,12 +339,14 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
+        Icon(icon, size: 16, color: colors.textMuted),
         const SizedBox(width: 4),
-        Text(label, style: AppTypography.caption),
+        Text(label, style: typo.caption),
       ],
     );
   }
@@ -388,6 +395,7 @@ class _SeasonChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return SizedBox(
       height: 36,
       child: ListView.separated(
@@ -402,16 +410,16 @@ class _SeasonChips extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surface,
+                color: isSelected ? colors.primary : colors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.divider,
+                  color: isSelected ? colors.primary : colors.divider,
                 ),
               ),
               child: Text(
                 'Season ${s.seasonNumber}',
                 style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textMuted,
+                  color: isSelected ? Colors.white : colors.textMuted,
                   fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -432,13 +440,15 @@ class _EpisodeList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     final episodes = season?.episodes ?? const [];
     if (episodes.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: Text(
           'No episodes available for this season.',
-          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          style: typo.caption.copyWith(color: colors.textMuted),
         ),
       );
     }
@@ -458,6 +468,8 @@ class _EpisodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
@@ -465,9 +477,9 @@ class _EpisodeRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.divider, width: 0.5),
+            border: Border.all(color: colors.divider, width: 0.5),
           ),
           child: Row(
             children: [
@@ -475,11 +487,11 @@ class _EpisodeRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: colors.surfaceElevated,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Center(
-                  child: Icon(Icons.play_arrow, color: AppColors.primary, size: 22),
+                child: Center(
+                  child: Icon(Icons.play_arrow, color: colors.primary, size: 22),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -489,14 +501,14 @@ class _EpisodeRow extends StatelessWidget {
                   children: [
                     Text(
                       'Episode ${episode.episodeNumber}',
-                      style: AppTypography.micro.copyWith(color: AppColors.textMuted),
+                      style: typo.micro.copyWith(color: colors.textMuted),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       episode.title.isNotEmpty
                           ? episode.title
                           : 'Episode ${episode.episodeNumber}',
-                      style: AppTypography.body.copyWith(fontWeight: FontWeight.w500),
+                      style: typo.body.copyWith(fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -505,7 +517,7 @@ class _EpisodeRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         episode.description!,
-                        style: AppTypography.caption,
+                        style: typo.caption,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -516,7 +528,7 @@ class _EpisodeRow extends StatelessWidget {
               if (episode.duration > 0) ...[
                 const SizedBox(width: AppSpacing.sm),
                 Text(_formatDuration(episode.duration),
-                    style: AppTypography.micro.copyWith(color: AppColors.textMuted)),
+                    style: typo.micro.copyWith(color: colors.textMuted)),
               ],
             ],
           ),

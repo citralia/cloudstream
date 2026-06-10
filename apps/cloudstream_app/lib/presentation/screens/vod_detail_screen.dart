@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/xtream_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 import 'player_screen.dart';
 
@@ -21,6 +22,8 @@ class VodDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vodInfoAsync = ref.watch(vodInfoProvider(stream.streamId));
+    final colors = context.appColors;
+    final typo = context.appTypography;
 
     // Auto-resume path: kick off playback on first frame, then render
     // the normal screen behind the player route. The detail screen stays
@@ -33,14 +36,14 @@ class VodDetailScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: colors.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(stream.name, style: AppTypography.h3),
+        title: Text(stream.name, style: typo.h3),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -87,7 +90,7 @@ class VodDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             // Title
-            Text(stream.name, style: AppTypography.h1),
+            Text(stream.name, style: typo.h1),
 
             const SizedBox(height: AppSpacing.sm),
 
@@ -171,18 +174,19 @@ class _PlaceholderCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       height: 300,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: colors.surfaceElevated,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: AppColors.textMuted,
+          style: TextStyle(
+            color: colors.textMuted,
             fontSize: 64,
             fontWeight: FontWeight.bold,
           ),
@@ -200,12 +204,14 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
+        Icon(icon, size: 16, color: colors.textMuted),
         const SizedBox(width: 4),
-        Text(label, style: AppTypography.caption),
+        Text(label, style: typo.caption),
       ],
     );
   }
@@ -302,21 +308,23 @@ class _Synopsis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Synopsis', style: AppTypography.h3),
+        Text('Synopsis', style: typo.h3),
         const SizedBox(height: AppSpacing.sm),
         vodInfoAsync.when(
           data: (info) {
             final plot = info.plot?.trim() ?? '';
             if (plot.isNotEmpty) {
-              return Text(plot, style: AppTypography.body);
+              return Text(plot, style: typo.body);
             }
             return Text(
               'No synopsis available.',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textMuted,
+              style: typo.caption.copyWith(
+                color: colors.textMuted,
                 fontStyle: FontStyle.italic,
               ),
             );
@@ -329,7 +337,7 @@ class _Synopsis extends StatelessWidget {
                 height: 12,
                 width: i == 3 ? 180 : double.infinity,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: colors.surfaceElevated,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -337,17 +345,17 @@ class _Synopsis extends StatelessWidget {
           ),
           error: (_, __) => Text(
             'Could not load details — tap play to start watching.',
-            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            style: typo.caption.copyWith(color: colors.textMuted),
           ),
         ),
         if (vodInfoAsync.valueOrNull?.cast != null &&
             vodInfoAsync.valueOrNull!.cast!.trim().isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),
-          Text('Cast', style: AppTypography.h3),
+          Text('Cast', style: typo.h3),
           const SizedBox(height: AppSpacing.sm),
           Text(
             vodInfoAsync.valueOrNull!.cast!.trim(),
-            style: AppTypography.body,
+            style: typo.body,
           ),
         ],
       ],
@@ -370,28 +378,29 @@ class _WatchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         decoration: BoxDecoration(
-          color: isPrimary ? AppColors.primary : AppColors.surface,
+          color: isPrimary ? colors.primary : colors.surface,
           borderRadius: BorderRadius.circular(8),
-          border: isPrimary ? null : Border.all(color: AppColors.divider),
+          border: isPrimary ? null : Border.all(color: colors.divider),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              color: isPrimary ? Colors.white : AppColors.textPrimary,
+              color: isPrimary ? Colors.white : colors.textPrimary,
               size: 22,
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               label,
               style: TextStyle(
-                color: isPrimary ? Colors.white : AppColors.textPrimary,
+                color: isPrimary ? Colors.white : colors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
