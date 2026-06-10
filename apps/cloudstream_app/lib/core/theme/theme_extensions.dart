@@ -32,11 +32,24 @@ import 'app_theme.dart';
 ///   - `presentation/screens/series_screen.dart` (V14 chunk 1)
 ///   - `presentation/screens/vod_detail_screen.dart` (V14 chunk 1)
 ///   - `presentation/screens/series_detail_screen.dart` (V14 chunk 1)
+///   - `presentation/widgets/quick_channel_overlay.dart` (V14 chunk 2)
+///   - `presentation/screens/player_gesture_overlay.dart` (V14 chunk 2)
+///   - `presentation/screens/player_screen.dart` (V14 chunk 2)
+///   - `presentation/screens/epg_guide_screen.dart` (V14 chunk 2)
+///   - `presentation/screens/playlist_screen.dart` (V15 — connection management)
+///   - `presentation/providers/player_controller_notifier.dart` (V15 — loading
+///     placeholder + error display; the Chewie progress colours stay on
+///     `AppColors.*` because the notifier's `setStream` has no `BuildContext`
+///     and the bar lives on top of the black video surface)
+///   - `presentation/players/xtream_stream_session.dart` (V15 — the
+///     `errorBuilder` callback has a context; the Chewie config block stays
+///     on `AppColors.*` for the same reason as the notifier file)
 ///
 /// The `AppColors` / `LightAppColors` / `AppTypography` /
-/// `LightAppTypography` constants stay exported for the many remaining
-/// files that haven't been migrated yet — they continue to work exactly
-/// as before, just with the dark theme baked in.
+/// `LightAppTypography` constants stay exported for the few remaining
+/// non-context sites — they continue to work exactly as before, just
+/// with the dark theme baked in. The only app-code refs left are the
+/// documented non-context sites in the player pipeline (see above).
 extension ThemeTokens on BuildContext {
   /// Token group matching the current theme brightness. Returns the
   /// dark token values in dark mode and the light token values in

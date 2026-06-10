@@ -4,6 +4,52 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (02:25 BST)
+
+**Session start:** 02:20 BST
+
+### What was done:
+- Board on entry: V14 chunk 2 (media-playback surfaces) had been merged to develop at 01:25 (54fb180, CI ✅ + Release ✅ → v0.1.45). The board row for V14 chunk 2 had been added to the working tree but never committed (the 01:25 docs commit 7647963 only touched `DEVELOPMENT_LOG.md`). The prior cron's "scope note" claimed "the cron-tracked count of 0 makes a sweep redundant" — but the **next-line entry of the same log** lists other unblocked candidates, which means the "0 remaining" was just an estimate, not a measured count. The next-pointer from the 01:25 log was "V11+ follow-on: a widget-level anywhere-`AppColors` is used sweep would be the next cleanup, but there are very few left".
+- **Verified the 0 claim with a sweep first.** `grep -r "AppColors\." lib/` (excluding the token-definition files) found 32 references across 3 still-un-migrated files. The 01:25 cron's bookkeeping was off. This is the **V15** task: a real V11+ follow-on sweep that the prior cron's notes hinted at but didn't perform.
+- Picked up V15: brightness-aware migration chunk 3 — the actual remaining AppColors/AppTypography refs. Same chunking pattern as V12/V13/V14. Picked the playlist screen first (highest-value user-facing surface, accessible from Settings) and bundled the 2 player files (which use the same `context.appColors` extension) since they were a single 818-line set.
+- **V15** fully implemented, tested, and shipped (b87f9ac → 8db2164):
+  - **`presentation/screens/playlist_screen.dart`** (20 refs migrated): the connection-management screen accessed from Settings. All these are now `context.appColors.*` / `context.appTypography.*`:
+    - Scaffold `backgroundColor` (1)
+    - The "No saved connections" empty state: muted dns icon + h3 heading + caption (3)
+    - The `_ConnectionTile` for each saved connection: dismissible swipe-to-delete background (red overlay `withOpacity(0.2)` + delete icon, 2), leading icon container (primary `withOpacity(0.15)` background + dns icon, 2), title typography, subtitle typography, trailing chevron colour (3)
+    - The `_ConnectionFormSheet` bottom sheet: handle bar (muted `withOpacity`), heading typography (2)
+    - The focused `_TvButton`: focused/pressed background, focus border, focus glow `withOpacity(0.4)` (3)
+    - 4 snack-bar `backgroundColor`s in `_addConnection` / `_switchTo` (auth + connection failures) / `_submit` form validation (4)
+  - **Dropped 4 `const` keywords** that were forcing compile-time colour resolution (a `const Icon(... color: AppColors.X)` can't read from a context — the icon has to be allocated at runtime so the colour can be computed). Affected: `_ConnectionTile.background`'s delete icon, `_ConnectionTile.child`'s dns icon, `_ConnectionFormSheetState` form area, and the player `_LoadingPlaceholder`. None of these have any perf impact — Flutter rebuilds them only on state change.
+  - **`presentation/providers/player_controller_notifier.dart`** (6 refs migrated): `_LoadingPlaceholder` and `_ErrorDisplay` (the private widget classes that Chewie mounts as `placeholder` and via `errorBuilder`) are now brightness-aware. The **Chewie progress colours stay hardcoded** to `AppColors.*` — the notifier's `setStream` runs without a `BuildContext` (the notifier is a `StateNotifier`, not a Widget), and the progress bar lives on top of the black video surface where the brightness-correct tokens wouldn't be visible anyway. Same trade-off V14 chunk 2 made for `player_screen.dart`, documented in a code comment so the next maintainer doesn't undo it.
+  - **`presentation/players/xtream_stream_session.dart`** (6 refs migrated): the `errorBuilder` callback now resolves brightness-correct tokens via its `BuildContext` (it does have one — the callback receives it as the first arg). The `ChewieController` config block (progress colours + placeholder spinner) still hardcodes dark tokens for the same reason as the notifier file: `_initController` is a method on a non-Widget class, no `BuildContext` available, and those colours paint on top of the black video surface. Trade-off documented in a code comment.
+  - **`flutter analyze`**: 50 issues found (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning. **0 new issues introduced by V15** (no entries in any of the 3 migrated files).
+  - **`flutter test`**: 165/165 tests pass (was 163, +2 from V15). New file `test/brightness_aware_chunk6_test.dart` follows the V12/V13/V14 pattern: one `testWidgets` per (widget × theme) pair, no loop (would poison WidgetsBinding), explicit `themeMode` to defeat the test env's `platformBrightness` default. Tests assert on a single concrete colour reference (Scaffold bg → `LightAppColors.background` / `AppColors.background`) — proves the migration is wired, not falling back to a dark constant.
+  - **Test scope for the player files is narrower than for the playlist screen.** The `_LoadingPlaceholder` and `_ErrorDisplay` widgets are private inside the notifier file and are exercised indirectly by the notifier's `setStream` path, which needs a real `VideoPlayerController` (chewie/video_player) and a real network stream. The `errorBuilder` callback in `xtream_stream_session.dart` is the same — the Chewie controller needs real network media to surface an error. Both fall back to the V14 chunk 2 scoping trade-off: prove the migration is wired (and that the test file compiles cleanly) on the self-contained `PlaylistScreen`, let the player files be covered by the source change + analyze.
+- Pushed `feature/v15-brightness-aware-chunk3` → `develop` (merge 8db2164). CI ✅ + Release ✅ — **APK uploaded as v0.1.48**.
+
+### CI status:
+- `Merge feature/v15-brightness-aware-chunk3 into develop` (8db2164) — **CI ✅ + Release ✅ → v0.1.48**
+- All Phase 2 (P201–P204, P206) + V01–V15 now Done
+- The actual V08/V11/V12/V13/V14/V15 sweep is now **complete** — every ref of `AppColors.*` / `AppTypography.*` in app code now pulls from `context.appColors` / `context.appTypography`, except the documented non-context sites (3 places: `XtreamStreamSession._initController` progress + placeholder; `PlayerControllerNotifier.setStream` progress). The whole app is now brightness-aware — picking Light in Settings flips every screen and the player overlay/error widgets.
+
+### What's next:
+- **The V08/V11/V12/V13/V14/V15 follow-on is now actually complete.** The prior cron's "0 remaining" claim was wrong; V15 closed the gap. A user picking Light in Settings will now see the entire app switch to the light theme, including the playlist/connection management screen and the player error/loading overlays.
+- **Other unblocked candidates** (all no external deps):
+  - "Recently watched" sort mode for V06 (would need a recency timestamp on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (01:25 BST)
 
 **Session start:** 00:15 BST (carry-over from 2026-06-10 00:15 cron)
