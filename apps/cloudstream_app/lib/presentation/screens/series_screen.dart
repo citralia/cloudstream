@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/xtream_client.dart';
-import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
 import 'series_detail_screen.dart';
 
@@ -15,9 +15,11 @@ class SeriesScreen extends ConsumerWidget {
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     final streamsAsync = ref.watch(filteredSeriesStreamsProvider);
     final selectedCategoryId = ref.watch(selectedSeriesCategoryIdProvider);
+    final colors = context.appColors;
+    final typo = context.appTypography;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       body: Column(
         children: [
           // Category filter chips.
@@ -47,19 +49,19 @@ class SeriesScreen extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
             ),
           ),
-          const Divider(color: AppColors.divider, height: 1),
+          Divider(color: colors.divider, height: 1),
           // Series grid.
           Expanded(
             child: streamsAsync.when(
               data: (streams) {
                 if (streams.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.tv_outlined, color: AppColors.textMuted, size: 64),
-                        SizedBox(height: 16),
-                        Text('No series available', style: AppTypography.h3),
+                        Icon(Icons.tv_outlined, color: colors.textMuted, size: 64),
+                        const SizedBox(height: 16),
+                        Text('No series available', style: typo.h3),
                       ],
                     ),
                   );
@@ -89,14 +91,14 @@ class SeriesScreen extends ConsumerWidget {
                 );
               },
               loading: () =>
-                  const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  Center(child: CircularProgressIndicator(color: colors.primary)),
               error: (e, _) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                    Icon(Icons.error_outline, color: colors.error, size: 48),
                     const SizedBox(height: 16),
-                    Text('Failed to load series: $e', style: AppTypography.body),
+                    Text('Failed to load series: $e', style: typo.body),
                   ],
                 ),
               ),
@@ -121,6 +123,7 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
@@ -128,16 +131,16 @@ class _CategoryChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : AppColors.surface,
+            color: isSelected ? colors.primary : colors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.divider,
+              color: isSelected ? colors.primary : colors.divider,
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.white : AppColors.textMuted,
+              color: isSelected ? Colors.white : colors.textMuted,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
@@ -156,13 +159,14 @@ class _SeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.divider, width: 0.5),
+          border: Border.all(color: colors.divider, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -179,13 +183,13 @@ class _SeriesCard extends StatelessWidget {
             ),
             Container(
               padding: const EdgeInsets.all(8),
-              color: AppColors.surface,
+              color: colors.surface,
               child: Text(
                 stream.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -205,13 +209,14 @@ class _PlaceholderPoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
-      color: AppColors.surfaceElevated,
+      color: colors.surfaceElevated,
       child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: AppColors.textMuted,
+          style: TextStyle(
+            color: colors.textMuted,
             fontSize: 32,
             fontWeight: FontWeight.bold,
           ),

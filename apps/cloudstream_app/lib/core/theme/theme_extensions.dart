@@ -28,6 +28,10 @@ import 'app_theme.dart';
 ///   - `main.dart` _HomeScreen + _TvNavBar (V13; bottom-nav shell)
 ///   - `presentation/screens/channel_list_screen.dart` (V13; home + most-watched +
 ///     continue-watching rows — the screen that anchors the home tab)
+///   - `presentation/screens/vod_screen.dart` (V14 chunk 1)
+///   - `presentation/screens/series_screen.dart` (V14 chunk 1)
+///   - `presentation/screens/vod_detail_screen.dart` (V14 chunk 1)
+///   - `presentation/screens/series_detail_screen.dart` (V14 chunk 1)
 ///
 /// The `AppColors` / `LightAppColors` / `AppTypography` /
 /// `LightAppTypography` constants stay exported for the many remaining
