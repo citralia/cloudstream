@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (15:25 BST — V21 ship)
+
+**Session start:** 12:30 BST (carry-over from 12:25 V20 ship; CI wait extended the run)
+
+### What was done:
+- Board on entry: the 12:25 cron had shipped V20 (d42c771, PR #8) and updated the board. Working tree had a complete V21 WIP on `feature/v21-continue-watching-row-vod-series` — 4 files (3 modified + 1 new 520-line test file), 1149 line diff. The "what's next" list from the 12:25 log pointed to "Series/season-level Resume on the Continue Watching row" and "EPG-side: 'remind me when this programme is on any channel'". V21 is neither of those — it's a different unblocked task: **split the existing channel-list Continue Watching row into VOD + Series variants** so users who start a movie or episode on the VOD/Series tabs see the resume affordance there too (V03/V04 left this gap).
+- Verified the WIP sound: `flutter analyze` on the 3 modified files → **0 issues**; `flutter test test/v21_continue_watching_row_test.dart` → **9/9 pass**; full `flutter test` → **228/228 pass** (was 219, +9 from V21); full `flutter analyze` → 50 issues (49 pre-existing withOpacity infos + 1 V07-chunk3 unused-param warning) — **0 new issues from V21**.
+- **V21 — Continue Watching rows on VOD + Series tabs** (fd8cc63 → 09388c5, PR #9): the V03/V04 follow-on — the Continue Watching row was only on the Live TV (channel-list) home tab. Users who start a movie on the VOD tab and switch tabs shouldn't have to navigate back to the channel list to resume:
+  - **`continueWatchingVodProvider`** + **`continueWatchingSeriesProvider`** (`app_providers.dart`): split providers that filter `continueWatchingProvider` by `ContinueWatchingKind` (vod vs seriesEpisode). Both `await` the source `.future` (not `maybeWhen` the AsyncValue) so they re-run on source invalidation — a single `ref.invalidate(continueWatchingProvider)` cascades to both filters. Code comment explains why `await ref.watch(source.future)` is the right pattern (Riverpod can't re-run a provider based on an inner async state change without an explicit `await`).
+  - **`_ContinueWatchingRow` on VOD tab** (`vod_screen.dart`): horizontal row above the VOD grid, only shown when `selectedCategoryId == null` (same condition as the channel-list row + Most Watched + Recently Played). Card: poster (or placeholder) + title + progress bar + 'Resume' affordance. Tap → `VodDetailScreen(stream, autoResume: true)`. Long-press → clear progress + snackbar with UNDO. Mirrors the channel-list row's UX (V03 + V17) so the data, the card shape, and the long-press behaviour are consistent across all three Continue Watching rows.
+  - **`_ContinueWatchingRow` on Series tab** (`series_screen.dart`): same pattern, scoped to series-episode entries. Tap → `SeriesDetailScreen` with the parent series + saved season auto-selected via V04's `autoResumeEpisode` path (handles reverse-lookup: saved episode stream_id → parent series + season + episode number, opens the right season, plays via post-frame callback). Long-press → same clear + UNDO flow.
+  - All three rows (channel list + VOD + Series) share the same `WatchProgressStore` data — removing from one tab's row removes from all three, and UNDO from any tab re-surfaces the card on all three. By design, no per-tab "do not share" affordance.
+- **9 new tests** (`test/v21_continue_watching_row_test.dart`):
+  - 4 `continueWatchingVodProvider` (empty when no active connection, empty when no saved progress, surfaces VOD-kind entries with the right stream + kind, **filters OUT series-episode entries**)
+  - 3 `continueWatchingSeriesProvider` (empty when no active connection, surfaces series-episode entries with parent fields populated, **filters OUT VOD entries**)
+  - 1 cross-provider invalidation (single `invalidate(continueWatchingProvider)` cascades to both VOD + Series filters)
+  - 1 ordering preserved from source (sort by updatedAt-desc flows through both filter providers)
+- **228/228 tests pass** (was 219, +9 from V21). `flutter analyze` → 50 issues (49 pre-existing `withOpacity` infos + 1 V07-chunk3 unused-param warning). **0 new issues introduced by V21**.
+- **Pushed `feature/v21-continue-watching-row-vod-series` → `develop` (squash merge 09388c5, PR #9)**. CI ✅ (Analyze 47s + Test 50s + Build iOS 3m51s + Build macOS 4m12s + Build Android 5m13s) + Release ✅ — **APK uploaded as v0.1.59**.
+
+### CI status:
+- `Merge feature/v21-continue-watching-row-vod-series into develop` (09388c5) — **CI ✅ + Release ✅ → v0.1.59**
+- All Phase 2 (P201–P204, P206) + V01–V21 now Done
+- 228/228 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V21 closes the V03/V04 follow-on gap.** All three personalisation rows (channel list + VOD + Series) now share the same data and the same UX (tap-to-resume, long-press-to-remove + UNDO). A user who starts a movie on the VOD tab, switches to the Series tab, then comes back to the VOD tab sees the same 'Continue Watching — Inception' card with the same progress bar.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites/hidden, dedupe with the new Recently Played row itself)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (12:25 BST — V20 ship)
 
 **Session start:** 12:00 BST
