@@ -719,6 +719,54 @@ class _ContinueWatchingRow extends ConsumerWidget {
     }
   }
 
+  /// Long-press a Continue Watching card to remove the entry. The
+  /// removal is persisted (clears the watch-progress key in
+  /// [WatchProgressStore]) and the [continueWatchingProvider] is
+  /// invalidated so the row rebuilds without the entry. A snackbar
+  /// with an UNDO action re-saves the same progress and re-invalidates
+  /// to restore the card within the snackbar's timeout — standard
+  /// streaming-app pattern (Netflix / YouTube / Prime).
+  Future<void> _openDismiss(
+    BuildContext context,
+    WidgetRef ref,
+    ContinueWatchingEntry entry,
+  ) async {
+    final creds = ref.read(activeCredentialsProvider).valueOrNull;
+    if (creds == null) return;
+    final store = ref.read(watchProgressStoreProvider);
+    final progress = entry.progress;
+    final streamName = entry.stream.name;
+    final streamId = entry.stream.streamId;
+    final profileId = creds.name;
+    final messenger = ScaffoldMessenger.of(context);
+
+    await store.clearProgress(profileId: profileId, streamId: streamId);
+    // Invalidate so the row rebuilds without the entry. The provider
+    // is a `FutureProvider` (not autoDispose) — invalidate is the
+    // correct way to force a re-fetch.
+    ref.invalidate(continueWatchingProvider);
+
+    if (!context.mounted) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Removed from Continue Watching — $streamName'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () async {
+            await store.saveProgress(
+              profileId: profileId,
+              streamId: streamId,
+              positionMs: progress.positionMs,
+            );
+            ref.invalidate(continueWatchingProvider);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(continueWatchingProvider);
@@ -754,6 +802,7 @@ class _ContinueWatchingRow extends ConsumerWidget {
                 return _ContinueWatchingCard(
                   entry: entry,
                   onTap: () => _openResume(context, ref, entry),
+                  onLongPress: () => _openDismiss(context, ref, entry),
                 );
               },
             ),
@@ -767,8 +816,13 @@ class _ContinueWatchingRow extends ConsumerWidget {
 class _ContinueWatchingCard extends StatelessWidget {
   final ContinueWatchingEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-  const _ContinueWatchingCard({required this.entry, required this.onTap});
+  const _ContinueWatchingCard({
+    required this.entry,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -776,6 +830,7 @@ class _ContinueWatchingCard extends StatelessWidget {
     final hasLogo = stream.logo != null && stream.logo!.isNotEmpty;
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         width: 220,
@@ -797,7 +852,8 @@ class _ContinueWatchingCard extends StatelessWidget {
                       ? Image.network(
                           stream.logo!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _PosterPlaceholder(name: stream.name),
+                          errorBuilder: (_, __, ___) =>
+                              _PosterPlaceholder(name: stream.name),
                         )
                       : _PosterPlaceholder(name: stream.name),
                 ),
