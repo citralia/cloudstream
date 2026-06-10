@@ -148,6 +148,29 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     }
   }
 
+  /// V19: Open the "Manage hidden channels" sheet.
+  ///
+  /// The sheet is only useful when the active profile has at least one
+  /// hidden channel, so callers gate visibility on that condition
+  /// (the AppBar `Icons.visibility_off_outlined` action is hidden when
+  /// the set is empty). The sheet itself also degrades gracefully: if
+  /// the active set is empty when opened (e.g. another action cleared
+  /// it in the meantime), the sheet shows the "no hidden channels"
+  /// empty state.
+  void _openManageHidden() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.appColors.surfaceElevated,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return const _ManageHiddenSheet();
+      },
+    );
+  }
+
   /// Open the sort-mode bottom sheet. The sheet lets the user pick
   /// between default (Xtream server order), name (A–Z), and number
   /// (provider-supplied channel number, fallback streamId). The
@@ -186,6 +209,7 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     final playerState = ref.watch(playerControllerProvider);
     final recentChannels = ref.watch(recentChannelsProvider);
     final overlayVisible = ref.watch(quickSwitcherOverlayVisibleProvider);
+    final hiddenCount = ref.watch(activeProfileHiddenProvider).length;
 
     return Scaffold(
       backgroundColor: context.appColors.background,
@@ -197,6 +221,12 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
               icon: const Icon(Icons.open_in_full),
               tooltip: 'Expand player',
               onPressed: _openFullPlayer,
+            ),
+          if (hiddenCount > 0)
+            IconButton(
+              icon: const Icon(Icons.visibility_off_outlined),
+              tooltip: 'Manage hidden channels ($hiddenCount)',
+              onPressed: _openManageHidden,
             ),
           IconButton(
             icon: const Icon(Icons.sort),
@@ -1389,3 +1419,303 @@ class _SortModeRow extends StatelessWidget {
 
 /// V18: actions exposed by the long-press channel sheet.
 enum _ChannelAction { hide, unhide }
+
+/// V19: Modal bottom sheet for managing the active profile's hidden
+/// channel set. Shows every hidden channel resolved against the live
+/// catalogue (name + logo), with per-row swipe-to-unhide (a `Dismissible`
+/// styled like the playlist-screen swipe-to-delete) and a header
+/// "Unhide all" button that empties the set in one tap. Each unhide
+/// shows a snackbar with an UNDO action that re-hides the channel
+/// (mirrors the V18 long-press + UNDO round-trip).
+///
+/// Reads the joined hidden-channel list from
+/// [hiddenChannelsStreamProvider] and writes back through
+/// [toggleHidden] / [unhideAll]. The provider invalidation pattern
+/// means the sheet's own `ListView` rebuilds as channels are unhidden
+/// (the provider drops resolved entries as the hidden set shrinks).
+class _ManageHiddenSheet extends ConsumerWidget {
+  const _ManageHiddenSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(hiddenChannelsStreamProvider);
+    final entries = entriesAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => const <XtreamStream>[],
+    );
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header — drag-handle, title, and bulk "Unhide all" action.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.visibility_off_outlined,
+                    color: context.appColors.textSecondary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Hidden channels',
+                      style: context.appTypography.h3,
+                    ),
+                  ),
+                  if (entries.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => _onUnhideAll(context, ref),
+                      icon: Icon(
+                        Icons.visibility,
+                        color: context.appColors.primary,
+                        size: 18,
+                      ),
+                      label: Text(
+                        'Unhide all',
+                        style: context.appTypography.body.copyWith(
+                          color: context.appColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+              ),
+              child: Text(
+                entries.isEmpty
+                    ? 'No hidden channels'
+                    : '${entries.length} hidden — swipe right to unhide',
+                style: context.appTypography.caption,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Divider(height: 1),
+            Flexible(
+              child: entriesAsync.when(
+                loading: () => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: context.appColors.primary,
+                    ),
+                  ),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Text(
+                    'Could not load hidden channels: $error',
+                    style: context.appTypography.caption,
+                  ),
+                ),
+                data: (list) {
+                  if (list.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              color: context.appColors.textMuted,
+                              size: 36,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'Channels you hide will appear here.\n'
+                              'Long-press any channel on the list to hide it.',
+                              textAlign: TextAlign.center,
+                              style: context.appTypography.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      indent: AppSpacing.lg,
+                    ),
+                    itemBuilder: (context, index) {
+                      final stream = list[index];
+                      return Dismissible(
+                        key: ValueKey('hidden-${stream.streamId}'),
+                        direction: DismissDirection.startToEnd,
+                        background: Container(
+                          color: context.appColors.primary
+                              .withValues(alpha: 0.15),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.visibility,
+                                color: context.appColors.primary,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text(
+                                'Unhide',
+                                style: context.appTypography.body.copyWith(
+                                  color: context.appColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        onDismissed: (_) =>
+                            _onSwipeUnhide(context, ref, stream),
+                        child: ListTile(
+                          leading: _HiddenChannelAvatar(
+                            logo: stream.logo,
+                            name: stream.name,
+                          ),
+                          title: Text(
+                            stream.name,
+                            style: context.appTypography.body,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            'Hidden',
+                            style: context.appTypography.caption,
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.visibility,
+                              color: context.appColors.primary,
+                            ),
+                            tooltip: 'Unhide',
+                            onPressed: () =>
+                                _onUnhideOne(context, ref, stream),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onSwipeUnhide(
+    BuildContext context,
+    WidgetRef ref,
+    XtreamStream stream,
+  ) async {
+    await _unhideWithUndo(context, ref, stream);
+  }
+
+  Future<void> _onUnhideOne(
+    BuildContext context,
+    WidgetRef ref,
+    XtreamStream stream,
+  ) async {
+    await _unhideWithUndo(context, ref, stream);
+  }
+
+  /// Shared helper for the swipe-to-unhide and the trailing-icon unhide
+  /// actions. Writes the toggle, then shows a snackbar with an UNDO
+  /// action that re-hides (re-toggle) the channel within the snackbar's
+  /// 4-second window. Mirrors the V18 long-press flow.
+  Future<void> _unhideWithUndo(
+    BuildContext context,
+    WidgetRef ref,
+    XtreamStream stream,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await toggleHidden(ref, stream.streamId);
+    if (!context.mounted) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Unhidden — ${stream.name}'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () => toggleHidden(ref, stream.streamId),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onUnhideAll(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final n = await unhideAll(ref);
+    if (!context.mounted) return;
+    if (n == 0) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Unhidden $n channel${n == 1 ? '' : 's'}'),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+}
+
+/// V19: Small round logo-or-initial avatar for the hidden-channels
+/// sheet rows. Mirrors the `_PosterPlaceholder` shape used by the
+/// Continue Watching / Most Watched cards but at list-tile size.
+class _HiddenChannelAvatar extends StatelessWidget {
+  const _HiddenChannelAvatar({required this.logo, required this.name});
+  final String? logo;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLogo = logo != null && logo!.isNotEmpty;
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: context.appColors.surfaceElevated,
+      child: hasLogo
+          ? ClipOval(
+              child: Image.network(
+                logo!,
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: context.appTypography.body.copyWith(
+                    color: context.appColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )
+          : Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: context.appTypography.body.copyWith(
+                color: context.appColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+    );
+  }
+}
