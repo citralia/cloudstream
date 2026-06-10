@@ -108,7 +108,11 @@
 
 ---
 
-> Last updated: 2026-06-10T20:20:00+01:00
+| V25 | Continue Watching row dedupes from Recently Played | **Done** | agent | Closes the symmetric V22 gap: V22 made `mostWatchedProvider` watch `recentlyPlayedProvider` and exclude any streamId in the top `kPersonalisationRowCap` (8) recency entries. The symmetric case — `continueWatchingProvider` for **live channels** (V24 entries) — was still missing. A user watching "BBC One" for >30s got BOTH a Continue Watching card AND a Recently Played card for the same channel (same data, same tap target — play BBC One), which is the same "two home rows showing the same channel" problem V22 fixed for Most Watched. **Data-layer change only** (`app_providers.dart` `continueWatchingProvider`): after the existing V23 dedupe partition, watches `recentlyPlayedProvider` and drops any `kind == liveChannel` entry whose `streamId` is in the recency-top-`kPersonalisationRowCap` (8) set. VOD/series entries are NOT deduped — `recentlyPlayedProvider` is live-only (PlayCountStore records play counts for any stream but `recentlyPlayedProvider` joins against `liveStreamsProvider` exclusively, see V20 docs), so the recency set will never contain VOD/series streamIds. Awaiting `recentlyPlayedProvider.future` makes the dedupe deterministic (same first-tick-null-trap avoidance as V22). No widget changes — the same `_ContinueWatchingRow` on the channel-list home tab now naturally shows fewer cards when a recency overlap exists. Composition: combines with V22 (Most Watched also excludes recency) and V23 (series-episode group-by-parent dedupe) — both still apply; the live-channel recency dedupe is additive. **8 new tests** (`v25_continue_watching_recency_dedupe_test.dart`): empty recency default (regression guard), live channel in top-N excluded, live channel outside top-N still surfaces, VOD NOT deduped, series-episode NOT deduped, mixed VOD+series+live with partial overlap, all-live-in-recency → empty, kPersonalisationRowCap composition with V22. 262/262 pass (was 254, +8 from V25), 0 new analyze errors. **Merged to develop (3bc4021, PR #14) — CI ✅ + Release ✅ → v0.1.68.** |
+
+---
+
+> Last updated: 2026-06-10T23:10:00+01:00
 
 ---
 
