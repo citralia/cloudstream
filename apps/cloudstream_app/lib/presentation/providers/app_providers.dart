@@ -791,6 +791,17 @@ class ContinueWatchingEntry {
   final XtreamSeason? parentSeason;
   final XtreamEpisode? episode;
 
+  /// V23: The id of the parent series, copied from the
+  /// [ContinueWatchingEpisodeHit] used to build the entry. Distinct
+  /// from [stream] when the parent series stream is missing from the
+  /// loaded catalogue (the synthesised episode stream is used as a
+  /// fallback in that case — see `continueWatchingProvider` step 2).
+  /// Always non-null for [ContinueWatchingKind.seriesEpisode]
+  /// entries; always null for VOD entries. The V23 dedupe groups
+  /// series-episode entries by this id so a user with progress on
+  /// multiple episodes of the same series gets one card.
+  final int? parentSeriesId;
+
   const ContinueWatchingEntry({
     required this.stream,
     required this.progress,
@@ -798,6 +809,7 @@ class ContinueWatchingEntry {
     this.parentSeries,
     this.parentSeason,
     this.episode,
+    this.parentSeriesId,
   });
 }
 
@@ -892,12 +904,53 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
         parentSeries: parent,
         parentSeason: parentSeason,
         episode: ep,
+        parentSeriesId: hit.seriesId,
       ));
     }
     // else: orphan — drop silently.
   }
-  entries.sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
-  return entries;
+
+  // V23: Group series-episode entries by parent series id and keep
+  // the most recently updated episode per series. A user who has
+  // progress on 3 episodes of "Breaking Bad" should see ONE
+  // "Continue Watching — Breaking Bad" card (showing the most
+  // recent episode's S/E/title badge), not three duplicate parent
+  // cards. VOD entries are unaffected — a movie is a single item,
+  // not a container of sub-items, so there's no "group" to dedupe.
+  //
+  // The dedupe is stable: ties on `updatedAt` resolve by streamId
+  // asc (matches the V05 / V09 / V16 tie-breaker convention). The
+  // representative's `stream` is the synthesised episode stream
+  // from step 2 (so the S/E/title badge renders), and
+  // `parentSeries` / `parentSeason` / `episode` are set, so the
+  // resume tap on the card still opens [SeriesDetailScreen] with
+  // the right episode pre-selected.
+  final seriesEpisodes = <ContinueWatchingEntry>[];
+  final vodEntries = <ContinueWatchingEntry>[];
+  for (final entry in entries) {
+    if (entry.kind == ContinueWatchingKind.seriesEpisode) {
+      seriesEpisodes.add(entry);
+    } else {
+      vodEntries.add(entry);
+    }
+  }
+  final dedupedEpisodes = <int, ContinueWatchingEntry>{};
+  for (final entry in seriesEpisodes) {
+    final seriesId = entry.parentSeriesId!;
+    final existing = dedupedEpisodes[seriesId];
+    if (existing == null ||
+        entry.progress.updatedAt.isAfter(existing.progress.updatedAt) ||
+        (entry.progress.updatedAt.isAtSameMomentAs(existing.progress.updatedAt) &&
+            entry.episode!.streamId < existing.episode!.streamId)) {
+      dedupedEpisodes[seriesId] = entry;
+    }
+  }
+  final deduped = <ContinueWatchingEntry>[
+    ...vodEntries,
+    ...dedupedEpisodes.values,
+  ];
+  deduped.sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
+  return deduped;
 });
 
 /// V21: VOD-only Continue Watching — filters [continueWatchingProvider] to
