@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 import '../../data/datasources/credentials_store.dart';
 import '../providers/app_providers.dart';
@@ -19,10 +20,11 @@ class PlaylistScreen extends ConsumerStatefulWidget {
 
 class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   Future<void> _addConnection() async {
+    final colors = context.appColors;
     final result = await showModalBottomSheet<XtreamCredentials>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -63,29 +65,32 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       ref.read(authProvider.notifier).setUser(user);
       ref.invalidate(connectionsListProvider);
       if (mounted) {
+        final colors = context.appColors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Switched to ${conn.name}'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: colors.primary,
           ),
         );
         Navigator.pop(context); // return to previous screen
       }
     } on XtreamAuthException catch (e) {
       if (mounted) {
+        final colors = context.appColors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Auth failed: ${e.message}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: colors.error,
           ),
         );
       }
     } on XtreamApiException catch (e) {
       if (mounted) {
+        final colors = context.appColors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Connection failed: ${e.message}'),
-            backgroundColor: AppColors.error,
+            backgroundColor: colors.error,
           ),
         );
       }
@@ -95,21 +100,24 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   Future<void> _delete(XtreamCredentials conn) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Delete connection?'),
-        content: Text('Remove "${conn.name}" from saved connections?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Delete', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final colors = context.appColors;
+        return AlertDialog(
+          backgroundColor: colors.surface,
+          title: const Text('Delete connection?'),
+          content: Text('Remove "${conn.name}" from saved connections?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Delete', style: TextStyle(color: colors.error)),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirm == true) {
@@ -122,9 +130,10 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   @override
   Widget build(BuildContext context) {
     final connectionsAsync = ref.watch(connectionsListProvider);
+    final colors = context.appColors;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Connections'),
         actions: [
@@ -138,24 +147,26 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       body: connectionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Failed to load: $e', style: TextStyle(color: AppColors.error)),
+          child: Text('Failed to load: $e',
+              style: TextStyle(color: colors.error)),
         ),
         data: (connections) {
           if (connections.isEmpty) {
+            final typo = context.appTypography;
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.dns_outlined, size: 64, color: AppColors.textMuted),
+                  Icon(Icons.dns_outlined, size: 64, color: colors.textMuted),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'No saved connections',
-                    style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
+                    style: typo.h3.copyWith(color: colors.textSecondary),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'Add your first Xtream server',
-                    style: AppTypography.caption,
+                    style: typo.caption,
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   ElevatedButton.icon(
@@ -199,6 +210,8 @@ class _ConnectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Dismissible(
       key: Key(credentials.name),
       direction: DismissDirection.endToStart,
@@ -209,8 +222,8 @@ class _ConnectionTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: AppSpacing.lg),
-        color: AppColors.error.withOpacity(0.2),
-        child: const Icon(Icons.delete_outline, color: AppColors.error),
+        color: colors.error.withOpacity(0.2),
+        child: Icon(Icons.delete_outline, color: colors.error),
       ),
       child: ListTile(
         onTap: onTap,
@@ -222,22 +235,22 @@ class _ConnectionTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.15),
+            color: colors.primary.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.dns_outlined, color: AppColors.primary),
+          child: Icon(Icons.dns_outlined, color: colors.primary),
         ),
         title: Text(
           credentials.name,
-          style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
+          style: typo.body.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           '${credentials.username} @ ${Uri.parse(credentials.serverUrl).host}',
-          style: AppTypography.caption,
+          style: typo.caption,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+        trailing: Icon(Icons.chevron_right, color: colors.textMuted),
       ),
     );
   }
@@ -277,10 +290,11 @@ class _ConnectionFormSheetState extends State<_ConnectionFormSheet> {
     final passError = _validateRequired(_passwordController.text);
 
     if (nameError != null || urlError != null || userError != null || passError != null) {
+      final colors = context.appColors;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(nameError ?? urlError ?? userError ?? passError ?? 'Error'),
-          backgroundColor: AppColors.error,
+          backgroundColor: colors.error,
         ),
       );
       return;
@@ -299,6 +313,8 @@ class _ConnectionFormSheetState extends State<_ConnectionFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -312,14 +328,14 @@ class _ConnectionFormSheetState extends State<_ConnectionFormSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textMuted,
+                  color: colors.textMuted,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            Text('New Connection', style: AppTypography.h3),
+            Text('New Connection', style: typo.h3),
             const SizedBox(height: AppSpacing.lg),
 
             // Profile name
@@ -393,6 +409,8 @@ class _TvButtonState extends State<_TvButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Focus(
       autofocus: true,
       onFocusChange: (v) => setState(() => _isFocused = v),
@@ -408,20 +426,20 @@ class _TvButtonState extends State<_TvButton> {
         onTap: widget.onPressed,
         child: Container(
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.primary : AppColors.primary.withOpacity(0.7),
+            color: _isFocused ? colors.primary : colors.primary.withOpacity(0.7),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isFocused ? AppColors.accent : Colors.transparent,
+              color: _isFocused ? colors.accent : Colors.transparent,
               width: 2,
             ),
             boxShadow: _isFocused
-                ? [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10)]
+                ? [BoxShadow(color: colors.primary.withOpacity(0.4), blurRadius: 10)]
                 : null,
           ),
           alignment: Alignment.center,
           child: Text(
             widget.label,
-            style: AppTypography.h3.copyWith(color: Colors.white),
+            style: typo.h3.copyWith(color: Colors.white),
           ),
         ),
       ),

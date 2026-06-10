@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/network/xtream_client.dart';
 
 /// Controls the shared VideoPlayerController lifecycle.
@@ -55,6 +56,12 @@ class PlayerControllerNotifier extends StateNotifier<PlayerControllerState> {
         allowFullScreen: true,
         allowMuting: true,
         showControls: true,
+        // ChewieProgressColors is built lazily inside the build path
+        // — we don't have a BuildContext here, so fall back to the
+        // dark tokens (the player always paints on top of a black
+        // video surface, so theme brightness doesn't materially
+        // affect this). This matches the V14 chunk 2 trade-off
+        // documented in `presentation/screens/player_screen.dart`.
         materialProgressColors: ChewieProgressColors(
           playedColor: AppColors.primary,
           handleColor: AppColors.accent,
@@ -162,10 +169,11 @@ class _LoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       color: Colors.black,
-      child: const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      child: Center(
+        child: CircularProgressIndicator(color: colors.primary),
       ),
     );
   }
@@ -177,17 +185,19 @@ class _ErrorDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typo = context.appTypography;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+          Icon(Icons.error_outline, color: colors.error, size: 48),
           const SizedBox(height: 16),
-          Text('Playback error', style: AppTypography.h3),
+          Text('Playback error', style: typo.h3),
           const SizedBox(height: 8),
           Text(
             message,
-            style: AppTypography.caption,
+            style: typo.caption,
             textAlign: TextAlign.center,
           ),
         ],
