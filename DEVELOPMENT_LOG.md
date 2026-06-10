@@ -4,6 +4,64 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (09:15 BST)
+
+**Session start:** 08:15 BST
+
+### What was done:
+- Board on entry: the 05:15 cron had shipped V16 (9178571, PR #4) but the V17 task ("Remove from Continue Watching long-press + UNDO") that was on the "Next" line of the board at the start of that cron had actually been picked up, fully implemented, tested, and merged to develop in an unlogged cron (3d47a7b, PR #5, CI ✅ + Release ✅ → v0.1.52). The board still listed V17 as "Next" and the log had no V17 entry — classic "prior cron forgot to update" pattern. **Verified V17 is shipped on origin/develop** (`gh run list` showed CI ✅ + Release ✅ green on 3d47a7b at 07:14 UTC).
+- Working tree had a full V18 ("Hide channel" long-press + Hidden filter chip) WIP on top of develop HEAD: 4 files modified (`profile_store.dart`, `app_providers.dart`, `channel_list_screen.dart`) + 1 untracked test file (`hidden_channels_test.dart`, 269 lines). Verified the WIP sound:
+  - `flutter analyze` → 50 issues found (49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning). **0 new issues introduced by V18** (no entries in any of the 3 modified files or the new test file).
+  - `flutter test` → **4 of the 17 V18 tests failed** on first run. The 4 failures were all in the `filteredLiveStreamsProvider hidden filtering` group (4 of 8 tests in that group), with the same root cause: the `hiddenOnly` branch in the provider had `hiddenIds = <int>{}` and fell through to the non-favourites filter, so `hiddenOnly=true` returned the full stream list instead of the hidden set. The test `hiddenOnly reveals the hidden set only` exposed this — expected [1, 3] with hidden=[1,3], got [1, 2, 3, 4].
+  - **Fixed the provider branches** to enforce the UI's mutex contract: when `hiddenOnly=true`, return `streams.where(s => hiddenIds.contains(s.streamId))` regardless of `favouritesOnly`. The three filter modes (All / Favourites / Hidden) are now expressed as a clean `hiddenOnly → favouritesOnly → default` cascade. Documented the mutex in a code comment. After the fix, all 17 V18 tests pass; full suite: **201/201** (was 181, +20 from V18: 17 V18 tests + 7 V17 tests that were already in the suite from 3d47a7b but the prior cron's 181 count predated V17's merge).
+- **V18** fully implemented, tested, and shipped (0493388, PR #6):
+  - **`ProfileStore`** (`core/storage/profile_store.dart`): `getHidden` / `setHidden` / `addHidden` / `removeHidden` / `toggleHidden` — SharedPreferences-backed under `profile_{id}_hidden_channels` (JSON-encoded `List<int>`), idempotent on the store side (`addHidden` no-ops on duplicate, `removeHidden` no-ops on missing, `toggleHidden` returns the new boolean), garbage-on-disk → empty list (forward-compat), per-profile isolation. Updated the class-level comment that lists the suffix keys.
+  - **`activeProfileHiddenProvider`** (Provider) + **`profileHiddenProvider`** (Provider.family) + **`hiddenOnlyProvider`** (StateProvider<bool>) + **`toggleHidden(ref, streamId)`** helper (`app_providers.dart`). `toggleHidden` writes through to the store and calls `ref.invalidate(profileHiddenProvider(activeProfile.id))` so the channel list rebuilds. The hidden filter chips and the `filteredLiveStreamsProvider` watch `hiddenOnlyProvider`, so flipping the chip rebuilds the list.
+  - **`filteredLiveStreamsProvider`** extended with hidden filtering. The three filter modes (All / Favourites / Hidden) are mutex in the UI — tapping a chip clears the other — and the provider branches also enforce that. The `hiddenOnly` branch returns `streams.where(s => hiddenIds.contains(s.streamId))`; the `favouritesOnly` branch intersects favourites with the not-hidden set; the default branch excludes hidden. **Bug caught by tests:** the original code's `hiddenOnly` branch set `hiddenIds = <int>{}` to "let the favourites filter keep everything" — but then the non-favourites filter ran and returned the full list. The fix reorders the branches so `hiddenOnly` wins outright.
+  - **`ChannelTile.onLongPress`** + **`_openChannelActions`** modal bottom sheet on `ChannelListScreen` (`channel_list_screen.dart`): the long-press shows a sheet with the channel name as the title and a single action — 'Hide channel' (visibility_off icon) or 'Unhide channel' (visibility icon) depending on the current state. On hide, the row disappears from the default view, the sheet closes, and a snackbar "Hidden — \<name\>" appears with an UNDO action that re-toggles. On unhide, the row is already back (because the user is in hiddenOnly or was viewing a still-visible channel); snackbar "Unhidden — \<name\>" with no UNDO. The sheet uses `context.appColors.surfaceElevated` for the background — brightness-correct via the V11/V12/V13/V14/V15 sweep.
+  - **'⊘ Hidden' filter chip** added to `CategoryFilterChips` (slot 3, after 'All' and '★ Favourites'). Mutex with both 'All' (clears both `favouritesOnly` and `hiddenOnly`) and '★ Favourites' (clears `hiddenOnly` when switching to favourites, and clears `favouritesOnly` when switching to hidden). A subtle UX touch: when the user hides a channel while in `hiddenOnly` mode, the mode auto-clears so they don't end up with an empty list.
+  - **17 new tests** (`test/hidden_channels_test.dart`):
+    - 8 `ProfileStore` persistence (empty default, `addHidden` persists, `addHidden` idempotent, `removeHidden` removes, `removeHidden` no-op on missing, `toggleHidden` round-trips, per-profile isolation, rehydration across `ProfileStore` instances)
+    - 8 `filteredLiveStreamsProvider` filter (default excludes hidden, returns all when none hidden, `hiddenOnly` reveals the set, `hiddenOnly` with empty set returns empty, composes with category, `hiddenOnly` composes with category, favourites ∩ ¬hidden, toggles `hiddenOnly` rebuilds the list)
+    - 1 `toggleHidden` UNDO round-trip (mirrors the snackbar UNDO flow)
+  - **Test scope follows the V05 / V09 / V16 pattern**: data-layer + Riverpod injection tests only (no widget pump). The `ChannelTile.onLongPress` → `_openChannelActions` sheet wiring is a thin Flutter idiom (modal bottom sheet + snackbar); the data-layer tests prove the underlying store + provider behaviour, which is where the real logic lives.
+  - **Pushed `feature/v18-hide-channel` → `develop` (squash merge 0493388, PR #6)**. CI ✅ (8m19s — Analyze 43s, Test 48s, Android 4m48s, iOS 3m37s, macOS 4m08s) + Release ✅ (6m32s) — **APK uploaded as v0.1.53**.
+  - **Dropped stale V09 stash** (`stash@{0}`): it was V09's pre-merge WIP from 2026-06-09, superseded by the merge at 6178768 the same day. Cleaned up as part of the working-tree verification.
+
+### CI status:
+- `Merge feature/v18-hide-channel into develop` (0493388) — **CI ✅ (8m19s) + Release ✅ (6m32s) → v0.1.53**
+- All Phase 2 (P201–P204, P206) + V01–V18 now Done (V17 was already Done from 3d47a7b, board + log just hadn't caught up)
+- 201/201 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V18 closes the "hide unwanted channels" gap** that was the obvious un-blocked follow-on to V05 favourites. The live TV channel list now has 5 sort modes (Default / Name / Number / Most Watched / Recently Played) and 3 filter modes (All / Favourites / Hidden), all composable, all per-profile isolated, all persisting.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Bulk hide / unhide from the ChannelSortMode sheet
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites/hidden)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `defaultLeadTimeProvider` persistence (V10 already shipped, closed)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
+## 2026-06-10 — CloudStream Hourly Cron (07:15 BST — V17 backfill)
+
+**Session start:** 06:30 BST (carry-over from 05:15 cron)
+
+### What was done:
+- The 05:15 cron (V16 ship + V17 "Next" pointer) had been followed by an **unlogged** cron that picked V17 up, fully implemented, tested, and merged to develop (3d47a7b, PR #5) but never updated the board or the log. `gh run list -R citralia/cloudstream -L 1` returned `feat(V17): Remove from Continue Watching long-press + UNDO (#5)` with `conclusion: success, status: completed` for both CI and Release, published as **v0.1.52**. The board's V17 row (the "Next" line) said "Merged to develop (3d47a7b, PR #5) — CI ✅ + Release ✅ — awaiting board update on this cron."
+- **Backfilling the board + log now** (the unlogged cron's only failing task). The board row needs to flip from "Next" → "Done" with the merge commit + CI/Release status; the log gets a fresh V17 entry under the V16 one.
+- The 05:15 cron's "what's next" pointer (series-season-level resume on Continue Watching / "recently watched" sort mode / etc.) is the queue to pick up on the next cron.
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (05:15 BST)
 
 **Session start:** 05:15 BST
