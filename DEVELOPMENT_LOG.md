@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (18:25 BST — V23 ship)
+
+**Session start:** 17:00 BST
+
+### What was done:
+- Board on entry: R01 (538ad8e, PR #11) was fully shipped on the 15:50 cron — CI ✅ + Release ✅ → v0.1.62, all 3 platform artifacts. The R01 docs commit (f4b5448) had been pushed earlier in this cron session. The "what's next" list from the 15:50 log was: series/season-level Resume on Continue Watching (high-value unblocked), EPG-side "remind me when this programme is on any channel" (new provider), personalisation-row fine-tuning, R02 candidate (stranded v0.1.61/v0.1.62 tags cleanup), recording/catch-up conflict resolution. V22 had already shipped the cross-row dedupe pattern (Most Watched ↔ Recently Played) — natural next step was to apply the same dedupe pattern to Continue Watching series-episode entries (the "3 episodes of Breaking Bad = 3 cards" problem the prior cron's notes hinted at but didn't pursue). Picked it up as **V23**.
+- **V23** fully implemented, tested, and shipped (e6c1689, PR #12):
+  - **`ContinueWatchingEntry`** (`app_providers.dart`): new optional `parentSeriesId` field (int?). Carries the parent series id (from `ContinueWatchingEpisodeHit.seriesId`) through to the entry. Distinct from `entry.stream.streamId` when the parent series stream is missing from the loaded catalogue — in that case the synthesised episode stream is used as a fallback (`byId[hit.seriesId] ?? episodeStream` at line 881), so `entry.stream.streamId` would be the *episode's* id, not the *series*'s. The new field is always non-null for series-episode entries and always null for VOD entries. The `kind == seriesEpisode` invariant now means "the user has progress on an episode of `parentSeriesId`" — unambiguously groupable.
+  - **`continueWatchingProvider`** (`app_providers.dart`): after building the `entries` list (VOD direct matches + series-episode reverse-lookup matches), partition into `vodEntries` + `seriesEpisodes`, then group seriesEpisodes by `parentSeriesId` keeping the most recent. Tie-break on episode `streamId` asc — matches the V05 `topEntries` and V16 `recentEntries` tie-breaker convention. Concatenate `vodEntries + dedupedEpisodes.values` and sort by `updatedAt` desc as before. The result: a user with watch progress on 3 episodes of the same series gets ONE "Continue Watching" card showing the most recent episode's S/E/title badge, not three near-duplicates. VOD entries are unaffected — a movie is a single item, not a container of sub-items, so there's no group to dedupe.
+  - **Pure data-layer change, no widget work.** The card widget (`_ContinueWatchingCard`) already renders the synthesised episode stream's name (which contains `S01E05 — title` per V21's synthesis at line 875) and the parent series's cover. The dedupe just means the user sees one card instead of three — same card, same tap behaviour (opens `SeriesDetailScreen` with the most recent episode pre-selected via V04's `autoResumeEpisode` path), same long-press dismiss (clears the most recent episode's progress; older episodes' progress remains in storage, so the card re-appears if the user opens one of them and re-watches — confirmed by the V17 + V23 interaction test).
+  - **`flutter analyze`**: 50 issues (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning. **0 new issues introduced by V23** (no entries in `app_providers.dart` or the new test file).
+  - **`flutter test`**: 242/242 pass (was 235, +7 from V23). New file `v23_series_grouping_dedupe_test.dart` follows the V22 `v22_most_watched_dedupe_test.dart` and the existing V04/V21 `series_continue_watching_test.dart` patterns: same `_FakeCredentialsStore` + `_FakeXtreamClient` test doubles (declared in-file for self-containment — the V22 entry's "intentionally per-file" note applies), same `makeContainer` helper that overrides the storage + client providers, one `test` per scenario, no test loops. Test split mirrors the canonical 7-test shape:
+    1. **3 episodes of the same series → 1 entry** (the headline V23 behaviour — most recent wins as the representative)
+    2. **VOD entries pass through the dedupe unchanged** (regression guard — VODs must NOT be grouped)
+    3. **2 different series each with 2 episodes → 2 entries** (the dedupe keys on `parentSeriesId`, not on episode streamId)
+    4. **Ordering of deduped result is by recency desc, VODs and series interleaved** (proves the sort still runs after the dedupe and isn't broken by the partition)
+    5. **Dedupe is per-profile isolated** (regression guard for the V21 split — `creds.name` keyed storage)
+    6. **Single episode of a series → 1 entry** (dedupe is a no-op for size-1 groups — proves the existing single-episode case is unchanged)
+    7. **Long-press → clear → provider surfaces the remaining episode, then drops the series entirely** (the V17 + V23 interaction test — clearing the most recent episode surfaces the older one as the new representative, clearing both drops the series entirely)
+- Pushed `feature/v23-continue-watching-series-grouping` → `develop` (squash merge `e6c1689`, PR #12). **CI ✅ (6m4s) + Release ✅ (6m10s) → v0.1.64.** Per the R01/skill discipline: investigated Release status IMMEDIATELY after merge (the 15:50 cron's lesson — Release failures are the most important signal because they produce the public APK). Both green. **APK uploaded as v0.1.64.**
+
+### CI status:
+- `Merge feature/v23-continue-watching-series-grouping into develop` (e6c1689) — **CI ✅ (6m4s) + Release ✅ (6m10s) → v0.1.64**
+- All Phase 2 (P201–P204, P206) + V01–V23 + R01 now Done
+- 242/242 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V23 closes the V04/V21 follow-on gap.** The Continue Watching row is now consolidated per parent series, so a user with progress on 5 episodes of "Breaking Bad" sees ONE "Breaking Bad" card (showing the most recent S/E/title badge) instead of 5 stacked duplicates. The card tap still opens `SeriesDetailScreen` with the right season focused, the right episode pre-selected, and the player auto-started in resume mode (V04's `autoResumeEpisode` path) — same tap behaviour as before, just one card instead of many.
+- **Other unblocked candidates** (all no external deps):
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Personalisation-row fine-tuning: lifetime vs recent-window, cap at N for the home rows, additional dedupe edges (e.g. V20 Recently Played row deduping from V03 Continue Watching — symmetric to the V22 Most Watched ↔ Recently Played dedupe)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `profile_setup_screen` brightness-aware migration (still in the 50-issue pre-existing set; out of scope for the personalisation work)
+- **R02 candidate**: the v0.1.61 / v0.1.63 / v0.1.64 tags are all on origin and published to the GitHub Releases page. v0.1.61 is a stranded release (the V22 release failure pushed the tag but never created the GitHub Release against it — the `Determine Version` job correctly bumped from the most recent **release** tag, so v0.1.60 → v0.1.62 with v0.1.61 skipped). v0.1.63 is from the R01 docs commit (no new APK content, just a release-version bump). v0.1.64 is V23. Cleanup is a 1-line `git tag -d` + `git push origin :refs/tags/vX.Y.Z` per tag, plus a `gh release delete` if we want the release pages gone. Low-priority — not blocking anything.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (15:50 BST — R01 release.yml fix)
 
 **Session start:** 15:25 BST (carry-over from V22 ship cron — release.yml was broken)
