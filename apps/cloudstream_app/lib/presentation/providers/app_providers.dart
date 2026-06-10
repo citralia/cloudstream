@@ -900,6 +900,49 @@ final continueWatchingProvider = FutureProvider<List<ContinueWatchingEntry>>((re
   return entries;
 });
 
+/// V21: VOD-only Continue Watching — filters [continueWatchingProvider] to
+/// entries where the saved watch progress resolved to a VOD stream
+/// (`ContinueWatchingKind.vod`). Drives the new Continue Watching row on
+/// the VOD home tab ([VodScreen]). Series-episode entries are routed
+/// through [continueWatchingSeriesProvider] instead.
+///
+/// Defers to [continueWatchingProvider]'s own null-degrade paths (no
+/// creds → [], no saved ids → [], no live catalogue → []) — the filter
+/// just narrows further. Returns `[]` on the provider's loading /
+/// error state so a render on the VOD tab never crashes on a partial
+/// provider state.
+final continueWatchingVodProvider =
+    FutureProvider<List<ContinueWatchingEntry>>((ref) async {
+  // Must `await` the source future, not just `ref.watch` — the source
+  // is a `FutureProvider` whose first read is an unresolved
+  // `AsyncValue<List<...>>`. Watching the AsyncValue and calling
+  // `maybeWhen` on it returns `[]` for the loading state and never
+  // re-runs when the source future resolves (Riverpod can't re-run
+  // this provider based on an inner async state change without an
+  // explicit `await`). Awaiting the `.future` blocks here, then the
+  // filter runs once with the resolved data.
+  final all = await ref.watch(continueWatchingProvider.future);
+  return all.where((e) => e.kind == ContinueWatchingKind.vod).toList();
+});
+
+/// V21: Series-episode-only Continue Watching — filters
+/// [continueWatchingProvider] to entries where the saved watch progress
+/// resolved to a series episode via the [SeriesInfoCache]
+/// (`ContinueWatchingKind.seriesEpisode`). Drives the new Continue
+/// Watching row on the Series home tab ([SeriesScreen]). VOD entries
+/// are routed through [continueWatchingVodProvider] instead.
+///
+/// Same null-degrade contract as [continueWatchingVodProvider].
+final continueWatchingSeriesProvider =
+    FutureProvider<List<ContinueWatchingEntry>>((ref) async {
+  // See [continueWatchingVodProvider] for why we `await` the source
+  // future rather than watching the AsyncValue.
+  final all = await ref.watch(continueWatchingProvider.future);
+  return all
+      .where((e) => e.kind == ContinueWatchingKind.seriesEpisode)
+      .toList();
+});
+
 // ── Profile Store ───────────────────────────────────────────────────────────
 
 /// Requires sharedPreferencesProvider to be overridden at app startup.
