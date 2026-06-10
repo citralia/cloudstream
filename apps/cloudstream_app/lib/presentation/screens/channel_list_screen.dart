@@ -876,6 +876,19 @@ class _ContinueWatchingRow extends ConsumerWidget {
       );
       return;
     }
+    // V24: live-channel entries open the live player directly — no
+    // VOD detail screen, no resume position. Live streams don't
+    // seek; the "Resume" affordance is "I was watching this, tap to
+    // jump back", not a true resume. Same code path as a regular
+    // channel-list tap (selectedStreamProvider state + push
+    // PlayerScreen). The VOD branch below handles `vod` entries
+    // (movies + a defensive VOD-tagged live stream) through
+    // VodDetailScreen with autoResume, which is the right path for
+    // those.
+    if (entry.kind == ContinueWatchingKind.liveChannel) {
+      _openLivePlayer(context, ref, entry.stream);
+      return;
+    }
     final stream = entry.stream;
     if (stream.streamType == 'movie' || stream.streamType == 'live') {
       Navigator.of(context).push(
@@ -884,6 +897,17 @@ class _ContinueWatchingRow extends ConsumerWidget {
         ),
       );
     }
+  }
+
+  /// Open the live player for [stream] — the same path a regular
+  /// channel-list tap takes. Pulled into a helper so the V24 live
+  /// Continue Watching branch and any future "jump back to live"
+  /// affordance share one implementation.
+  void _openLivePlayer(BuildContext context, WidgetRef ref, XtreamStream stream) {
+    ref.read(selectedStreamProvider.notifier).state = stream;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PlayerScreen(stream: stream)),
+    );
   }
 
   /// Long-press a Continue Watching card to remove the entry. The
