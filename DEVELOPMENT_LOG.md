@@ -1,3 +1,55 @@
+## 2026-06-10 — CloudStream Hourly Cron (23:10 BST — V26 ship)
+
+**Session start:** 22:50 BST
+
+### What was done:
+- Board on entry: the 20:20 cron had shipped V24 (f6ed1ab, PR #13) and updated the board + log to that effect. The 22:14 cron (logged at 23:10) had shipped **V25 — Continue Watching row dedupes from Recently Played** (3bc4021, PR #14) — a `continueWatchingProvider` data-layer change that watched `recentlyPlayedProvider` and dropped any `kind == liveChannel` entry whose `streamId` was in the recency-top-8 set. CI ✅ + Release ✅ → v0.1.68. The board's "what's next" list still had several unblocked candidates: V05 follow-on (Most Watched on VOD/Series tabs), EPG-side programme-title search, personalisation-row fine-tuning, R02 stranded-tags cleanup.
+- Found a complete **V26 WIP** on the working tree on top of develop HEAD (same un-pushed/un-committed pattern the V20/V22 pickups followed — 4 files modified, no untracked test file, 4xx-line diff, fully implemented). Diff: 2 new providers (`mostWatchedVodProvider` + `mostWatchedSeriesProvider` in `app_providers.dart`) + 2 new `_MostWatchedRow` widgets (one on `vod_screen.dart`, one on `series_screen.dart`) + a `pubspec.lock` noise re-resolution that was reverted to keep the commit focused. The pubspec.lock was just version-pin churn from a prior cron's `flutter pub get` against the current Flutter SDK — `git checkout HEAD -- apps/cloudstream_app/pubspec.lock` reset it cleanly.
+- Verified the WIP sound: `flutter analyze` → 50 issues (no change from baseline; **0 new issues introduced by V26** — no entries in any of the 3 modified files); the 50 issues are all 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning. `flutter test` → all pre-existing tests still pass.
+- **Wrote 14 new tests** (`test/v26_most_watched_vod_series_test.dart`): 7 per provider (no-connection, no-counts, no-catalogue, join-and-sort, orphan drop, cap at `kPersonalisationRowCap`, per-profile isolation). Mirrors the V22 dedupe test file's `makeContainer` helper + `_FakeCredentialsStore` shape verbatim, just with `vodStreamsProvider.overrideWith` / `seriesStreamsProvider.overrideWith` instead of `liveStreamsProvider`. The orphan-drop test for `mostWatchedSeriesProvider` is intentionally richer: it pre-seeds counts for a VOD movie + a live channel + the series, asserts the VOD and live counts do NOT leak into the series result. Same self-contained in-file fakes (per the V22/V25 entry notes). 14/14 V26 tests pass on first run; full suite: **276/276 pass** (was 262, +14 from V26).
+- **V26** fully implemented, tested, and shipped (c04b8ff, PR #15):
+  - **`mostWatchedVodProvider`** (`app_providers.dart`): FutureProvider mirroring `mostWatchedProvider` but joining `PlayCountStore.topEntries(creds.name)` against `vodStreamsProvider` (drops orphans, awaits `.future` for the same first-tick-null-trap avoidance V22 introduced). Capped at `kPersonalisationRowCap` (8). No recency dedupe — `recentlyPlayedProvider` is live-only by V20's design, so the recency set never contains a VOD streamId, and the cards open different detail screens (VOD card → `VodDetailScreen`, live card → play the channel directly) so a same-streamId-in-both-views case is impossible. Per-profile isolation comes free from the `creds.name` store key. Resolves to `[]` when no creds, no play counts, or no VOD catalogue.
+  - **`mostWatchedSeriesProvider`** (`app_providers.dart`): mirror of the VOD provider, scoped to series via `seriesStreamsProvider`. Same null-degrade + orphan-drop + cap semantics. **Subtlety documented in the provider docstring**: a series-episode play bumps the store under the **episode's** streamId (not the parent's), because the player calls `_saveProgress` with the playing stream's id, and individual episodes are the streams you actually open from `SeriesDetailScreen`. So the count surfaced on the card is the top episode's count, not a sum across episodes. A user who watched 3 different Breaking Bad episodes 10 times each would see "10× plays" on the card, not "30× plays" — that's correct (it's a per-episode high-water mark, not a series total), and the next maintainer shouldn't try to sum across episodes without also changing the storage shape.
+  - **`_MostWatchedRow` on VOD tab** (`vod_screen.dart`): horizontal row above the VOD grid, only when `selectedCategoryId == null` (same gating as the existing `_ContinueWatchingRow`). Header: `Icons.trending_up` (18pt) + 'Most Watched' h3. Card: 220×168, 16:9 poster (or `_PosterPlaceholder` for streams without a logo) + `entry.count`× play-count badge in the top-left (`appColors.accent.withValues(alpha: 0.9)` background + `textPrimary` text + `fontWeight: w600`) + movie title (1 line, ellipsis). Tap → `VodDetailScreen` (same nav the VOD grid uses). Brightness-aware via `context.appColors` / `context.appTypography` (the V11–V15 migration). Renders nothing while the provider is still loading or has no entries.
+  - **`_MostWatchedRow` on Series tab** (`series_screen.dart`): mirror of the VOD row, scoped to series. Tap → `SeriesDetailScreen` for the parent series. Same brightness-aware theme tokens, same `_PosterPlaceholder` for streams without covers. The cap constant `kPersonalisationRowCap` (8) is reused — same as the V05/V09/V16/V22 cap on the channel list, and the V20/V21 cap on the other home rows.
+  - **14 new tests** (`test/v26_most_watched_vod_series_test.dart`):
+    1. **`mostWatchedVodProvider` no-connection** → empty (regression guard for the early-return path)
+    2. **`mostWatchedVodProvider` no-counts** → empty (regression guard)
+    3. **`mostWatchedVodProvider` no-catalogue** → empty (VOD catalogue hasn't loaded yet)
+    4. **`mostWatchedVodProvider` join-and-sort** (3 movies, distinct counts → surfaced in count-desc order with `MostWatchedEntry` shape)
+    5. **`mostWatchedVodProvider` orphan drop** (live-channel play counts do NOT leak into the VOD result)
+    6. **`mostWatchedVodProvider` cap** (12 movies in catalogue, top 8 surfaced in count-desc order)
+    7. **`mostWatchedVodProvider` per-profile isolation** (counts keyed under `conn-A` don't surface for `conn-B`)
+    8. **`mostWatchedSeriesProvider` no-connection** → empty
+    9. **`mostWatchedSeriesProvider` no-counts** → empty
+    10. **`mostWatchedSeriesProvider` no-catalogue** → empty
+    11. **`mostWatchedSeriesProvider` join-and-sort** (3 series, distinct counts → surfaced in count-desc order)
+    12. **`mostWatchedSeriesProvider` orphan drop** (live+VOD play counts do NOT leak into the series result — the strictest cross-catalogue test in the suite, pre-seeds counts for all three catalogues and asserts the series result is exactly the series count)
+    13. **`mostWatchedSeriesProvider` cap** (12 series in catalogue, top 8 surfaced)
+    14. **`mostWatchedSeriesProvider` per-profile isolation** (counts keyed under `conn-A` don't surface for `conn-B`)
+- **Pushed `feature/v26-most-watched-vod-series` → `develop` (squash merge c04b8ff, PR #15)**. CI ✅ (Analyze + Test + Build iOS/macOS/Android) + **Release ✅ → v0.1.70** — APK + iOS zip + macOS zip uploaded. Per the R01/skill discipline: investigated Release status IMMEDIATELY after merge. Both green. **APK uploaded as v0.1.70.**
+
+### CI status:
+- `Merge feature/v26-most-watched-vod-series into develop` (c04b8ff) — **CI ✅ + Release ✅ → v0.1.70**
+- All Phase 2 (P201–P204, P206) + V01–V26 + R01 now Done
+- 276/276 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V26 closes the V05 follow-on gap.** Most Watched is now a first-class home row on all 3 personalisation surfaces (channel list + VOD + Series). A user who watched "Inception" twice on the VOD tab, then started a 3-episode Breaking Bad arc on the Series tab, will see both surfaced on the appropriate home tab with their play counts. The same `PlayCountStore` powers all three rows, so there's no risk of them disagreeing on the underlying data.
+- **Other unblocked candidates** (all no external deps):
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels — would need a new provider that joins EPG lists by title)
+  - Personalisation-row fine-tuning: lifetime vs recent-window, additional dedupe edges (e.g. V20 Recently Played row deduping from V03 Continue Watching — symmetric to the V22/V25 Most Watched ↔ Continue Watching ↔ Recently Played triangle)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `profile_setup_screen` brightness-aware migration (still in the 50-issue pre-existing set; out of scope for the personalisation work)
+- **R02 candidate**: the v0.1.61 / v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 tags are all on origin and published to the GitHub Releases page. v0.1.61 is a stranded release (the V22 release failure pushed the tag but never created the GitHub Release against it). v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 are from docs-only R01 / V23 / V24 / V25 release-version bumps. Cleanup is a 1-line `git tag -d` + `git push origin :refs/tags/vX.Y.Z` per tag, plus a `gh release delete` if we want the release pages gone. Low-priority — not blocking anything.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+
 ## 2026-06-10 — CloudStream Hourly Cron (20:20 BST — V24 ship)
 
 **Session start:** 20:14 BST
