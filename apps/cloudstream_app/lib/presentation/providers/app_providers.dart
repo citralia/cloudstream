@@ -1021,6 +1021,50 @@ Future<bool> toggleHidden(WidgetRef ref, int streamId) async {
 /// channels are otherwise filtered OUT of the channel list by default.
 final hiddenOnlyProvider = StateProvider<bool>((ref) => false);
 
+/// V19: Resolved hidden-channel metadata for the active profile.
+///
+/// Joins the active profile's hidden stream IDs (from
+/// [activeProfileHiddenProvider]) against the loaded
+/// [liveStreamsProvider] so the "Manage hidden" sheet can render each
+/// hidden channel's name + logo. Stream IDs that no longer exist in
+/// the live catalogue (e.g. the provider removed them) are dropped
+/// silently. Resolves to an empty list when there's no active
+/// connection, no live streams, or no hidden set.
+///
+/// Sorted by channel name (case-insensitive asc) so the sheet is
+/// stable when the user unhides channels one at a time — same UX as
+/// the "Name (A–Z)" sort mode for the visible channel list.
+final hiddenChannelsStreamProvider =
+    FutureProvider<List<XtreamStream>>((ref) async {
+  final hiddenIds = ref.watch(activeProfileHiddenProvider).toSet();
+  if (hiddenIds.isEmpty) return const <XtreamStream>[];
+  final live = await ref.watch(liveStreamsProvider.future).catchError(
+        (_) => const <XtreamStream>[],
+      );
+  if (live.isEmpty) return const <XtreamStream>[];
+  final filtered = live.where((s) => hiddenIds.contains(s.streamId)).toList()
+    ..sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+  return filtered;
+});
+
+/// V19: Bulk-unhide helper for the "Manage hidden" sheet. Removes
+/// every hidden stream ID for the active profile, persists the empty
+/// list via [ProfileStore.setHidden], and invalidates the hidden
+/// family provider so the channel list and the sheet both rebuild.
+/// Returns the number of channels that were unhidden.
+Future<int> unhideAll(WidgetRef ref) async {
+  final activeProfile = ref.read(activeProfileProvider);
+  if (activeProfile == null) return 0;
+  final store = ref.read(profileStoreProvider);
+  final current = store.getHidden(activeProfile.id);
+  if (current.isEmpty) return 0;
+  await store.setHidden(activeProfile.id, const <int>[]);
+  ref.invalidate(profileHiddenProvider(activeProfile.id));
+  return current.length;
+}
+
 /// Recent channels, isolated per profile.
 final recentChannelsPerProfileProvider =
     StateNotifierProvider.family<RecentChannelsNotifier, List<XtreamStream>, String>(
