@@ -1046,7 +1046,7 @@ class _MostWatchedCard extends StatelessWidget {
 // ── Sort mode picker ─────────────────────────────────────────────────────────
 
 /// Modal bottom sheet for picking a live-channel sort mode. Renders
-/// the three [ChannelSortMode] options as a tappable radio list. The
+/// the [ChannelSortMode] options as a tappable radio list. The
 /// "selected" indicator mirrors the current [channelSortProvider]
 /// value, so opening the sheet and dismissing it is a no-op.
 class _SortModeSheet extends StatelessWidget {
@@ -1079,6 +1079,12 @@ class _SortModeSheet extends StatelessWidget {
       'Most Watched',
       'Your most-played channels first; channels you have never played go to the bottom',
       Icons.trending_up,
+    ),
+    (
+      ChannelSortMode.recentlyPlayed,
+      'Recently Played',
+      'Most-recently-played channels first; channels you have never played go to the bottom',
+      Icons.history,
     ),
   ];
 

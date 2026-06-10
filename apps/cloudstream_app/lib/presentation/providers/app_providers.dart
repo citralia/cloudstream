@@ -204,6 +204,19 @@ final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) asy
     };
     return _applyChannelSort(filtered, sort, playCounts: counts);
   }
+  if (sort == ChannelSortMode.recentlyPlayed) {
+    // Same play-count store as mostWatched, but the ranking key is
+    // the per-stream last-played-at timestamp (V16). Streams
+    // without a recorded play are pushed to the bottom and
+    // sorted by name as a stable secondary key.
+    final creds = await ref.watch(activeCredentialsProvider.future);
+    if (creds == null) return _applyChannelSort(filtered, ChannelSortMode.defaultOrder);
+    final store = ref.watch(playCountStoreProvider);
+    final lastPlayed = <int, int>{
+      for (final e in store.recentEntries(creds.name)) e.streamId: e.lastPlayedAtMs,
+    };
+    return _applyChannelSort(filtered, sort, lastPlayedAtMs: lastPlayed);
+  }
   return _applyChannelSort(filtered, sort);
 });
 
@@ -213,10 +226,14 @@ final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) asy
 /// the provider's `num` field is missing. [mostWatched] requires
 /// [playCounts] (streamId → count); streams not in the map are pushed
 /// to the bottom and sorted by name as a stable secondary key.
+/// [recentlyPlayed] requires [lastPlayedAtMs] (streamId → epoch ms);
+/// streams not in the map are pushed to the bottom and sorted by name
+/// as a stable secondary key. The two map args are mutually exclusive.
 List<XtreamStream> _applyChannelSort(
   List<XtreamStream> streams,
   ChannelSortMode mode, {
   Map<int, int>? playCounts,
+  Map<int, int>? lastPlayedAtMs,
 }) {
   switch (mode) {
     case ChannelSortMode.defaultOrder:
@@ -274,6 +291,39 @@ List<XtreamStream> _applyChannelSort(
         final byCount = counts[b.streamId]!.compareTo(counts[a.streamId]!);
         if (byCount != 0) return byCount;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      unplayed.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return [...played, ...unplayed];
+    case ChannelSortMode.recentlyPlayed:
+      // Mirror of mostWatched, keyed on the per-stream last-played-at
+      // timestamp (epoch ms). Played bucket sorts by recency desc
+      // (most-recently-played first), with streamId asc as a stable
+      // tie-breaker. Unplayed bucket (no recorded play) is pushed to
+      // the bottom and sorted by name asc. The bucket boundary uses
+      // map membership rather than timestamp > 0 because legacy
+      // v0.1.x–v0.1.48 installs can have a count entry but no
+      // stamped last-play time — `recentEntries` treats those as
+      // epoch-0 and they would otherwise compete with genuinely
+      // recent plays; gating on membership is the conservative
+      // call. (See `PlayCountStore.recentEntries`.)
+      assert(lastPlayedAtMs != null,
+          'recentlyPlayed sort requires lastPlayedAtMs (read from PlayCountStore)');
+      final last = lastPlayedAtMs!;
+      final played = <XtreamStream>[];
+      final unplayed = <XtreamStream>[];
+      for (final s in streams) {
+        if (last.containsKey(s.streamId)) {
+          played.add(s);
+        } else {
+          unplayed.add(s);
+        }
+      }
+      played.sort((a, b) {
+        final byTime = last[b.streamId]!.compareTo(last[a.streamId]!);
+        if (byTime != 0) return byTime;
+        return a.streamId.compareTo(b.streamId);
       });
       unplayed.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),

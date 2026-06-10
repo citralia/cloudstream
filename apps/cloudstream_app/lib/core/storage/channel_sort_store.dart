@@ -26,6 +26,18 @@ enum ChannelSortMode {
   /// ranking already on the home screen, so picking this sort
   /// mode and switching to the "All" view should feel consistent.
   mostWatched,
+
+  /// By per-profile most-recent play, descending. Reuses the
+  /// `PlayCountStore` (V05 / V16) — every `increment` now stamps
+  /// the play time, so the "most recently played" ranking is
+  /// derivable from the same store without a parallel recency
+  /// index. Streams that have never been played are pushed to the
+  /// bottom and sorted by name as a stable secondary key. This
+  /// complements the existing `mostWatched` mode: a casual viewer
+  /// who flips between five news channels wants recency; a power
+  /// user with hundreds of plays wants the lifetime-frequency
+  /// leaderboard.
+  recentlyPlayed,
 }
 
 /// Persists the user's preferred [ChannelSortMode] in
