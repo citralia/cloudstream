@@ -4,6 +4,51 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (01:25 BST)
+
+**Session start:** 00:15 BST (carry-over from 2026-06-10 00:15 cron)
+
+### What was done:
+- Board on entry: V14 chunk 1 (4 VOD/series surfaces) had been merged to develop at 00:15 (6f87792) with CI ✅ + Release ✅. The "Next" pointer from the 00:15 log was **V14 chunk 2 — media-playback surfaces** (the 4 un-migrated playback widgets/screens: `quick_channel_overlay`, `player_gesture_overlay`, `player_screen`, `epg_guide_screen`).
+- Picked V14 chunk 2 up — same pattern as the V12/V13/V14-chunk-1 pickups. WIP was minimal this time (a clean working tree, no prior-session leftovers), so the migration is fully done in this run.
+- **V14 chunk 2** fully implemented, tested, and shipped (54fb180):
+  - **`presentation/widgets/quick_channel_overlay.dart`** (11 refs): `QuickChannelOverlay` swap-horizontal icon + caption title, `_RecentChannelChip` background / border / stream-name text + initial-letter colour, `ChannelNumberBar` dialpad icon / backspace icon / CLR text / GO button background. All now `context.appColors.*`. The black gradient wrapper and the white "GO" text stay as `Colors.white` / `Colors.black.withOpacity(...)` — those are intentional video-overlay conventions.
+  - **`presentation/screens/player_gesture_overlay.dart`** (1 ref): the seek/volume/brightness label `Text` style. The label container itself stays `Colors.black.withOpacity(0.6)` and the icon stays `Colors.white` — those are intentional video-overlay conventions; only the typography style pulls from the brightness-correct token.
+  - **`presentation/screens/player_screen.dart`** (14 refs): Chewie `materialProgressColors` (played/handle/background/buffered), loading indicator + icon, top-bar typography (channel name + EPG now/next), the inline Chewie `errorBuilder` (icon + "Playback error" h3 + error message), the bottom `_ErrorView` (icon + "Playback failed" h2 + caption). The top bar's `Colors.white` and `Colors.white70` text stay as-is — they're on top of the black→transparent video gradient. **One subtle gotcha:** the Chewie progress colours and `errorBuilder` closure run *after* `await _videoController!.initialize()` and `await _videoController!.seekTo(...)`. Reading `context.appColors` inside those closures would trip `use_build_context_synchronously` (and risk a stale `context` if the State has been disposed by then). Captured the theme tokens into local `colors` / `typo` variables **before** the awaits and used those in the closure. Documented the trade-off in a code comment so the next maintainer doesn't undo it.
+  - **`presentation/screens/epg_guide_screen.dart`** (27 refs): Scaffold background, loading + error + empty-data states, the CHANNEL header cell, `_ChannelLabelCell` border + stream-name text + initial-letter chip + initial-letter colour, `_ProgrammeRow` loading border / progress indicator / empty-row border, `_ProgrammeBlock` on-now/future decoration (background / border / replay badge / reminder icon / title text), `_NowLine` container colour. **`_TimeRulerPainter`** is a `CustomPainter` and has no `BuildContext`, so the line colour / text colour / half-line colour are now passed in via the constructor (`lineColor` / `textColor` / `halfLineColor`); the `CustomPaint` widget reads them from `context.appColors` and the `shouldRepaint` check includes the colour deltas. This is the only CustomPainter in the app — the pattern would repeat for any future ones.
+  - **`_initial(context)`**: both `QuickChannelOverlay._RecentChannelChip._initial` and `EpgGuideScreen._ChannelLabelCell._initial` are private helper methods on a `StatelessWidget` with no `BuildContext`. The migration needed a context (for `context.appColors.primary`), so the signature changed from `Widget _initial()` to `Widget _initial(BuildContext context)` and both call sites pass the build's context.
+  - **`flutter analyze`**: 50 issues found (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-param warning. **0 new issues introduced by V14 chunk 2** (no entries in any of the 4 migrated files).
+  - **`flutter test`**: 163/163 tests pass (was 159, +4 from V14 chunk 2). New file `test/brightness_aware_chunk5_test.dart` follows the V12/V13/V14-chunk-1 pattern: one `testWidgets` per (widget × theme) pair, no loop (would poison WidgetsBinding), explicit `themeMode` to defeat the test env's `platformBrightness` default. Tests assert on a single concrete colour reference (e.g. `nameText.style.color == AppColors.textSecondary`) — proves the migration is wired, not falling back to a dark constant.
+  - **Test scope for chunk 2 is narrower than chunk 1.** The 4 migrated files don't all pump cleanly:
+    - `PlayerGestureOverlay` needs a real `VideoPlayerController` (chewie/video_player) — won't initialise in a unit test.
+    - `PlayerScreen` wraps Chewie which mounts the native video surface — same issue.
+    - `EpgGuideScreen` is testable but needs overrides for `filteredLiveStreamsProvider` + `recentChannelsProvider` + `playerControllerProvider` on top of the chunk-1 `xtreamClientProvider` / `credentialsStoreProvider` / `sharedPreferencesProvider` overrides. Not impossible, but a bigger fixture effort than the migration itself; the source change + 0 new analyze issues covers it (same trade-off the V13 chunk made for `ChannelListScreen`).
+  - Pushed `feature/v14-brightness-aware-chunk2` → `develop` (merge 54fb180). CI ✅ + Release ✅ — **APK uploaded as v0.1.45**.
+
+### CI status:
+- `Merge feature/v14-brightness-aware-chunk2 into develop` (54fb180) — **CI ✅ + Release ✅ → v0.1.45**
+- All Phase 2 (P201–P204, P206) + V01–V14 (across chunks 1 and 2) now Done
+- 14 of the 14 brightness-migrated app surfaces (login, tv_text_field, settings, profile_switcher, debug_logs, reminders_list, search, channel_list + main shell, vod, series, vod_detail, series_detail, quick_channel_overlay, player_gesture_overlay, player_screen, epg_guide) now render correctly in both dark and light themes. The whole app is now brightness-aware — picking Light in Settings flips every screen.
+
+### What's next:
+- **The V08/V11 follow-on is now complete** — every app screen has been migrated to `context.appColors` / `context.appTypography`. A user picking Light in Settings will now see the entire app switch to the light theme; the original V08 scope note about "existing screens still render with dark text" no longer applies.
+- **Other unblocked candidates** (all no external deps):
+  - "Recently watched" sort mode for V06 (would need a recency timestamp on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `defaultLeadTimeProvider` persistence: ALREADY DONE in V10 (carry-over from prior cron) — closed
+  - V11+ follow-on: a widget-level "anywhere-`AppColors` is used" sweep would be the next cleanup, but there are very few left (the cron-tracked count of 0 makes a sweep redundant)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (00:15 BST)
 
 **Session start:** 23:30 BST (carry-over from 2026-06-09 22:15 cron)
