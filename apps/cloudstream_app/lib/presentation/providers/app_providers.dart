@@ -180,14 +180,25 @@ final favouritesOnlyProvider = StateProvider<bool>((ref) => false);
 final filteredLiveStreamsProvider = FutureProvider<List<XtreamStream>>((ref) async {
   final categoryId = ref.watch(selectedCategoryIdProvider);
   final favouritesOnly = ref.watch(favouritesOnlyProvider);
+  final hiddenOnly = ref.watch(hiddenOnlyProvider);
   final client = ref.watch(xtreamClientProvider);
   final streams = await client.getLiveStreams(categoryId: categoryId);
-  final filtered = favouritesOnly
-      ? () {
-          final favIds = ref.watch(activeProfileFavouritesProvider).toSet();
-          return streams.where((s) => favIds.contains(s.streamId)).toList();
-        }()
-      : streams;
+  // V18: hidden channels are excluded from the default view, and are
+  // only visible when the user has explicitly toggled the "Hidden"
+  // filter chip. The three filter modes (All / Favourites / Hidden)
+  // are mutually exclusive in the UI — see CategoryFilterChips in
+  // channel_list_screen.dart. The branches below enforce that.
+  final hiddenIds = ref.watch(activeProfileHiddenProvider).toSet();
+  final filtered = hiddenOnly
+      ? streams.where((s) => hiddenIds.contains(s.streamId)).toList()
+      : favouritesOnly
+          ? () {
+              final favIds = ref.watch(activeProfileFavouritesProvider).toSet();
+              return streams
+                  .where((s) => favIds.contains(s.streamId) && !hiddenIds.contains(s.streamId))
+                  .toList();
+            }()
+          : streams.where((s) => !hiddenIds.contains(s.streamId)).toList();
   final sort = ref.watch(channelSortProvider);
   if (sort == ChannelSortMode.mostWatched) {
     // Read play counts for the active profile, then sort the
@@ -979,6 +990,36 @@ Future<bool> toggleFavourite(WidgetRef ref, int streamId) async {
   ref.invalidate(profileFavouritesProvider(activeProfile.id));
   return result;
 }
+
+/// Hidden stream IDs for a given profile (V18).
+final profileHiddenProvider = Provider.family<List<int>, String>((ref, profileId) {
+  final store = ref.watch(profileStoreProvider);
+  return store.getHidden(profileId);
+});
+
+/// Hidden stream IDs for the active profile (V18).
+final activeProfileHiddenProvider = Provider<List<int>>((ref) {
+  final activeProfile = ref.watch(activeProfileProvider);
+  if (activeProfile == null) return [];
+  return ref.watch(profileHiddenProvider(activeProfile.id));
+});
+
+/// Toggle a stream in/out of the active profile's hidden set (V18).
+/// Returns the new is-hidden boolean.
+Future<bool> toggleHidden(WidgetRef ref, int streamId) async {
+  final activeProfile = ref.read(activeProfileProvider);
+  if (activeProfile == null) return false;
+  final store = ref.read(profileStoreProvider);
+  final result = await store.toggleHidden(activeProfile.id, streamId);
+  // Force provider refresh.
+  ref.invalidate(profileHiddenProvider(activeProfile.id));
+  return result;
+}
+
+/// When true, the channel list is filtered to show only hidden channels for
+/// the active profile (V18). Mirrors `favouritesOnlyProvider`. Hidden
+/// channels are otherwise filtered OUT of the channel list by default.
+final hiddenOnlyProvider = StateProvider<bool>((ref) => false);
 
 /// Recent channels, isolated per profile.
 final recentChannelsPerProfileProvider =

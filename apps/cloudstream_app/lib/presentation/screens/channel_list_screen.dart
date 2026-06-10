@@ -59,6 +59,95 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     }
   }
 
+  /// V18: long-press a channel tile → action sheet with "Hide" / "Unhide".
+  /// Hides are persisted via [ProfileStore.addHidden] and the
+  /// [activeProfileHiddenProvider] is invalidated so the channel list
+  /// rebuilds without the row. A snackbar with an UNDO action restores
+  /// the visibility. Hidden channels are otherwise filtered out of the
+  /// default view and accessible via the "Hidden" filter chip.
+  Future<void> _openChannelActions(
+    BuildContext context,
+    WidgetRef ref,
+    XtreamStream stream,
+  ) async {
+    final isHidden =
+        ref.read(activeProfileHiddenProvider).contains(stream.streamId);
+    final messenger = ScaffoldMessenger.of(context);
+    final action = await showModalBottomSheet<_ChannelAction>(
+      context: context,
+      backgroundColor: context.appColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+                child: Text(
+                  stream.name,
+                  style: context.appTypography.h3,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  isHidden ? Icons.visibility : Icons.visibility_off,
+                  color: context.appColors.primary,
+                ),
+                title: Text(isHidden ? 'Unhide channel' : 'Hide channel',
+                    style: context.appTypography.body),
+                onTap: () => Navigator.of(sheetContext).pop(
+                    isHidden ? _ChannelAction.unhide : _ChannelAction.hide),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (action == null) return;
+    if (!context.mounted) return;
+
+    if (action == _ChannelAction.hide) {
+      await toggleHidden(ref, stream.streamId);
+      // Switch out of hiddenOnly if the user hides the last visible
+      // channel — avoids an empty list confusing the user. No-op when
+      // the user wasn't viewing hidden-only.
+      if (ref.read(hiddenOnlyProvider)) {
+        ref.read(hiddenOnlyProvider.notifier).state = false;
+      }
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Hidden — ${stream.name}'),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () => toggleHidden(ref, stream.streamId),
+          ),
+        ),
+      );
+    } else {
+      // Unhide — silent (the user just opened the action sheet on a
+      // channel they already have access to, so the row is back the
+      // moment they tap "Unhide"). Still a snackbar confirmation
+      // because the row won't reappear until they leave hiddenOnly.
+      await toggleHidden(ref, stream.streamId);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Unhidden — ${stream.name}'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   /// Open the sort-mode bottom sheet. The sheet lets the user pick
   /// between default (Xtream server order), name (A–Z), and number
   /// (provider-supplied channel number, fallback streamId). The
@@ -195,11 +284,13 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
                       return _FlatChannelList(
                         streams: streams,
                         onTap: (stream) => _openPlayer(context, ref, stream),
+                        onLongPress: (stream) => _openChannelActions(context, ref, stream),
                       );
                     } else {
                       return _GroupedChannelList(
                         streams: streams,
                         onTap: (stream) => _openPlayer(context, ref, stream),
+                        onLongPress: (stream) => _openChannelActions(context, ref, stream),
                       );
                     }
                   },
@@ -392,8 +483,13 @@ class _MiniPlayerBar extends StatelessWidget {
 class _FlatChannelList extends StatelessWidget {
   final List<XtreamStream> streams;
   final void Function(XtreamStream) onTap;
+  final void Function(XtreamStream)? onLongPress;
 
-  const _FlatChannelList({required this.streams, required this.onTap});
+  const _FlatChannelList({
+    required this.streams,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -403,6 +499,7 @@ class _FlatChannelList extends StatelessWidget {
       itemBuilder: (context, index) => ChannelTile(
         stream: streams[index],
         onTap: () => onTap(streams[index]),
+        onLongPress: onLongPress == null ? null : () => onLongPress!(streams[index]),
       ),
     );
   }
@@ -411,8 +508,13 @@ class _FlatChannelList extends StatelessWidget {
 class _GroupedChannelList extends StatelessWidget {
   final List<XtreamStream> streams;
   final void Function(XtreamStream) onTap;
+  final void Function(XtreamStream)? onLongPress;
 
-  const _GroupedChannelList({required this.streams, required this.onTap});
+  const _GroupedChannelList({
+    required this.streams,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -443,6 +545,7 @@ class _GroupedChannelList extends StatelessWidget {
             ...categoryStreams.map((stream) => ChannelTile(
               stream: stream,
               onTap: () => onTap(stream),
+              onLongPress: onLongPress == null ? null : () => onLongPress!(stream),
             )),
             const Divider(height: 1),
           ],
@@ -462,6 +565,7 @@ class CategoryFilterChips extends ConsumerWidget {
     final categoriesAsync = ref.watch(liveCategoriesProvider);
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
     final favouritesOnly = ref.watch(favouritesOnlyProvider);
+    final hiddenOnly = ref.watch(hiddenOnlyProvider);
 
     return SizedBox(
       height: 52,
@@ -479,15 +583,16 @@ class CategoryFilterChips extends ConsumerWidget {
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            itemCount: categories.length + 2,
+            itemCount: categories.length + 3, // +3: All, ★ Favourites, ⊘ Hidden (V18)
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _FilterChip(
                   label: 'All',
-                  isSelected: selectedCategoryId == null && !favouritesOnly,
+                  isSelected: selectedCategoryId == null && !favouritesOnly && !hiddenOnly,
                   onTap: () {
                     ref.read(selectedCategoryIdProvider.notifier).state = null;
                     ref.read(favouritesOnlyProvider.notifier).state = false;
+                    ref.read(hiddenOnlyProvider.notifier).state = false;
                   },
                 );
               }
@@ -497,11 +602,35 @@ class CategoryFilterChips extends ConsumerWidget {
                   child: _FilterChip(
                     label: '★ Favourites',
                     isSelected: favouritesOnly,
-                    onTap: () => ref.read(favouritesOnlyProvider.notifier).state = !favouritesOnly,
+                    onTap: () {
+                      ref.read(favouritesOnlyProvider.notifier).state = !favouritesOnly;
+                      if (ref.read(favouritesOnlyProvider)) {
+                        // Favourites and hidden-only are mutually
+                        // exclusive — switching into favourites clears
+                        // hidden-only so the user doesn't end up with an
+                        // empty intersection of "favourites ∩ hidden".
+                        ref.read(hiddenOnlyProvider.notifier).state = false;
+                      }
+                    },
                   ),
                 );
               }
-              final category = categories[index - 2];
+              if (index == 2) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: _FilterChip(
+                    label: '⊘ Hidden',
+                    isSelected: hiddenOnly,
+                    onTap: () {
+                      ref.read(hiddenOnlyProvider.notifier).state = !hiddenOnly;
+                      if (ref.read(hiddenOnlyProvider)) {
+                        ref.read(favouritesOnlyProvider.notifier).state = false;
+                      }
+                    },
+                  ),
+                );
+              }
+              final category = categories[index - 3];
               final isSelected = selectedCategoryId == category.id;
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -556,8 +685,14 @@ class _FilterChip extends StatelessWidget {
 class ChannelTile extends ConsumerWidget {
   final XtreamStream stream;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const ChannelTile({super.key, required this.stream, required this.onTap});
+  const ChannelTile({
+    super.key,
+    required this.stream,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -579,6 +714,7 @@ class ChannelTile extends ConsumerWidget {
           final isFocused = Focus.of(context).hasFocus;
           return InkWell(
             onTap: onTap,
+            onLongPress: onLongPress, // V18: long-press for hide/unhide
             focusColor: context.appColors.primary.withOpacity(0.1),
             child: Container(
               decoration: BoxDecoration(
@@ -1250,3 +1386,6 @@ class _SortModeRow extends StatelessWidget {
     );
   }
 }
+
+/// V18: actions exposed by the long-press channel sheet.
+enum _ChannelAction { hide, unhide }
