@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (12:25 BST — V20 ship)
+
+**Session start:** 12:00 BST
+
+### What was done:
+- Board on entry: the 11:15 cron had shipped V19 (15a3f4b, PR #7) — AppBar entry + per-row unhide + bulk unhide-all. A subsequent (unlogged) cron had picked up **V20 — Recently Played home row** — a high-value unblocked V16 follow-on (V16 added the recency sort mode; the natural next step was a first-class home row that surfaces recency without forcing the user to switch sort modes) — fully implemented, tested, committed on `feature/v20-recently-played-row` (bcf983b), pushed, and PR #8 opened. CI ✅ (Analyze, Test, iOS, Android, macOS) on the PR at 11:20 UTC. The board + log had no V20 row.
+- **V20 — Recently Played home row** (bcf983b → d42c771, PR #8): the "recency" personalisation signal as a first-class home surface, sitting **above** the existing Most Watched row:
+  - **`RecentlyPlayedEntry`** (`app_providers.dart`): resolved `XtreamStream` + `lastPlayedAtMs` epoch-ms timestamp. Mirrors `MostWatchedEntry`'s shape so the two rows feel like a matched pair.
+  - **`recentlyPlayedProvider`** (FutureProvider): joins the active profile's `PlayCountStore.recentEntries(creds.name)` (recency desc, streamId-asc tie-breaker — the same tie-breaker `PlayCountStore` already provides) against `liveStreamsProvider` (drops orphans — channels the provider removed from the catalogue). Keyed by active connection's name so each profile has its own recency list. **Awaits `liveStreamsProvider.future`** (not `valueOrNull`) to dodge the first-tick-null trap that would silently return an empty list on cold start. Same null-degrade paths as `mostWatchedProvider`: no creds → `[]`, no live streams → `[]`, no recent entries → `[]`.
+  - **`_RecentlyPlayedRow` + `_RecentlyPlayedCard`** (`channel_list_screen.dart`): horizontal row positioned **above** `_MostWatchedRow` (recency is a stronger personalisation signal than lifetime frequency — a user who just flipped to CNN wants the CNN card front-and-centre, not buried under a 200-view leaderboard). The build call has a comment explaining the ordering rationale so a future maintainer doesn't reshuffle them. Header: `Icons.history` (18pt) + 'Recently Played' h3. Card: 96×64 channel logo (or first-letter placeholder via the existing `_PosterPlaceholder`) + channel name (max 1 line + ellipsis) + 'x min ago' / 'x h ago' / 'x d ago' / 'Just now' caption. Tap plays the channel — same `_openStream` path as a regular channel-list tap. Only shown when `selectedCategoryId == null` (same condition as Most Watched). Brightness-aware via `context.appColors` / `context.appTypography` (the V11–V15 migration).
+  - **9 new tests** (`test/recently_played_row_test.dart`): empty default, no-connection, no-live-streams degrade paths, recency-desc ordering, timestamp-tie streamId-asc tie-breaker, orphan drop, per-profile isolation, lastPlayedAtMs round-trip, recency-independent-of-play-count (proves a stream played once 5 minutes ago ranks above a stream played 100 times a year ago).
+- **219/219 tests pass** (was 210, +9 from V20). `flutter analyze` → 50 issues (49 pre-existing `withOpacity` infos + 1 V07-chunk3 unused-param warning). **0 new issues introduced by V20**.
+- **PR #8 merged** to develop (d42c771, squash). CI ✅ (5m56s) + Release ✅ (6m16s) — **APK uploaded as v0.1.57**.
+
+### CI status:
+- `Merge feature/v20-recently-played-row into develop` (d42c771) — **CI ✅ (5m56s) + Release ✅ (6m16s) → v0.1.57**
+- All Phase 2 (P201–P204, P206) + V01–V20 now Done
+- 219/219 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V20 closes the V16 follow-on gap.** The recency signal is now first-class on both surfaces: home row + sort mode. Both consume the same `PlayCountStore.recentEntries` data, so there's no risk of them disagreeing. The Live TV home screen now has 3 personalisation rows: Recently Played (recency) → Most Watched (lifetime frequency) → Continue Watching (VOD/series with progress) — each a distinct, complementary signal.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites/hidden, dedupe with the new Recently Played row itself)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (11:15 BST — V19 backfill)
 
 **Session start:** 10:30 BST (carry-over from 09:15 cron)
