@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (11:15 BST — V19 backfill)
+
+**Session start:** 10:30 BST (carry-over from 09:15 cron)
+
+### What was done:
+- Board on entry: the 09:15 cron had shipped V18 (0493388, PR #6, v0.1.53) and updated the board to that effect. The "what's next" list from the 09:15 log pointed to "Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked" and "EPG-side: 'remind me when this programme is on any channel'".
+- A subsequent (unlogged) cron had actually picked V19 — a **different** unblocked task not on the published "what's next" list — fully implemented, tested, and merged to develop (15a3f4b, PR #7). `gh run list -R citralia/cloudstream -L 1` returned `feat(V19): Manage hidden channels sheet — AppBar entry + per-row unhide + bulk unhide-all (#7)` with `conclusion: success, status: completed` for both CI and Release — the merge happened at 10:20 UTC (a 9-minute CI + 5m36s Release run, much faster than V18's 8m19s/6m32s since the test surface is smaller). The board had no V19 row.
+- **V19 — Manage hidden channels sheet** (15a3f4b, PR #7): the obvious un-blocked follow-on to V18 (Hide channel) — V18 had no good way to *unhide* en masse. The new sheet (the existing 'Hidden' filter chip + per-row long-press remained, but the new surface is the discovery + bulk-unhide entry point):
+  - **`hiddenChannelsStreamProvider`** (`app_providers.dart`): joins the active profile's hidden streamIds against `liveStreamsProvider` (drops orphans — channels the provider removed from the catalogue), sorted by channel name asc, resolves to `[]` when no active profile or no hidden set.
+  - **`unhideAll(ref)`** helper: bulk-empties the active profile's hidden set in a single `ProfileStore.setHidden([])` call, returns the count for the snackbar copy ("Unhidden N channel(s)").
+  - **`_ManageHiddenSheet`** (`channel_list_screen.dart`): modal bottom sheet, max-height 75% so a long hidden list scrolls. Header: `visibility_off` icon + "Hidden channels" title + "Unhide all" button (only visible when the list is non-empty). Subtitle: "N hidden — swipe right to unhide" or "No hidden channels" when empty. Per-row: round logo-or-initial avatar + channel name + "Hidden" caption + trailing unhide IconButton. Each row wrapped in a `Dismissible(startToEnd)` with a primary-tinted "Unhide" background on swipe. Empty state: `visibility_outlined` icon + "Channels you hide will appear here. Long-press any channel on the list to hide it." Loading + error states mirror the V18 long-press sheet.
+  - **AppBar action** (`channel_list_screen.dart`): new `Icons.visibility_off_outlined` IconButton on the channel list AppBar, **only shown when the active profile's hidden count > 0**. Tooltip shows the count ("Manage hidden channels (3)"). Sits between the "Expand player" and "Sort channels" actions — order matches user mental model: expand → manage hidden → sort → refresh.
+  - **Snackbar + UNDO** on per-row unhide (mirrors the V18 hide flow). Bulk unhide-all has no UNDO (intentional — UNDO would need to re-hide N channels; the per-row swipe-to-unhide covers the re-hide case).
+- **9 new tests** (`test/manage_hidden_sheet_test.dart`):
+  - 6 `hiddenChannelsStreamProvider` (empty default, joins against live catalogue, drops orphans, alphabetical sort, empty when no active profile, rebuilds on hidden-set mutation)
+  - 3 `unhideAll` (empties the set, no-op when empty, returns the count for the snackbar)
+- **210/210 tests pass** (was 201, +9 from V19), 0 new analyze errors (50 pre-existing remain: 49 `withOpacity` infos + 1 V07-chunk3 unused-param warning).
+- **Pushed `feature/v19-manage-hidden-sheet` → `develop` (squash merge 15a3f4b, PR #7)**. CI ✅ (6m22s) + Release ✅ (5m36s) — **APK uploaded as v0.1.54**.
+- **Backfilling the board + log now** (the unlogged cron's only failing task). The board row needs to flip from missing → "Done" with the merge commit + CI/Release status; the log gets a fresh V19 entry under the V18 one.
+
+### CI status:
+- `Merge feature/v19-manage-hidden-sheet into develop` (15a3f4b) — **CI ✅ (6m22s) + Release ✅ (5m36s) → v0.1.54**
+- All Phase 2 (P201–P204, P206) + V01–V19 now Done
+- 210/210 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V19 closes the V18 follow-on gap.** The hide/unhide story is now complete: long-press a channel → "Hide" (V18) + snackbar with UNDO; AppBar action (V19, when hidden count > 0) → "Manage hidden" sheet → per-row swipe-to-unhide or bulk "Unhide all" → snackbar with UNDO per row. No more silent mistakes.
+- **Other unblocked candidates** (all no external deps):
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series) — high-value, unblocked
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels) — would need a new provider that joins EPG lists by title
+  - Continue Watching / Most Watched / Recently Played fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites/hidden)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-10 — CloudStream Hourly Cron (09:15 BST)
 
 **Session start:** 08:15 BST
