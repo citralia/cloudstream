@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-06-10 — CloudStream Hourly Cron (00:15 BST)
+
+**Session start:** 23:30 BST (carry-over from 2026-06-09 22:15 cron)
+
+### What was done:
+- Board on entry: V13 (chunk 3 — main.dart shell + channel_list_screen) had been merged to develop at 22:15 (2d06ec7, CI ✅ + Release ✅ → v0.1.41). The "Next" pointer was at **V14 (brightness-aware migration chunk 4 — media-playback surfaces)**. Found un-pushed/un-verified WIP already on `feature/v14-brightness-aware-chunk1` — same pattern as the V12/V13 pickups. The branch had 4 screens migrated (vod_screen, series_screen, vod_detail_screen, series_detail_screen) plus a new test file, but never committed/verified.
+- Verified the WIP sound: `flutter analyze` → 50 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning, **0 new issues introduced by V14** (no entries in any of the 4 migrated files); `flutter test` → **8/8 new tests pass on first run**, full suite **159/159 pass** (was 151, +8 from V14).
+- V14 chunk 1 scope is intentionally narrow — the 4 uniform VOD/series browsing surfaces (category chips + grid + cover/metadata/synopsis/season chips/episode list). These mirror the already-migrated `ChannelListScreen` and don't interact with video / gesture / overlay layers. The remaining un-migrated screens (`player_screen`, `epg_guide_screen`, `quick_channel_overlay`, `profile_setup_screen`) touch the playback pipeline and are parked for **V14 chunk 2** — same chunk-then-chunk approach that worked for V11/V12/V13.
+- Test approach follows V12 pattern verbatim: one `testWidgets` per (screen × theme) pair, shared `pumpAndAssertBg` helper, explicit `themeMode` to defeat the test environment's `platformBrightness` default, documented the loop-poisoning gotcha in a header comment.
+- Committed as `74332b5` (V14 chunk 1), pushed `feature/v14-brightness-aware-chunk1`, merged to `develop` as `6f87792`, pushed.
+- Board: added V14 row to the Phase 2 Vision table; bumped `Last updated` to 2026-06-10T00:15 BST.
+
+### CI status:
+- `Merge feature/v14-brightness-aware-chunk1 into develop` (6f87792) — **CI 🟡 queued, Release 🟡 queued** (started ~00:07 BST, expected ~6m each based on prior runs)
+- 11 of the 21 app screens now brightness-aware (login, tv_text_field, settings, profile_switcher, debug_logs, reminders_list, search, channel_list, vod_screen, series_screen, vod_detail, series_detail — 12 actually, two of the four are new). Remaining 4: player_screen, epg_guide_screen, quick_channel_overlay (widget), profile_setup_screen — parked for V14 chunk 2.
+
+### What's next:
+- **V14 chunk 2**: brightness-aware migration of the remaining 4 un-migrated media-playback surfaces: `player_screen`, `epg_guide_screen`, `quick_channel_overlay` (widget), `profile_setup_screen`. These interact with video / gesture / overlay layers — needs a careful migration that doesn't disrupt the playback pipeline. Likely best split into 2 sub-chunks: profile_setup_screen (utility, no video) first, then the 3 video/gesture surfaces together.
+- **Other unblocked candidates** (all no external deps):
+  - "Recently watched" sort mode for V06 (would need a recency timestamp on top of the existing `PlayCountStore`)
+  - Series/season-level Resume on the Continue Watching row (V04 covers episode-level; could surface the parent series)
+  - EPG-side: "remind me when this programme is on any channel" (programme-title EPG search across channels)
+  - Continue Watching / Most Watched fine-tuning (lifetime vs recent-window, cap at N, dedupe with favourites)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+---
+
 ## 2026-06-09 — CloudStream Hourly Cron (22:15 BST)
 
 **Session start:** 21:15 BST
