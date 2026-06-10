@@ -240,7 +240,17 @@ void main() {
     test('ranks recency independent of play count', () async {
       // Stream 10 has count 5 but is the oldest. Stream 20 has count 1
       // but is the most recent. recentlyPlayedProvider should put 20
-      // first; mostWatchedProvider would put 10 first.
+      // first; mostWatchedProvider (pre-V22) would put 10 first.
+      //
+      // V22: the two providers now dedupe — mostWatchedProvider
+      // excludes any streamId that appears in the recency top-8.
+      // With only 2 streams, both fit in the recency top-8, so
+      // mostWatchedProvider returns an empty list (both 10 and 20
+      // are covered by the recency row). The recency-vs-count
+      // *ranking* is still provably independent — we assert it via
+      // the per-store getters: `topEntries` orders by count desc
+      // (10 first), `recentEntries` orders by timestamp desc (20
+      // first). The provider-level dedupe is the V22 follow-on.
       final t = DateTime(2026, 6, 10, 9);
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -273,8 +283,13 @@ void main() {
       final recent = await container.read(recentlyPlayedProvider.future);
       expect(recent.first.stream.streamId, 20); // recency winner
 
+      // V22: with both streams in the recency top-8, most-watched
+      // excludes both. The "ranking is independent" claim is
+      // verified at the store layer (see topEntries / recentEntries
+      // unit tests in most_watched_test.dart and
+      // recently_played_sort_test.dart).
       final top = await container.read(mostWatchedProvider.future);
-      expect(top.first.stream.streamId, 10); // count winner
+      expect(top, isEmpty);
     });
   });
 }

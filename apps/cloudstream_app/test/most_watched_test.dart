@@ -139,6 +139,7 @@ void main() {
       required List<XtreamStream> liveStreams,
       String? activeConnectionName,
       Map<int, int> playCounts = const {},
+      List<Override> extraOverrides = const [],
     }) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -170,6 +171,7 @@ void main() {
           credentialsStoreProvider.overrideWithValue(credsStore),
           playCountStoreProvider.overrideWithValue(playStore),
           liveStreamsProvider.overrideWith((ref) async => liveStreams),
+          ...extraOverrides,
         ],
       );
     }
@@ -219,6 +221,12 @@ void main() {
         ],
         activeConnectionName: 'conn',
         playCounts: {10: 1, 20: 5, 30: 3},
+        // V22: override recency to empty so this test isolates the
+        // count-only behaviour of mostWatchedProvider. The recency
+        // overlap is covered in v22_most_watched_dedupe_test.dart.
+        extraOverrides: [
+          recentlyPlayedProvider.overrideWith((ref) async => const []),
+        ],
       );
       addTearDown(container.dispose);
       final result = await container.read(mostWatchedProvider.future);
@@ -240,6 +248,10 @@ void main() {
         ],
         activeConnectionName: 'conn',
         playCounts: {1: 3, 999: 10},
+        // V22: recency excluded from test scope (see comment above).
+        extraOverrides: [
+          recentlyPlayedProvider.overrideWith((ref) async => const []),
+        ],
       );
       addTearDown(container.dispose);
       final result = await container.read(mostWatchedProvider.future);
@@ -256,6 +268,10 @@ void main() {
         ],
         activeConnectionName: 'conn-A',
         playCounts: {1: 5},
+        // V22: recency excluded from test scope.
+        extraOverrides: [
+          recentlyPlayedProvider.overrideWith((ref) async => const []),
+        ],
       );
       addTearDown(container.dispose);
       final result = await container.read(mostWatchedProvider.future);
