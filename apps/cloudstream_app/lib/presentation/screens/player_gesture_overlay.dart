@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 
 /// Wraps a [VideoPlayerController] and exposes gesture-based controls:
 ///
@@ -189,7 +190,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
                                   ],
                                   Text(
                                     _label!,
-                                    style: AppTypography.h2.copyWith(color: Colors.white),
+                                    style: context.appTypography.h2.copyWith(color: Colors.white),
                                   ),
                                 ],
                               ),
