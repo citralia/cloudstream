@@ -1,3 +1,31 @@
+## 2026-06-11 — CloudStream Hourly Cron (17:10 BST — V36 v0.1.84 phantom release cleanup)
+
+**Session start:** 17:10 BST (carry-over follow-on to the 15:30 V35 cron)
+
+### What was done:
+- Board on entry: V35 (73d11fb, PR #25) shipped at 16:27 UTC → v0.1.86, all 3 platform artifacts. The 15:30 cron's docs commit (1793a32) correctly produced NO new tag — **R04's docs-only detection is confirmed working in production**. The 15:30 cron's "What's next" left a 1-line note: "Cleanup v0.1.84 phantom tag: still on origin, 1-tag clean-up."
+- Picked V36 = the v0.1.84 cleanup. Rationale: (a) it's the smallest possible scope (no code, no tests, no PR), (b) it's a known follow-on explicitly called out by the previous cron, (c) it removes a real baseline-detection risk (see below). The 3 V36 UX candidates (row caps, CW hide-on-overlap, EPG tile UI) each need a chunk-sized Figma-or-not decision and 30-60 min of code work — better to burn the 45-min slot on cleanup and start one of the UX candidates fresh next cron.
+- **Verified v0.1.84 is a phantom** (not a real feat release): `git diff v0.1.84 v0.1.83 --stat` → 2 files, 2 insertions(+), 43 deletions(-) → only `DEVELOPMENT_BOARD.md` (5 lines) + `DEVELOPMENT_LOG.md` (40 lines removed — the V33/R02 cleanup log entry being pruned, not a feat change). Zero code changes. The 3 platform artifacts in v0.1.84's GitHub Release are bit-identical to v0.1.83 (R03's broken workflow just re-tagged the v0.1.83 artifacts when the 444fd6a docs commit hit develop).
+- **Cleanup executed** (no PR needed — pure remote-hygiene):
+  - `git tag -d v0.1.84` → "Deleted tag 'v0.1.84' (was 7c24d16)"
+  - `git push origin :refs/tags/v0.1.84` → "To github.com:citralia/cloudstream.git - [deleted] v0.1.84"
+  - `gh release delete v0.1.84 -R citralia/cloudstream --yes` → silent success (release page gone)
+- **Verified post-cleanup**:
+  - `git tag --list 'v0.1.84'` → empty
+  - `git ls-remote --tags origin | grep v0\.1\.` → v0.1.85, v0.1.86 at the top; no v0.1.84 entry
+  - `gh release list -R citralia/cloudstream --limit 8` → v0.1.86, v0.1.85, v0.1.83 (jumps the orphan), v0.1.82, v0.1.81, v0.1.79, v0.1.78, v0.1.76 — no v0.1.84 entry
+- **Why this matters for R04 going forward**: R04's `git tag --list 'v*' --sort=-version:refname | head -1` baseline-detection uses the most recent tag. v0.1.84 was docs-only but had a real GitHub Release, so it would have been the "most recent release" — meaning the next docs push's diff baseline would have been v0.1.84 (a docs-only diff) → the diff against v0.1.85 (the R04 feat change) would have shown a HUGE code change, and R04's detection would have correctly flagged it as code. That's the *only* path where v0.1.84 would have been "useful" as a baseline — but with v0.1.84 gone, the next docs push will diff against v0.1.86 (V35 feat, the correct baseline) and correctly be detected as docs-only.
+
+### CI status:
+- **No CI run needed** — pure tag/release hygiene, no code change, no commit to develop yet. The docs commit (board + log update) will be the THIRD real test of R04's docs-only detection. Expected: no new tag. If v0.1.87 appears, R04 regressed. Will verify on the next cron.
+
+### What's next:
+- **V37 candidates** (the 3 deferred V36 UX-polish tasks): (a) personalisation row caps — `kPersonalisationRowCap` is currently a flat 8 across all 5 personalisation rows (Continue Watching V03/V21, Recently Played V20, Most Watched V05/V22/V26). A small follow-on could expose a per-row cap (or a "Show all" affordance) so phones with 4K posters can show 10-12 cards; (b) "Continue Watching hidden on VOD/Series tabs when it would overlap with the new EPG 'Any channel' long-press menu" — minor consistency polish (the VOD/Series _ContinueWatchingRow shows the saved entry even if `programmeAiringsAcrossChannelsProvider` is about to surface it via the search path); (c) EPG programme-tile UI — the current `_ProgrammeBlock` in the EPG guide uses a `withValues(alpha:)` background, but a richer programme-tile rendering (poster + synopsis preview + cast on long-press) is an unexplored surface. All 3 are no-Figma / no-external-deps / 30-60 min work. Pick whichever surfaces first on a future cron.
+- **Backlog** (external-service blockers): P205 (Firestore sync), P207 (DVR/recordings — revenue-gated after P208), P208 (Monetisation — RevenueCat), B202 (Firebase infra).
+- **C06**: Smoke test on Firestick (blocked on josh).
+
+---
+
 ## 2026-06-11 — CloudStream Hourly Cron (15:30 BST — V35 WIP pickup + ship)
 
 **Session start:** 15:30 BST
