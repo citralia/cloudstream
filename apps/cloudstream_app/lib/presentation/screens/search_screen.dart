@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/search/search_service.dart';
 import '../../core/storage/reminder_store.dart';
+import '../../core/storage/search_type_filter_preferences_store.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
@@ -13,35 +14,15 @@ import 'player_screen.dart';
 import 'series_detail_screen.dart';
 import 'vod_detail_screen.dart';
 
-/// V32: filter chip selected on the search results screen. Mirrors the
-/// V18 hidden-filters / V22 row-dedupe pattern: a per-session mode that
-/// hides subsets of the result list. Not persisted — closing the
-/// screen resets to [SearchResultTypeFilter.all].
-enum SearchResultTypeFilter {
-  /// Default — render every section (in-memory channels/VOD/series +
-  /// EPG programmes). Equivalent to "no filter applied".
-  all,
-
-  /// Show only live TV channels.
-  live,
-
-  /// Show only VOD movies.
-  vod,
-
-  /// Show only series.
-  series,
-
-  /// Show only EPG programme search results (the V27 column).
-  epg,
-}
-
-/// V32: the currently selected search-result type filter. Module-level
-/// so widget tests can override it; per-session (not persisted) like
-/// the channel-list `hiddenOnly` toggle. Defaults to [all] so first
-/// open of the screen renders the full result list (no behaviour
-/// change vs pre-V32).
-final searchTypeFilterProvider =
-    StateProvider<SearchResultTypeFilter>((ref) => SearchResultTypeFilter.all);
+/// V32: the currently selected search-result type filter. **Re-exported
+/// from `core/storage/search_type_filter_preferences_store.dart` in
+/// V35** so the value can be persisted across app launches via
+/// [SearchTypeFilterPreferencesStore]. The chip row's `onTap` writes
+/// through to both the in-memory provider AND the store. Defaults to
+/// [SearchResultTypeFilter.all] on a fresh install (no stored
+/// preference) — preserves pre-V35 first-open behaviour.
+export '../../core/storage/search_type_filter_preferences_store.dart'
+    show SearchResultTypeFilter;
 
 /// V32: pure function that partitions the in-memory result list and
 /// the EPG hits into the pair to render, given a [filter]. Lives at
@@ -942,9 +923,19 @@ class _SearchTypeChips extends ConsumerWidget {
                   icon: entry.icon,
                   count: counts[entry.filter]!,
                   isSelected: selected == entry.filter,
-                  onTap: () => ref
-                      .read(searchTypeFilterProvider.notifier)
-                      .state = entry.filter,
+                  // V35: write through to the store so the chip
+                  // selection survives app restarts. The in-memory
+                  // provider mutation still drives the immediate
+                  // UI rebuild via Riverpod's normal watcher
+                  // invalidation; the store call is a side-effect
+                  // that the next cold start will read back.
+                  onTap: () async {
+                    ref.read(searchTypeFilterProvider.notifier).state =
+                        entry.filter;
+                    await ref
+                        .read(searchTypeFilterPreferencesStoreProvider)
+                        .save(entry.filter);
+                  },
                 ),
               ),
           ],
