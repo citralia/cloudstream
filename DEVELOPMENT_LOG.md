@@ -1,3 +1,49 @@
+## 2026-06-11 — CloudStream Hourly Cron (05:30 BST — V29 backfill)
+
+**Session start:** 05:30 BST (V29 backfill-only)
+
+### What was done:
+- Board on entry: the 04:25 cron had shipped V28 (44f0fd3, PR #17) — CI ✅ + Release ✅ → v0.1.74 — and updated the board + log to that effect. The "Next" line in the board pointed at a V29 candidate list (R02 / EPG cross-channel / personalisation dedupe / `profile_setup_screen` migration). An unlogged cron had actually picked up **V29 — "Remind me when this programme is on any channel" — long-press menu on EPG search result**, fully implemented, tested, and merged to develop (c076b90, PR #18) — `gh run list -R citralia/cloudstream -L 1` returned `feat(V29): ... (#18)` with `conclusion: success, status: completed` for both CI and Release, published as **v0.1.76**. The board's "Next" line still pointed at the V29 candidate list and the log had no V29 entry — classic V17/V19/V20/V26 "prior cron forgot to backfill" pattern. Verified: V29 commit (`c076b90`) on `origin/develop`, all 3 platform artifacts in the v0.1.76 release (APK 56.5MB, iOS zip 7.8MB, macOS zip 57.3MB).
+- **V29 — "Remind me when this programme is on any channel"** (c076b90, PR #18): the V28 follow-on — V28 set a reminder for the ONE specific airing the user tapped, but a user searching for "Match of the Day" sees multiple search hits across channels and would want a one-tap way to set reminders for ALL of them:
+  - **`programmeAiringsAcrossChannelsProvider`** (data layer, `app_providers.dart`): scans ALL loaded channels' EPG for the exact title (case-insensitive, trimmed — NOT substring, to avoid "Match of the Day Replay" surfacing for a "Match of the Day" query), future-only, sorted by start-time asc, capped at `kCrossChannelReminderCap` (20). Reuses V27's `_readEpgSafe` (flaky-channel `epgProvider` throws → silently skipped, doesn't poison the whole result) + V22/V25/V26/V27 creds-gate pattern (no `activeCredentialsProvider` → empty list, avoids N EPG round-trips per tap when no creds).
+  - **`_scheduleOnAnyChannel` method on `_EpgResultTile`** (widget layer, `search_screen.dart`): filters the provider's hits to exclude the source airing (which already has the V28 single-airing reminder), then calls `RemindersNotifier.add` for each remaining hit. Stores the added ids in `addedIds` for the UNDO action. The V07 storage id shape `(channelId, startTime)` ensures one `add()` per airing produces one distinct id — no collision, no idempotency issues.
+  - **V28 long-press snackbar gets a `SnackBarAction` labelled 'Any channel'** (duration bumped 2s → 6s to give the user time to read + tap). The V28 single-airing reminder is NOT removed — the user opted into BOTH (the specific airing AND every other future airing of the same title).
+  - **Confirmation snackbar** shows 'Set N more reminders for \<title\>' with an UNDO action that removes the N added reminders. If no other airings, shows 'No other airings of this programme' and short-circuits — the V28 single-airing reminder stays in place.
+  - **11 new tests** (`test/v29_remind_on_any_channel_test.dart`) — same in-file `_FakeCredentialsStore` + `_FakeXtreamClient` + `makeContainer` convention as V22/V23/V24/V26/V27/V28:
+    1. Empty title short-circuits to empty list (the `q.isEmpty` guard — no N EPG round-trips on empty tap)
+    2. No active connection degrades to empty list (the creds gate)
+    3. No live streams degrades to empty list (the catalogue gate)
+    4. Returns exact-title matches (case-insensitive, trimmed) across all channels — 3 channels with the target title on different start times + 1 channel with a SUBSTRING match ('Match of the Day Replay') that must NOT surface. Also asserts start-time-asc sort and the absence of the substring.
+    5. Excludes past airings (programme already started) — the future-only filter at the data layer
+    6. No matches across all channels returns empty list (no crash, no reminders) — the V27 description-only-match case where the V29 'Any channel' tap shows the 'No other airings' snackbar
+    7. A flaky channel (`epgProvider` throws) does not poison the result — V27's `_readEgpSafe` swallow-on-throw
+    8. Cap at `kCrossChannelReminderCap`: 25 airings across 5 channels → only 20 surfaced. Cap constant pinned at 20.
+    9. Per-profile isolation: matches for conn-A do not surface for conn-B (the live catalogue is profile-scoped)
+    10. Composes with V07 + V28: scheduling a reminder for each hit produces N reminders with distinct ids — verified end-to-end through `RemindersNotifier.add` + on-disk store readback
+    11. V29 does NOT remove the V28 single-airing reminder — both coexist (pre-add a V28 reminder, then V29-add for the OTHER airing → the V28 reminder is still present, both ids distinct)
+  - **307/307 tests pass** (was 296, +11 from V29), 0 new analyze errors (50 pre-existing remain). V29 is a thin extension of V28 — same `flutter analyze` 50-issue baseline, no new withOpacity infos introduced.
+- **Backfilling the board + log now** (the unlogged cron's only failing task). The V29 board row is now Done with the merge commit + CI/Release status. Added a V30 "Next" line with the unblocked candidates (R02 tag cleanup, personalisation-row fine-tuning, `profile_setup_screen` migration, EPG programme-block long-press "Any channel" menu).
+
+### CI status:
+- `Merge feature/v29-remind-on-any-channel into develop` (c076b90, PR #18) — **CI ✅ (04:20 UTC) + Release ✅ → v0.1.76** (all 3 platform artifacts uploaded: APK 56.5MB, iOS zip 7.8MB, macOS zip 57.3MB)
+- All Phase 2 (P201–P204, P206) + V01–V29 + R01 now Done
+- 307/307 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V29 closes the V28 follow-on gap.** The reminder workflow is now first-class on both surfaces with full cross-channel coverage: EPG guide (P105 + V07) sets a reminder for one specific airing; search results (V27) tap into the guide centred on the matched programme (V27's `initialProgrammeStartMs`); V28 long-press on a search hit sets a reminder for that one airing; V29 'Any channel' action sets reminders for every OTHER future airing of the same title on any other channel. A user who searches for "Match of the Day" sees 3 hits (BBC One, BBC Two, BBC Three at different times), long-presses any one of them → snackbar with 'Any channel' → tap → reminders set for the other 2, UNDO available. The V07 storage id shape `(channelId, startTime)` makes this a clean mapping: one airing → one id, no id collision.
+- **Other unblocked candidates** (all no external deps):
+  - **R02 cleanup**: the v0.1.61 / v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 / v0.1.70 / v0.1.72 / v0.1.73 / v0.1.75 tags are all on origin and published to the GitHub Releases page. v0.1.61 is a stranded release (the V22 release failure pushed the tag but never created the GitHub Release against it — the `Determine Version` job correctly bumps from the most recent **release** tag, not the most recent tag, so v0.1.60 → v0.1.62 with v0.1.61 skipped). v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 / v0.1.70 are from docs-only R01 / V23 / V24 / V25 / V26 release-version bumps. v0.1.72 / v0.1.73 are from V27 / V28 docs/release-version bumps. v0.1.75 is likely from the V29 docs commit. Cleanup is a 1-line `git tag -d` + `git push origin :refs/tags/vX.Y.Z` per tag, plus a `gh release delete` if we want the release pages gone. Low-priority — not blocking anything.
+  - **Personalisation-row fine-tuning**: V20 Recently Played row deduping from V03 Continue Watching — symmetric to V22/V25. The V22 dedupe was Most Watched ↔ Recently Played; V25 was Continue Watching ↔ Recently Played (live entries only). The missing edge is the recently-played live channel showing up in the Continue Watching row — which V25's `kind == liveChannel` branch should already handle, but a regression test would be cheap to add.
+  - **`profile_setup_screen` brightness-aware migration**: the 50-issue pre-existing set still includes AppColors/AppTypography refs in `profile_setup_screen.dart` and a few smaller surfaces. Out of scope for the personalisation/search/reminders work, but a low-friction V30 candidate.
+  - **EPG programme-block long-press "Any channel" menu**: now that V27+V28+V29 cover the search-side reminder workflow, the EPG guide's `_ProgrammeBlock` could get the same V29 "Any channel" action — the data layer (`programmeAiringsAcrossChannelsProvider`) is already in place. Would be a small widget-layer follow-on.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+
 ## 2026-06-11 — CloudStream Hourly Cron (04:25 BST — V28 ship)
 
 **Session start:** 03:05 BST
