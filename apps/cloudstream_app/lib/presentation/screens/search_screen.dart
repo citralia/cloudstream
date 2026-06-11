@@ -568,19 +568,102 @@ class _EpgResultTile extends ConsumerWidget {
           startTime: programme.startTime,
           endTime: programme.endTime,
         );
-    if (context.mounted) {
-      final fire = reminder.fireAt.toLocal();
-      final hh = fire.hour.toString().padLeft(2, '0');
-      final mm = fire.minute.toString().padLeft(2, '0');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Will remind you at $hh:$mm — ${programme.title}",
+    if (!context.mounted) return;
+    final fire = reminder.fireAt.toLocal();
+    final hh = fire.hour.toString().padLeft(2, '0');
+    final mm = fire.minute.toString().padLeft(2, '0');
+    // V29: after scheduling the reminder for THIS airing, the snackbar
+    // exposes a "Any channel" action that schedules reminders for
+    // every other future airing of the same programme title on any
+    // other channel. Same data layer (RemindersNotifier.add) — the V07
+    // storage id is `(channelId, startTime)`, naturally per-airing, so
+    // one add() per airing. We capture the messenger before the await
+    // so the `context.mounted` check on the action callback is cheap.
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          "Will remind you at $hh:$mm — ${programme.title}",
+        ),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Any channel',
+          onPressed: () => _scheduleOnAnyChannel(
+            context: context,
+            ref: ref,
+            messenger: messenger,
+            excludeChannelId: stream.streamId,
+            excludeStartTime: programme.startTime,
+            title: programme.title,
           ),
-          duration: const Duration(seconds: 2),
+        ),
+      ),
+    );
+  }
+
+  /// V29: schedule a reminder for every OTHER future airing of [title]
+  /// across all loaded channels' EPG (excluding the airing the user
+  /// just long-pressed). Schedules nothing if there are no other
+  /// airings. On success shows a confirmation snackbar with an UNDO
+  /// action that removes all the newly-scheduled reminders.
+  Future<void> _scheduleOnAnyChannel({
+    required BuildContext context,
+    required WidgetRef ref,
+    required ScaffoldMessengerState messenger,
+    required int excludeChannelId,
+    required DateTime excludeStartTime,
+    required String title,
+  }) async {
+    final results = await ref.read(
+      programmeAiringsAcrossChannelsProvider(title).future,
+    );
+    // Filter out the source airing (which already has a V28 reminder).
+    final others = results
+        .where(
+          (h) =>
+              h.channel.streamId != excludeChannelId ||
+              h.programme.startTime != excludeStartTime,
+        )
+        .toList();
+    if (others.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('No other airings of this programme'),
+          duration: Duration(seconds: 2),
         ),
       );
+      return;
     }
+    final notifier = ref.read(remindersProvider.notifier);
+    final addedIds = <String>[];
+    for (final h in others) {
+      final r = await notifier.add(
+        channelId: h.channel.streamId,
+        channelName: h.channel.name,
+        programmeTitle: h.programme.title,
+        startTime: h.programme.startTime,
+        endTime: h.programme.endTime,
+      );
+      addedIds.add(r.id);
+    }
+    if (addedIds.isEmpty) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Set ${addedIds.length} more reminder'
+              '${addedIds.length == 1 ? '' : 's'} for $title',
+        ),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () async {
+            for (final id in addedIds) {
+              await ref.read(remindersProvider.notifier).remove(id);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   Widget _initial(BuildContext context, String name) {
