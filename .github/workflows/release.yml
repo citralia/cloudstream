@@ -44,41 +44,66 @@ jobs:
         run: git fetch origin develop --tags
 
       # ──────────────────────────────────────────────────────
-      # R03: detect docs-only pushes FIRST so the version
-      # bump is skipped when there's nothing to release. A
-      # docs-only push is one where the diff vs the most
-      # recent GitHub Release's tag touches only
+      # R03 + R04: detect docs-only pushes FIRST so the
+      # version bump is skipped when there's nothing to
+      # release. A docs-only push is one where the diff vs
+      # the most recent v* tag touches only
       # DEVELOPMENT_BOARD.md / DEVELOPMENT_LOG.md (the
       # project-management artifacts the cron posts every
       # hour). Code-affecting paths under
       # apps/cloudstream_app/{lib,test,pubspec.yaml,android,
-      # ios,macos} force a real release. Skipping the
-      # version bump on docs-only pushes keeps the next
-      # non-docs release's version number monotonic
-      # (LAST_REAL_RELEASE + 1, not LAST_REAL_RELEASE + 2
-      # for the first post-docs release).
+      # ios,macos} and .github/workflows/ force a real
+      # release. Skipping the version bump on docs-only
+      # pushes keeps the next non-docs release's version
+      # number monotonic (LAST_REAL_RELEASE + 1, not
+      # LAST_REAL_RELEASE + 2 for the first post-docs
+      # release).
+      #
+      # R04 supersedes R03's `gh release list` lookup. The
+      # gh CLI is not authenticated in this job — R03
+      # silently returned empty on every push, the
+      # `2>/dev/null || true` swallowed the error, and the
+      # "no prior release → treat as code" fallback tripped
+      # unconditionally. R04 uses `git tag --list`, which
+      # uses the already-fetched tags and needs no auth.
+      # The previous v0.1.61 stranded-tag trap that
+      # motivated R03's `gh release list` is no longer
+      # relevant — V33/R02 deleted v0.1.61 and R01
+      # prevents future stranded tags, so the most recent
+      # v* tag is now always the most recent release.
       # ──────────────────────────────────────────────────────
-      - name: Detect docs-only push (R03)
+      - name: Detect docs-only push (R04)
         id: docscheck
         run: |
-          # The most recent tag that has a GitHub Release
-          # page published against it. We skip stranded
-          # tags like v0.1.61 that were pushed but never
-          # had a release published. For a fresh repo
-          # with no releases, treat the push as code.
-          LATEST_RELEASE_TAG=$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          # The most recent v* tag on origin. Used as the
+          # baseline for the docs-only diff. We use
+          # `git tag --list` (not `gh release list`) because
+          # the gh CLI is not authenticated in this job —
+          # `gh release list` returns empty even when the
+          # repo has 20+ releases, and the
+          # `2>/dev/null || true` swallows the error, so
+          # the fallback ("no prior release → treat as
+          # code") trips on every push, defeating R03
+          # entirely. The previous v0.1.61 stranded-tag
+          # trap that motivated using `gh release list`
+          # is no longer relevant — V33/R02 deleted
+          # v0.1.61 and R01 prevents future stranded
+          # tags, so the most recent v* tag is now
+          # always the most recent release. For a fresh
+          # repo with no tags, treat the push as code.
+          LATEST_TAG=$(git tag --list 'v*' --sort=-version:refname 2>/dev/null | head -1)
 
-          if [ -z "$LATEST_RELEASE_TAG" ]; then
-            echo "No prior release found — treating push as code (docs-only=false)"
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No prior tag found — treating push as code (docs-only=false)"
             echo "docs-only=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "Comparing current HEAD against $LATEST_RELEASE_TAG"
+          echo "Comparing current HEAD against $LATEST_TAG"
 
           # Files changed since the last release. Allowlist
           # the docs files; everything else is "code".
-          CHANGED=$(git diff --name-only "$LATEST_RELEASE_TAG"..HEAD)
+          CHANGED=$(git diff --name-only "$LATEST_TAG"..HEAD)
 
           # Code-affecting paths: anything under the
           # Flutter app's source / test / platform dirs,
@@ -89,7 +114,7 @@ jobs:
           CODE_CHANGED=$(echo "$CHANGED" | grep -E '^(apps/cloudstream_app/(lib|test|android|ios|macos)/|apps/cloudstream_app/pubspec\.yaml|\.github/workflows/)' || true)
 
           if [ -z "$CODE_CHANGED" ]; then
-            echo "docs-only push — only docs files changed since $LATEST_RELEASE_TAG"
+            echo "docs-only push — only docs files changed since $LATEST_TAG"
             echo "Changed files:"
             echo "$CHANGED" | sed 's/^/  /'
             echo "docs-only=true" >> $GITHUB_OUTPUT
