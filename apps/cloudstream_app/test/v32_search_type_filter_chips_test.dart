@@ -403,12 +403,13 @@ void main() {
           SearchResultTypeFilter.all);
     });
 
-    test('per-session (not persisted across new containers)', () async {
-      // Two consecutive containers with the same backing prefs should
-      // both see `all` on first read — confirms the filter is in-memory
-      // only, matching the V18 hiddenOnly pattern. (If we ever want
-      // to persist, the test will need to flip; this is a forward-
-      // compat pin.)
+    test('persists across new containers (V35 — store-backed)', () async {
+      // V35 update: V32 originally kept the filter per-session
+      // (StateProvider memory only). V35 persists the chip
+      // selection via SearchTypeFilterPreferencesStore, mirroring
+      // the V08 theme / V10 lead-time pattern. Two consecutive
+      // containers with the same backing prefs should now see
+      // the most recent tap survive, not reset to `all`.
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final c1 = ProviderContainer(
@@ -418,6 +419,8 @@ void main() {
       );
       c1.read(searchTypeFilterProvider.notifier).state =
           SearchResultTypeFilter.live;
+      await c1.read(searchTypeFilterPreferencesStoreProvider)
+          .save(SearchResultTypeFilter.live);
       expect(c1.read(searchTypeFilterProvider), SearchResultTypeFilter.live);
       c1.dispose();
 
@@ -427,7 +430,24 @@ void main() {
         ],
       );
       addTearDown(c2.dispose);
-      expect(c2.read(searchTypeFilterProvider), SearchResultTypeFilter.all);
+      expect(c2.read(searchTypeFilterProvider), SearchResultTypeFilter.live);
+    });
+
+    test('falls back to all on fresh install (no stored key)', () async {
+      // V35 default-preservation regression guard: a fresh
+      // install with no `search_type_filter` key in prefs must
+      // still default to `all` (preserves the V32 first-open
+      // behaviour).
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(searchTypeFilterProvider), SearchResultTypeFilter.all);
     });
   });
 

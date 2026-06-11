@@ -10,6 +10,7 @@ import '../../core/storage/watch_progress_store.dart';
 import '../../core/storage/channel_sort_store.dart';
 import '../../core/storage/theme_preferences_store.dart';
 import '../../core/storage/lead_time_preferences_store.dart';
+import '../../core/storage/search_type_filter_preferences_store.dart';
 import '../../core/notifications/reminder_scheduler.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import '../../data/datasources/credentials_store.dart';
@@ -659,6 +660,35 @@ final themePreferencesStoreProvider = Provider<ThemePreferencesStore>((ref) {
 final themeModeProvider = StateProvider<ThemeMode>((ref) {
   final store = ref.watch(themePreferencesStoreProvider);
   return store.load();
+});
+
+// ── Search type filter preferences (V35) ──────────────────────────────
+
+/// SharedPreferences-backed [SearchTypeFilterPreferencesStore]. The
+/// search-screen type filter chip row (V32) writes through this;
+/// [searchTypeFilterProvider] reads the in-memory mirror on cold
+/// start so the user's last chip selection persists across app
+/// launches.
+final searchTypeFilterPreferencesStoreProvider =
+    Provider<SearchTypeFilterPreferencesStore>((ref) {
+  return SearchTypeFilterPreferencesStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// The currently selected search-result type filter chip
+/// (`all` / `live` / `vod` / `series` / `epg`). **Persisted** via
+/// [SearchTypeFilterPreferencesStore] under `search_type_filter`
+/// since V35 (V32 originally kept it per-session in
+/// [StateProvider] memory only). The initial value is read from the
+/// store on first read — `all` on a fresh install, or the user's
+/// last chip selection on subsequent launches.
+///
+/// The search screen's `_SearchTypeChips` widget writes through to
+/// both this in-memory provider AND
+/// [searchTypeFilterPreferencesStoreProvider] on every chip tap.
+final searchTypeFilterProvider =
+    StateProvider<SearchResultTypeFilter>((ref) {
+  final store = ref.watch(searchTypeFilterPreferencesStoreProvider);
+  return store.load() ?? SearchResultTypeFilter.all;
 });
 
 /// In-memory list of reminders for the active connection, exposed
