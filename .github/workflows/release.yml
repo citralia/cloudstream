@@ -33,6 +33,7 @@ jobs:
     outputs:
       new-version: ${{ steps.version.outputs.new-version }}
       release-tag: ${{ steps.version.outputs.release-tag }}
+      docs-only: ${{ steps.docscheck.outputs.docs-only }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,8 +43,71 @@ jobs:
       - name: Fetch all branches
         run: git fetch origin develop --tags
 
+      # ──────────────────────────────────────────────────────
+      # R03: detect docs-only pushes FIRST so the version
+      # bump is skipped when there's nothing to release. A
+      # docs-only push is one where the diff vs the most
+      # recent GitHub Release's tag touches only
+      # DEVELOPMENT_BOARD.md / DEVELOPMENT_LOG.md (the
+      # project-management artifacts the cron posts every
+      # hour). Code-affecting paths under
+      # apps/cloudstream_app/{lib,test,pubspec.yaml,android,
+      # ios,macos} force a real release. Skipping the
+      # version bump on docs-only pushes keeps the next
+      # non-docs release's version number monotonic
+      # (LAST_REAL_RELEASE + 1, not LAST_REAL_RELEASE + 2
+      # for the first post-docs release).
+      # ──────────────────────────────────────────────────────
+      - name: Detect docs-only push (R03)
+        id: docscheck
+        run: |
+          # The most recent tag that has a GitHub Release
+          # page published against it. We skip stranded
+          # tags like v0.1.61 that were pushed but never
+          # had a release published. For a fresh repo
+          # with no releases, treat the push as code.
+          LATEST_RELEASE_TAG=$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+
+          if [ -z "$LATEST_RELEASE_TAG" ]; then
+            echo "No prior release found — treating push as code (docs-only=false)"
+            echo "docs-only=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Comparing current HEAD against $LATEST_RELEASE_TAG"
+
+          # Files changed since the last release. Allowlist
+          # the docs files; everything else is "code".
+          CHANGED=$(git diff --name-only "$LATEST_RELEASE_TAG"..HEAD)
+
+          # Code-affecting paths: anything under the
+          # Flutter app's source / test / platform dirs,
+          # plus pubspec.yaml and the release workflow
+          # itself. DEVELOPMENT_BOARD.md and
+          # DEVELOPMENT_LOG.md are NOT in this list —
+          # those are the docs files we want to skip.
+          CODE_CHANGED=$(echo "$CHANGED" | grep -E '^(apps/cloudstream_app/(lib|test|android|ios|macos)/|apps/cloudstream_app/pubspec\.yaml|\.github/workflows/)' || true)
+
+          if [ -z "$CODE_CHANGED" ]; then
+            echo "docs-only push — only docs files changed since $LATEST_RELEASE_TAG"
+            echo "Changed files:"
+            echo "$CHANGED" | sed 's/^/  /'
+            echo "docs-only=true" >> $GITHUB_OUTPUT
+          else
+            echo "Code-affecting files changed — full release required"
+            echo "Code changes:"
+            echo "$CODE_CHANGED" | sed 's/^/  /'
+            echo "docs-only=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine version
         id: version
+        # Only bump the version when there's something to
+        # release. On docs-only pushes, the build + release
+        # jobs are skipped via the `docs-only` output; the
+        # next non-docs push should bump from the last
+        # *released* version, not the (skipped) bumped one.
+        if: steps.docscheck.outputs.docs-only != 'true'
         run: |
           # Find the most recent semver tag, skipping non-semver tags like "latest"
           CURRENT=$(git tag --list 'v*' --sort=-version:refname | head -1 | sed 's/^v//' 2>/dev/null || echo "0.0.0")
@@ -81,6 +145,7 @@ jobs:
     name: Build iOS
     runs-on: macos-latest
     needs: [version]
+    if: needs.version.outputs.docs-only != 'true'
     environment:
       name: release
     steps:
@@ -126,6 +191,7 @@ jobs:
     name: Build Android
     runs-on: ubuntu-latest
     needs: [version]
+    if: needs.version.outputs.docs-only != 'true'
     environment:
       name: release
     steps:
@@ -172,6 +238,7 @@ jobs:
     name: Build macOS
     runs-on: macos-latest
     needs: [version]
+    if: needs.version.outputs.docs-only != 'true'
     environment:
       name: release
     steps:
@@ -218,6 +285,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [version, build-ios, build-android, build-macos]
+    if: needs.version.outputs.docs-only != 'true'
     permissions:
       contents: write
     steps:
