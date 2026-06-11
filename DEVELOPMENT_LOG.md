@@ -1,3 +1,32 @@
+## 2026-06-11 — CloudStream Hourly Cron (14:50 BST — R04 ship)
+
+**Session start:** 14:25 BST (carry-over from the R04 WIP-recovery cron)
+
+### What was done:
+- Picked up where the 14:25 cron left off: PR #24 had been opened to develop with the R04 fix (b8bf5fe + the docs commit 3657f09). CI was already triggered on the PR.
+- **PR #24 CI ✅** (all 5 jobs green): Analyze 49s, Test 58s, Build iOS 4m10s, Build Android 5m43s, Build macOS 3m37s. R04 is a pure YAML change so no test/analyze surface changes — pass-through. Branch is exactly 2 commits ahead of `origin/develop`'s tip (444fd6a), no merge conflicts.
+- **Squash-merged PR #24** (`gh pr merge 24 --squash --delete-branch`, merge commit `bb2ae78`). Squash matches the R03 / R01 / V33 pattern.
+- **Post-merge CI ✅ + Release ✅ → v0.1.85**. The critical signal: the "Determine Version" job's R04 "Detect docs-only push" step completed in **5 seconds** — the `git tag --list 'v*' --sort=-version:refname | head -1` lookup correctly found the latest tag (v0.1.84) without any `gh` CLI auth errors. The R04 commit is code-affecting (`.github/workflows/release.yml` is in the regex) → `docs-only=false` → full release pipeline runs → v0.1.85 with all 3 platform artifacts (APK + Runner_iOS.zip + Runner_macOS.zip). `gh release view v0.1.85 -R citralia/cloudstream` confirms all 3 assets uploaded, no 401 on `softprops/action-gh-release@v2` (R01's permissions fix held), no silent macOS path miss (R01's `if-no-files-found: error` would have caught it).
+- **Board + log updated** to mark R04 Done: V34 stays Backlog (the personalisation caps candidate moves to V35), R04 row updated with the WIP recovery details + v0.1.85 verification, R03 row preserved. Timestamp bumped 14:25 → 15:25.
+
+### The first real R04 test — this docs commit:
+- **This commit (`docs: R04 Done`) is the first real-world test of R03+R04's docs-only detection**. When the release workflow runs on the develop push triggered by this commit, R04's `git tag --list` will find v0.1.85 as the baseline (the most recent tag pushed by the just-completed Release). The diff vs v0.1.85 will be only `DEVELOPMENT_BOARD.md` + `DEVELOPMENT_LOG.md` → `docs-only=true` → the version-bump step is skipped, the 3 build jobs are skipped, the Create Release job is skipped. **No new tag. No new release page. Zero CI cost.**
+- **Verification command** (the next cron session can run this): `git ls-remote --tags origin | grep -oE "v0\.1\.[0-9]+" | sort -uV | tail -5` — should still show v0.1.85 as the most recent tag, with v0.1.86 NOT appearing. If v0.1.86 appears, R04's docs-only detection regressed and needs investigation. The Release run URL will be in the run list as evidence either way.
+- **Expected outcomes for the next docs commit too**: every cron `docs:` commit from here forward (board + log updates the cron posts hourly) will be free. No phantom tags, no phantom releases, no wasted CI time. The `git tag` list will stay in lockstep with the actual feat commits. R03's promise is finally delivered.
+- **Edge case for the next non-docs commit** (V35 personalisation caps, V35b EPG programme-tile UI, etc.): when the next non-docs commit lands on develop, R04's `git tag --list` will return v0.1.85 (unchanged, no docs-only tag was created), the diff will include `apps/cloudstream_app/lib/` + `test/`, the code-affecting regex will match → `docs-only=false` → full release → v0.1.86 with all 3 artifacts. The full release flow continues to work for real changes.
+
+### CI status:
+- **PR #24** (feature/r04-fix-docs-only-detection → develop, squash bb2ae78) — **CI ✅** (Analyze 49s + Test 58s + iOS 4m10s + Android 5m43s + macOS 3m37s) → merged → post-merge **CI ✅ + Release ✅ → v0.1.85** (all 3 platform artifacts uploaded: APK + Runner_iOS.zip + Runner_macOS.zip).
+- **R04's "Detect docs-only push" step verified working in production**: the post-merge release workflow found v0.1.84 as the baseline via `git tag --list` in 5s (no auth error), correctly classified the R04 commit as code-affecting, and ran the full release pipeline.
+- **v0.1.84 phantom tag** from the pre-R04 broken state still exists on origin — created by the R03 docs commit re-trigger when R03's `gh release list` was broken. R04 prevents new phantoms; cleaning up the existing v0.1.84 phantom is a manual hygiene task for the next cron (the same V33/R02 pattern, just a one-tag clean-up not a 10-tag one).
+
+### What's next:
+- **R04 ship complete.** The V33/R02 → R03 → R04 chain is now closed: R02 cleaned up 11 stranded tags, R03 added the workflow guard, R04 fixed R03's broken-in-production `gh` lookup. Every cron `docs:` commit from here forward is free.
+- **Cleanup v0.1.84 phantom**: a future cron can `git tag -d v0.1.84` + `git push origin :refs/tags/v0.1.84` to remove the last remaining phantom. v0.1.84 has no release page (R03 never published a release for it; the R03 release workflow created the tag but the v0.1.84 content was identical to v0.1.83 + the docs commit, so there's no `gh release view v0.1.84` page to delete). This is a one-line cleanup, can be folded into the next V35 cron.
+- **V35 candidates (next unblocked, no external deps)**: (a) personalisation row caps (was V34a) — per-row cap with "Show all" affordance for 4K posters. (b) "Continue Watching hidden on VOD/Series when it would overlap with the new EPG 'Any channel' long-press menu" (was V34b) — consistency polish, no Figma needed. (c) EPG programme-tile UI (was V34c) — richer programme-tile rendering with poster + synopsis preview + cast on long-press. All three are implementation-clean and don't require external services.
+- **Backlog** (external-service blockers): P205 (Firestore sync — needs Firebase creds), P207 (DVR/recordings — revenue-gated after P208), P208 (Monetisation — needs RevenueCat), B202 (Firebase integration — general infra). **C06** smoke test still blocked on josh's Firestick.
+- **Expected savings going forward**: ~5-10 min CI per cron docs commit (3 platform builds + release job + macOS artifact upload), so ~2-4 hours per month at 1 cron commit/hour. R04's $0/docs-commit cost finally unlocks the cron pattern's full value.
+
 ## 2026-06-11 — CloudStream Hourly Cron (14:25 BST — R04 WIP recovery + ship)
 
 **Session start:** 14:00 BST
