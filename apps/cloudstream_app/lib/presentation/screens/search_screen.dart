@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/search/search_service.dart';
+import '../../core/storage/reminder_store.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
@@ -397,24 +398,46 @@ class _SectionHeader extends StatelessWidget {
 /// programme's title + a "{channel} · {start time}" subtitle, plus a
 /// "Live TV" type badge and a chevron. Tap navigates to the EPG guide
 /// centred on the programme's start time (see [_openEpgHit]).
-class _EpgResultTile extends StatelessWidget {
+///
+/// V28: long-press schedules a reminder via `RemindersNotifier`
+/// (composes the V07 reminders feature with the V27 search results —
+/// no new provider). Mirrors the EPG guide's `_onLongPress` flow:
+/// future-only guard (`hit.programme.startTime > now`); toggle via
+/// `RemindersNotifier.add` / `.remove` keyed by
+/// `ReminderStore.makeId(channelId, startTime)`; snackbar with the
+/// fire time on add or "Reminder removed" on remove. When the
+/// programme already has a reminder, a small `Icons.notifications_active`
+/// indicator sits to the left of the chevron — mirrors the EPG
+/// guide's badge so the two surfaces look like a matched pair.
+class _EpgResultTile extends ConsumerWidget {
   final EpgProgrammeHit hit;
   final VoidCallback onTap;
 
   const _EpgResultTile({required this.hit, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final stream = hit.channel;
     final programme = hit.programme;
-    final startTime = DateTime.fromMillisecondsSinceEpoch(
-      programme.start * 1000,
-      isUtc: true,
-    ).toLocal();
+    final startTime = programme.startTime.toLocal();
     final hh = startTime.hour.toString().padLeft(2, '0');
     final mm = startTime.minute.toString().padLeft(2, '0');
     final dayLabel = _formatDay(startTime);
     final subtitle = '${stream.name} · $dayLabel $hh:$mm';
+
+    // V28: did the user already schedule a reminder for this programme?
+    // The EPG guide uses the same id shape — (channelId, startTime) —
+    // so a reminder set from either surface is reflected here. We
+    // `.select` on the list to avoid rebuilding the whole row on any
+    // unrelated reminder change (e.g. setting a reminder on a different
+    // programme).
+    final reminderId = ReminderStore.makeId(
+      channelId: stream.streamId,
+      startTime: programme.startTime,
+    );
+    final hasReminder = ref.watch(
+      remindersProvider.select((list) => list.any((r) => r.id == reminderId)),
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -423,6 +446,7 @@ class _EpgResultTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
+          onLongPress: () => _onLongPress(context, ref),
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -474,6 +498,14 @@ class _EpgResultTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (hasReminder) ...[
+                  Icon(
+                    Icons.notifications_active,
+                    size: 16,
+                    color: context.appColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
                 Icon(
                   Icons.chevron_right,
                   color: context.appColors.textMuted,
@@ -485,6 +517,70 @@ class _EpgResultTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// V28: mirror of `EpgGuideScreen._ProgrammeBlock._onLongPress`.
+  /// Toggles the reminder for this programme. Future-only — the
+  /// snackbar's "Can't remind you about a programme that's already
+  /// started" message is the same copy the EPG guide uses, so the two
+  /// surfaces feel consistent if a user long-presses the same
+  /// programme in both places.
+  Future<void> _onLongPress(BuildContext context, WidgetRef ref) async {
+    final programme = hit.programme;
+    final stream = hit.channel;
+    final now = DateTime.now().toUtc();
+    if (!now.isBefore(programme.startTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Can't remind you about a programme that's already started",
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final reminderId = ReminderStore.makeId(
+      channelId: stream.streamId,
+      startTime: programme.startTime,
+    );
+    final existing = ref
+        .read(remindersProvider)
+        .any((r) => r.id == reminderId);
+    if (existing) {
+      await ref.read(remindersProvider.notifier).remove(reminderId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Reminder removed: ${programme.title}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    final reminder = await ref.read(remindersProvider.notifier).add(
+          channelId: stream.streamId,
+          channelName: stream.name,
+          programmeTitle: programme.title,
+          startTime: programme.startTime,
+          endTime: programme.endTime,
+        );
+    if (context.mounted) {
+      final fire = reminder.fireAt.toLocal();
+      final hh = fire.hour.toString().padLeft(2, '0');
+      final mm = fire.minute.toString().padLeft(2, '0');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Will remind you at $hh:$mm — ${programme.title}",
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _initial(BuildContext context, String name) {
