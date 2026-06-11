@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import '../../core/search/search_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../providers/app_providers.dart';
+import 'epg_guide_screen.dart';
 import 'player_screen.dart';
 import 'series_detail_screen.dart';
 import 'vod_detail_screen.dart';
@@ -20,6 +23,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
+  /// V27: debounces keystrokes before re-firing the EPG programme
+  /// search — each run does N concurrent EPG network round-trips (one
+  /// per loaded live channel), so we don't want one per character.
+  /// 350ms is a Firestick-friendly default (well under the ~1s
+  /// perceived-latency threshold). The unsynced [searchQueryProvider]
+  /// still updates per keystroke for the instant in-memory
+  /// live/VOD/series search results.
+  Timer? _epgDebounce;
+  static const Duration _epgDebounceDuration = Duration(milliseconds: 350);
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +44,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _epgDebounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -38,11 +52,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onQueryChanged(String query) {
     ref.read(searchQueryProvider.notifier).state = query;
+    // Schedule the debounced EPG re-run. The EPG provider is keyed on
+    // the debounced query (not searchQueryProvider), so cancelling +
+    // re-scheduling the timer effectively coalesces a burst of
+    // keystrokes into a single provider re-fire.
+    _epgDebounce?.cancel();
+    _epgDebounce = Timer(_epgDebounceDuration, () {
+      if (!mounted) return;
+      ref.read(debouncedEpgQueryProvider.notifier).state = query;
+    });
   }
 
   void _clear() {
     _controller.clear();
+    _epgDebounce?.cancel();
     ref.read(searchQueryProvider.notifier).state = '';
+    ref.read(debouncedEpgQueryProvider.notifier).state = '';
     _focusNode.requestFocus();
   }
 
@@ -78,6 +103,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final query = ref.watch(searchQueryProvider);
     final results = ref.watch(searchResultsProvider);
     final indexBuilt = ref.watch(searchIndexRebuilderProvider);
+    // V27: EPG programme search — keyed on the debounced query so we
+    // don't fire N EPG network round-trips per keystroke. When the
+    // debounced query is empty the provider short-circuits to `[]`
+    // synchronously, so this watch is cheap in the idle state.
+    final debouncedEpgQuery = ref.watch(debouncedEpgQueryProvider);
+    final epgAsync = ref.watch(programmeTitleSearchProvider(debouncedEpgQuery));
 
     return Scaffold(
       backgroundColor: context.appColors.background,
@@ -112,7 +143,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
             // Results.
             Expanded(
-              child: _buildBody(query, results, indexBuilt),
+              child: _buildBody(query, results, indexBuilt, epgAsync),
             ),
           ],
         ),
@@ -120,7 +151,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildBody(String query, List<SearchResult> results, AsyncValue<void> indexState) {
+  Widget _buildBody(
+    String query,
+    List<SearchResult> results,
+    AsyncValue<void> indexState,
+    AsyncValue<List<EpgProgrammeHit>> epgAsync,
+  ) {
     // Index not yet built (streams not loaded).
     if (query.isEmpty) {
       return const _EmptyState(
@@ -137,7 +173,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     }
 
-    if (results.isEmpty) {
+    final epgHits = epgAsync.maybeWhen(
+      data: (h) => h,
+      orElse: () => const <EpgProgrammeHit>[],
+    );
+
+    if (results.isEmpty && epgHits.isEmpty && !epgAsync.isLoading) {
       return _EmptyState(
         icon: Icons.search_off,
         title: 'No results',
@@ -145,16 +186,63 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     }
 
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final result = results[index];
-        return _SearchResultTile(
-          result: result,
-          onTap: () => _openStream(result),
-        );
-      },
+      children: [
+        if (results.isNotEmpty) ...[
+          const _SectionHeader(label: 'Channels and VOD'),
+          for (final result in results)
+            _SearchResultTile(
+              result: result,
+              onTap: () => _openStream(result),
+            ),
+        ],
+        if (epgHits.isNotEmpty) ...[
+          if (results.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+          const _SectionHeader(label: 'EPG programmes'),
+          for (final hit in epgHits)
+            _EpgResultTile(
+              hit: hit,
+              onTap: () => _openEpgHit(hit),
+            ),
+        ],
+        // EPG still loading while we already have in-memory results: show
+        // an unobtrusive footer spinner so the user knows the EPG
+        // section is in flight.
+        if (epgAsync.isLoading && results.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: context.appColors.primary,
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _openEpgHit(EpgProgrammeHit hit) {
+    // V27: open the EPG guide centred on the matched programme's start
+    // time on the matched channel. The guide already filters the live
+    // stream list via filteredLiveStreamsProvider, so the channel column
+    // naturally includes the hit's parent channel (as long as it's
+    // currently visible — i.e. not hidden / not filtered out by
+    // category / not in favourites-only mode). The guide will scroll
+    // its 6-hour window to the programme's start, surfacing the matched
+    // block in the visible timeline.
+    final startMs = hit.programme.start * 1000; // unix-s → epoch-ms
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EpgGuideScreen(initialProgrammeStartMs: startMs),
+      ),
     );
   }
 }
@@ -281,6 +369,157 @@ class _EmptyState extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// V27: a small section header that sits between result groups in the
+/// search list (e.g. "Channels and VOD" → "EPG programmes"). Renders as
+/// a left-aligned h3-style label with muted text colour.
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  const _SectionHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Text(
+        label,
+        style: context.appTypography.h3.copyWith(
+          color: context.appColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+/// V27: an EPG programme search result tile. Renders the matched
+/// programme's title + a "{channel} · {start time}" subtitle, plus a
+/// "Live TV" type badge and a chevron. Tap navigates to the EPG guide
+/// centred on the programme's start time (see [_openEpgHit]).
+class _EpgResultTile extends StatelessWidget {
+  final EpgProgrammeHit hit;
+  final VoidCallback onTap;
+
+  const _EpgResultTile({required this.hit, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = hit.channel;
+    final programme = hit.programme;
+    final startTime = DateTime.fromMillisecondsSinceEpoch(
+      programme.start * 1000,
+      isUtc: true,
+    ).toLocal();
+    final hh = startTime.hour.toString().padLeft(2, '0');
+    final mm = startTime.minute.toString().padLeft(2, '0');
+    final dayLabel = _formatDay(startTime);
+    final subtitle = '${stream.name} · $dayLabel $hh:$mm';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                const _TypeBadge(type: 'live'),
+                const SizedBox(width: AppSpacing.md),
+                // Channel logo or initial.
+                Container(
+                  width: 48,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: context.appColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: stream.logo != null && stream.logo!.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.network(
+                            stream.logo!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                _initial(context, stream.name),
+                          ),
+                        )
+                      : _initial(context, stream.name),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                // Title + subtitle.
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        programme.title,
+                        style: context.appTypography.body.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: context.appTypography.micro,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: context.appColors.textMuted,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _initial(BuildContext context, String name) {
+    return Center(
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(
+          color: context.appColors.textMuted,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  static String _formatDay(DateTime local) {
+    final now = DateTime.now();
+    final isToday = local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+    if (isToday) return 'Today';
+    final tomorrow = now.add(const Duration(days: 1));
+    final isTomorrow = local.year == tomorrow.year &&
+        local.month == tomorrow.month &&
+        local.day == tomorrow.day;
+    if (isTomorrow) return 'Tomorrow';
+    // Compact "Mon 9 Jun" — locale-independent for predictability.
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final wd = weekdays[local.weekday - 1];
+    final mn = months[local.month - 1];
+    return '$wd $local.day $mn';
   }
 }
 
