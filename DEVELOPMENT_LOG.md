@@ -1,3 +1,43 @@
+## 2026-06-11 — CloudStream Hourly Cron (12:50 BST — R03 ship)
+
+**Session start:** 12:35 BST (carry-over from the R02/V33 backfill cron)
+
+### What was done:
+- Board on entry: V33 / R02 (18af1aa) had shipped on the 12:35 cron — 11 stranded tags + 10 release pages removed. The "Next" line pointed at V34 candidate list (personalisation caps, EPG programme-tile UI, backlog items). R03 was the obvious unblocked follow-on to R02 — the workflow fix that would have prevented the V22/R01/V23-V32 pattern from creating 11 stranded tags in the first place. Pure workflow change, no code/test/pubspec changes → safe to ship from the local Flutter 3.24.0 (the V31 deprecation cleanup means `flutter analyze` / `flutter test` won't run locally anyway, but R03 only touches `.github/workflows/release.yml` which the CI lint won't break).
+- Designed the fix: a "Detect docs-only push" step in the `version` job that diffs HEAD against the most recent **GitHub Release** tag (not the most recent v* tag — dodges the R02 stranded-tag trap). If the diff is empty or touches only `DEVELOPMENT_BOARD.md` + `DEVELOPMENT_LOG.md` → `docs-only=true`. Code paths (`apps/cloudstream_app/{lib,test,pubspec.yaml,android,ios,macos}/` + the release workflow itself) trip `docs-only=false`. The version-bump step, the three build jobs, and the release job are all gated on `docs-only != 'true'`. On docs-only pushes: zero cost, zero artifacts, zero phantom tags.
+- **R03** (`a615354 → d846a42`, PR #22):
+  - **New `Detect docs-only push (R03)` step** in the `version` job. Diffs HEAD against `LATEST_RELEASE_TAG` (the most recent GitHub Release tag, fetched via `gh release list --limit 1 --json tagName --jq '.[0].tagName'`). Allows `DEVELOPMENT_BOARD.md` and `DEVELOPMENT_LOG.md`; flags anything under `apps/cloudstream_app/(lib|test|android|ios|macos)/`, `apps/cloudstream_app/pubspec.yaml`, or `.github/workflows/` as code-affecting. Output: `docs-only=true|false` written to `$GITHUB_OUTPUT` and exposed as a job-level output.
+  - **`Determine version` step gated on `docs-only != 'true'`**. On docs-only pushes, this step is skipped → no version bump → no phantom tag → the next non-docs push bumps from the last *released* version, keeping version numbers monotonic (LAST_REAL + 1, not LAST_REAL + N+1 where N is the number of intervening docs commits).
+  - **`build-ios` / `build-android` / `build-macos` jobs gated on `docs-only != 'true'`**. Skipped entirely on docs-only pushes.
+  - **`release` job gated on `docs-only != 'true'`**. Skipped entirely on docs-only pushes — no tag pushed, no GitHub Release published.
+  - **Diff baseline is the most recent GitHub Release** (via `gh release list`), not the most recent v* tag. This dodges the R02 stranded-tag trap where v0.1.61 was pushed but never had a Release published — using it as the baseline would have caused every push to be flagged as "code-affecting" (since v0.1.61's commit is older than v0.1.62's, and the diff would include everything in v0.1.62 + everything after).
+  - **No edge case for the workflow change itself**: `.github/workflows/` is in the code-affecting regex, so any future workflow edit (including further R0X fixes) will correctly trip `docs-only=false` and run the full pipeline. The R03 merge commit itself was caught by this and produced v0.1.83 as expected.
+  - **No code/test/dependency effects**. Pure YAML change to `.github/workflows/release.yml`. 68 lines added.
+- **Verification (local simulator)**: ran the docscheck step's bash logic against the actual git history with `git diff --name-only`:
+  - `develop HEAD` (the R03 merge) vs `v0.1.81` → `docs-only=true` (only `DEVELOPMENT_BOARD.md` + `DEVELOPMENT_LOG.md` in the diff — board/log update commits). The R03 commit itself, once pushed, would be caught as code-affecting because `.github/workflows/release.yml` is in the regex.
+  - `858f250` (V31 deprecation cleanup) vs `v0.1.81` → `docs-only=false` (lib/ + test/ changes detected).
+  - Edge case: an empty diff (HEAD == latest release tag) returns `docs-only=true` and silently no-ops the workflow — safe.
+  - Edge case: a fresh repo with no prior releases returns `docs-only=false` and runs the full pipeline (the `gh release list` call returns empty, the `LATEST_RELEASE_TAG` is empty, the script exits 0 with `docs-only=false`).
+- **PR #22** (squash merge `d846a42`):
+  - **PR CI ✅** (Analyze 36s + Test 27s + Build iOS 3m25s + Build Android 4m44s + Build macOS 4m05s) — all 5 checks green on the PR. No test changes, no analyze changes, no code changes → all pre-existing pass-throughs.
+  - **Post-merge CI ✅ + Release ✅ → v0.1.83**. The R03 workflow correctly recognised the workflow change as code-affecting (`.github/workflows/` is in the regex) and ran the full pipeline. All 3 platform artifacts present: APK 56.6MB + iOS zip 7.8MB + macOS zip 57.4MB.
+  - Verified: `gh release view v0.1.83 -R citralia/cloudstream` shows all 3 assets uploaded. No 401 on `softprops/action-gh-release@v2` (R01's permissions fix held). No silent macOS path miss (R01's `if-no-files-found: error` would have caught it).
+- **Board + log updated** to reflect R03 Done (with PR #22 + v0.1.83 + verification details). V34 "Next" line preserved with the unblocked candidate list (R03 was a one-off, not a recurring pattern — future cron docs commits will naturally skip the build pipeline via R03's logic).
+
+### CI status:
+- `Merge feature/r03-release-skip-docs-only into develop` (d846a42, PR #22) — **CI ✅ (Analyze 36s + Test 27s + iOS 3m25s + Android 4m44s + macOS 4m05s) + Release ✅ → v0.1.83** (all 3 platform artifacts uploaded: APK 56.6MB, iOS zip 7.8MB, macOS zip 57.4MB).
+- All Phase 2 (P201–P204, P206) + V01–V33 + R01 + R03 now Done (R02 done as V33).
+- 0 new tests (pure workflow change — no test surface affected)
+- 0 new analyze errors (no code changed)
+
+### What's next:
+- **R03 closes the V33/R02 follow-on gap permanently.** Future cron docs commits (board + log updates) will run the `version` job's docscheck step, detect "only docs files changed", set `docs-only=true`, and skip the version-bump + all 3 build jobs + the release job. No more phantom tags, no more phantom releases, no more manual cleanup sessions. The `git tag` list and the `gh release list` will stay in lockstep with the actual feat commits.
+- **Expected savings**: ~5-10 min CI per cron docs commit (3 platform builds + release job + macOS artifact upload = the most expensive parts of the release pipeline). At 1 cron commit per hour, that's ~5-10 min/hour saved.
+- **The next docs-only push (this very commit)** is the first real test: when I push the board + log updates to mark R03 Done, the docscheck step will compare HEAD (the new commit) against the latest Release (v0.1.83). The diff will be only DEVELOPMENT_BOARD.md + DEVELOPMENT_LOG.md → `docs-only=true` → the version-bump + 3 build jobs + release job will all be skipped. No new tag will be created. The board+log commit will be merged and that's it.
+- **V34 candidates (all no external deps)**: still valid — personalisation row caps, EPG programme-tile UI, the consistency polish on Continue Watching, backlog items needing external services.
+- **Backlog** (external-service blockers): P205 (Profile sync via Firestore — needs Firebase credentials), P207 (DVR/recordings — revenue-gated after P208), P208 (Monetisation — needs RevenueCat), B202 (Firebase integration — general infra).
+- **C06**: Smoke test on Firestick (blocked on josh).
+
 ## 2026-06-11 — CloudStream Hourly Cron (12:35 BST — R02/V33 ship)
 
 **Session start:** 12:20 BST (backfill-only session — work was already done, this entry is the backfill log)
