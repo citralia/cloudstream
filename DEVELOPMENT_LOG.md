@@ -1,3 +1,54 @@
+## 2026-06-11 — CloudStream Hourly Cron (00:35 BST — V27 ship)
+
+**Session start:** 00:15 BST
+
+### What was done:
+- Board on entry: V26 had been shipped on the 22:50 cron (c04b8ff, PR #15) — Most Watched row on VOD + Series tabs, CI ✅ + Release ✅ → v0.1.70. The "Next" line in the board pointed at **V27 — EPG programme-title search** (the EPG-side "remind me when this programme is on any channel" follow-on that had been on the "what's next" list since the 09:15 cron 2026-06-10 — finally unblocked, no external deps). The working tree had a complete partial V27 WIP on `develop` (4 files modified, 142-line diff, no untracked test file): the data layer (`programmeTitleSearchProvider` + `EpgProgrammeHit` + `debouncedEpgQueryProvider` in `app_providers.dart`) was complete, the SearchScreen debounce wiring was complete, and `EpgGuideScreen` had the new `initialProgrammeStartMs` plumbing. Missing: the actual `_EpgResultTile` rendering in SearchScreen, the tap-to-navigate handler, and the test file. Picked it up.
+- Verified the WIP sound: `flutter analyze` → 50 issues (no change from baseline; 49 pre-existing `withOpacity` infos + 1 V07-chunk3 unused-parameter warning; **0 new issues in any of the 3 modified files**); `flutter test` → all pre-existing tests still pass. No `pubspec.lock` noise (no `flutter pub get` ran this session, unlike some prior pickups).
+- **Completed the V27 WIP** — 3 changes plus the new test file, 901 insertions / 13 deletions:
+  - **`SearchScreen` UI rendering** (`search_screen.dart`): the in-memory results + EPG results now live in a single `ListView` with two `_SectionHeader`-separated sections ("Channels and VOD" + "EPG programmes"). Empty state gracefully handles "no in-memory results yet EPG still loading" via a footer spinner so the user doesn't think the screen is dead. The new `_EpgResultTile` widget mirrors the existing `_SearchResultTile` shape — type badge ("Live TV") + 48×36 channel logo-or-initial + programme title (2 lines, ellipsis) + "{channel} · Today/Tomorrow/Mon 9 Jun HH:MM" subtitle + chevron — but pulls the timestamp from the `EpgProgrammeHit.programme.start` (unix-seconds → epoch-ms × 1000). Time labels use a locale-independent `_formatDay` helper (Today / Tomorrow / "Mon 9 Jun") so the test env's `platformLocale` doesn't bite us. Brightness-aware via `context.appColors` / `context.appTypography` (the V11–V15 migration).
+  - **Tap-to-navigate** (`_openEpgHit`): `Navigator.push(MaterialPageRoute(EpgGuideScreen(initialProgrammeStartMs: hit.programme.start * 1000)))`. The guide's `filteredLiveStreamsProvider`-driven channel column will naturally include the hit's parent channel as long as it's not hidden / not category-filtered out / not in favourites-only mode. The guide's 6-hour timeline window now centres on the matched programme's start time (rounded to the nearest half-hour so the timeline grid lines up with the programme blocks — the `_initWindow` override added by the WIP).
+  - **`programmeTitleSearchProvider` no-creds gate** (`app_providers.dart`): the WIP was missing one line — `final creds = await ref.watch(activeCredentialsProvider.future); if (creds == null) return const [];` — caught by the "no active connection → empty list" test. Without it, a no-creds user would fire N EPG network round-trips per keystroke (the live-streams catalogue is populated regardless of active credentials). Mirrors the V22/V25/V26 degrade-to-empty pattern.
+  - **Removed the `core/network/xtream_client.dart` import** from `search_screen.dart` — the WIP had added it speculatively, but the file only uses `EpgProgrammeHit` and `XtreamEpgEntry` through `app_providers.dart`'s re-exports. Caught by `flutter analyze`'s unused_import warning.
+- **13 new tests** (`test/v27_epg_programme_search_test.dart`): 10 `programmeTitleSearchProvider` + 2 `debouncedEpgQueryProvider` + 1 cap-constant pin. Mirrors the V22/V24/V26 in-file `_FakeCredentialsStore` + `_FakeXtreamClient` + `makeContainer` convention (per the V22 entry note: "intentionally per-file" — each test file owns its own fakes for self-containment). Test split:
+  1. **Empty query → empty list** (short-circuits without doing work — the `q.isEmpty` early return is the cheap path so the search screen doesn't refire the provider per keystroke for the empty case)
+  2. **Whitespace-only query → empty list** (the `q.trim().toLowerCase()` check covers `"   "` as well as `""`)
+  3. **No active connection → empty list** (the no-creds gate — caught by the failing test on first run; this is the line of code the WIP was missing)
+  4. **No live streams → empty list** (regression guard for the `live.isEmpty` early return)
+  5. **Case-insensitive title match across all loaded channels** (lowercase query, mixed-case title, single match with the right channel + programme)
+  6. **Description match when title does not match** (EPG programmes with rich `description` fields can be found by description text — important for catch-up searches like "find me the Match of the Day highlights")
+  7. **Multiple hits sorted by programme start-time asc** (News at Six before News at Ten — the chronological sort runs after the dedupe)
+  8. **Results capped at `kEpgProgrammeSearchCap` (20)** (5 channels × 5 programmes each = 25 hits, expect 20 with the cap constant pinned to 20)
+  9. **A flaky channel (`epgProvider` throws) does not poison the result** (channel 1 returns 2 matches, channel 2's EPG fetch throws — `_readEpgSafe` swallows the throw and returns `[]` so channel 1's hits still surface)
+  10. **No matches across all channels → empty list** (regression guard for the empty result)
+  11. **Hit carries both the matched programme and its parent channel** (full round-trip: `programme.start` / `end` / `title` / `description` and `channel.streamId` / `name` / `categoryId`)
+  12. **`debouncedEpgQueryProvider` defaults to empty string** (regression guard)
+  13. **`debouncedEpgQueryProvider` writes propagate** (set + read round-trip)
+- **`flutter analyze`**: 50 issues found (was 50). 49 pre-existing `withOpacity` infos + 1 pre-existing V07-chunk3 unused-parameter warning. **0 new issues introduced by V27** (no entries in `app_providers.dart`, `search_screen.dart`, `epg_guide_screen.dart`, or the new test file).
+- **`flutter test`**: 289/289 pass (was 276, +13 from V27).
+- **Pushed `feature/v27-epg-programme-search` → `develop` (squash merge 51d7c1e, PR #16)**. CI ✅ (6m3s) + **Release ✅ (5m55s) → v0.1.71** (APK + iOS + macOS, all 3 platform artifacts). Per the R01/skill discipline: investigated Release status IMMEDIATELY after merge. `gh release view v0.1.71 -R citralia/cloudstream` confirmed all 3 assets (`app-release.apk`, `Runner_iOS.zip`, `Runner_macOS.zip`) — no 401, no silent macOS path miss. **APK uploaded as v0.1.71.**
+
+### CI status:
+- `Merge feature/v27-epg-programme-search into develop` (51d7c1e) — **CI ✅ (6m3s) + Release ✅ (5m55s) → v0.1.71** (all 3 platform artifacts uploaded)
+- All Phase 2 (P201–P204, P206) + V01–V27 + R01 now Done
+- 289/289 tests pass, 0 new analyze errors (50 pre-existing remain)
+
+### What's next:
+- **V27 closes the V04 search surface gap.** The search screen now indexes live channels + VOD + series by name (V04) **and** EPG programmes by title/description (V27). A user searching for "match" sees the "Match of the Day" programme cards across every channel with a relevant EPG listing, and a tap opens the EPG guide centred on the matched time on the matched channel. The same `epgProvider` cache powers both the EPG guide (P105) and the search results — no extra network round-trips after the guide has loaded.
+- **Other unblocked candidates** (all no external deps):
+  - Personalisation-row fine-tuning: lifetime vs recent-window, additional dedupe edges (e.g. V20 Recently Played row deduping from V03 Continue Watching — symmetric to the V22/V25 Most Watched ↔ Continue Watching ↔ Recently Played triangle)
+  - Recording/catch-up conflict resolution (Xtream supports both — UX question)
+  - `profile_setup_screen` brightness-aware migration (still in the 50-issue pre-existing set; out of scope for the personalisation/search work)
+  - EPG-side follow-on: "remind me when this programme is on any channel" could be added as a long-press on a `_EpgResultTile` (the matched programme's start is already a `DateTime`, and `RemindersNotifier` from V07 is keyed on `streamId` + `programmeStartMs` — would be a small follow-on)
+- **R02 candidate**: the v0.1.61 / v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 / v0.1.70 tags are all on origin and published to the GitHub Releases page. v0.1.61 is a stranded release (the V22 release failure pushed the tag but never created the GitHub Release against it). v0.1.63 / v0.1.65 / v0.1.67 / v0.1.69 / v0.1.70 are from docs-only R01 / V23 / V24 / V25 / V26 release-version bumps. Cleanup is a 1-line `git tag -d` + `git push origin :refs/tags/vX.Y.Z` per tag, plus a `gh release delete` if we want the release pages gone. Low-priority — not blocking anything.
+- **Backlog** (external-service blockers):
+  - P205: Profile sync via Firestore (needs Firebase credentials)
+  - P207: DVR / recordings (revenue-gated after P208)
+  - P208: Monetisation (needs RevenueCat)
+  - B202: Firebase integration (general infra)
+- **C06**: Smoke test on Firestick (blocked on josh)
+
+
 ## 2026-06-10 — CloudStream Hourly Cron (23:10 BST — V26 ship)
 
 **Session start:** 22:50 BST
