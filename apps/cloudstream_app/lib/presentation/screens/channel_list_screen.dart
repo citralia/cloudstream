@@ -65,6 +65,17 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
   /// rebuilds without the row. A snackbar with an UNDO action restores
   /// the visibility. Hidden channels are otherwise filtered out of the
   /// default view and accessible via the "Hidden" filter chip.
+  ///
+  /// V37: sheet also offers "Add to favourites" / "Remove from
+  /// favourites" — same long-press surface, second action. The heart
+  /// icon on the tile stays (Firestick users on the default view can
+  /// still toggle favourites with a direct D-pad tap), but the
+  /// long-press action is the discoverable surface: long-press is a
+  /// standard TV-guide affordance for "what can I do with this
+  /// channel?" and users who don't know about the heart icon
+  /// find the favourite action here. Toggles go through the
+  /// existing [toggleFavourite] / [toggleHidden] helpers so per-
+  /// profile isolation + persistence already work.
   Future<void> _openChannelActions(
     BuildContext context,
     WidgetRef ref,
@@ -72,6 +83,9 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
   ) async {
     final isHidden =
         ref.read(activeProfileHiddenProvider).contains(stream.streamId);
+    final isFavourite = ref
+        .read(activeProfileFavouritesProvider)
+        .contains(stream.streamId);
     final messenger = ScaffoldMessenger.of(context);
     final action = await showModalBottomSheet<_ChannelAction>(
       context: context,
@@ -95,6 +109,32 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
                 ),
               ),
               const Divider(height: 1),
+              // V37: favourite toggle in the same long-press sheet.
+              // Sits ABOVE the hide action because favouriting is
+              // the more common use-case (visible across all views)
+              // and hiding is the heavier one (filters the channel
+              // out of the default view). Mirrors the channel-list
+              // tile layout: heart icon on the right, eye-off icon
+              // on the right too — both use the same visual weight.
+              ListTile(
+                leading: Icon(
+                  isFavourite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavourite
+                      ? context.appColors.error
+                      : context.appColors.primary,
+                ),
+                title: Text(
+                  isFavourite
+                      ? 'Remove from favourites'
+                      : 'Add to favourites',
+                  style: context.appTypography.body,
+                ),
+                onTap: () => Navigator.of(sheetContext).pop(
+                  isFavourite
+                      ? _ChannelAction.unfavourite
+                      : _ChannelAction.favourite,
+                ),
+              ),
               ListTile(
                 leading: Icon(
                   isHidden ? Icons.visibility : Icons.visibility_off,
@@ -113,38 +153,75 @@ class _ChannelListScreenState extends ConsumerState<ChannelListScreen> {
     if (action == null) return;
     if (!context.mounted) return;
 
-    if (action == _ChannelAction.hide) {
-      await toggleHidden(ref, stream.streamId);
-      // Switch out of hiddenOnly if the user hides the last visible
-      // channel — avoids an empty list confusing the user. No-op when
-      // the user wasn't viewing hidden-only.
-      if (ref.read(hiddenOnlyProvider)) {
-        ref.read(hiddenOnlyProvider.notifier).state = false;
-      }
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Hidden — ${stream.name}'),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () => toggleHidden(ref, stream.streamId),
+    switch (action) {
+      case _ChannelAction.hide:
+        await toggleHidden(ref, stream.streamId);
+        // Switch out of hiddenOnly if the user hides the last visible
+        // channel — avoids an empty list confusing the user. No-op
+        // when the user wasn't viewing hidden-only.
+        if (ref.read(hiddenOnlyProvider)) {
+          ref.read(hiddenOnlyProvider.notifier).state = false;
+        }
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Hidden — ${stream.name}'),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () => toggleHidden(ref, stream.streamId),
+            ),
           ),
-        ),
-      );
-    } else {
-      // Unhide — silent (the user just opened the action sheet on a
-      // channel they already have access to, so the row is back the
-      // moment they tap "Unhide"). Still a snackbar confirmation
-      // because the row won't reappear until they leave hiddenOnly.
-      await toggleHidden(ref, stream.streamId);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Unhidden — ${stream.name}'),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+        );
+        break;
+      case _ChannelAction.unhide:
+        // Unhide — silent (the user just opened the action sheet on a
+        // channel they already have access to, so the row is back
+        // the moment they tap "Unhide"). Still a snackbar
+        // confirmation because the row won't reappear until they
+        // leave hiddenOnly.
+        await toggleHidden(ref, stream.streamId);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Unhidden — ${stream.name}'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        break;
+      case _ChannelAction.favourite:
+        // V37: mirror the V18 hide-UNDO flow. Favouriting is a
+        // soft action (the channel stays in every view), so the
+        // snackbar is informational; the UNDO lets a user who
+        // tapped it by mistake reverse without hunting for the
+        // heart icon.
+        await toggleFavourite(ref, stream.streamId);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Added to favourites — ${stream.name}'),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () => toggleFavourite(ref, stream.streamId),
+            ),
+          ),
+        );
+        break;
+      case _ChannelAction.unfavourite:
+        await toggleFavourite(ref, stream.streamId);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Removed from favourites — ${stream.name}'),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () => toggleFavourite(ref, stream.streamId),
+            ),
+          ),
+        );
+        break;
     }
   }
 
@@ -1579,7 +1656,13 @@ class _SortModeRow extends StatelessWidget {
 }
 
 /// V18: actions exposed by the long-press channel sheet.
-enum _ChannelAction { hide, unhide }
+/// V37: extended with [favourite] / [unfavourite] so the sheet
+/// offers a single discoverable surface for both per-profile
+/// personalisation toggles (favourites + hide). The heart icon on
+/// the channel tile is still the fastest way to toggle favourites
+/// for users who know it exists; the long-press sheet is the
+/// discoverable surface for users who don't.
+enum _ChannelAction { hide, unhide, favourite, unfavourite }
 
 /// V19: Modal bottom sheet for managing the active profile's hidden
 /// channel set. Shows every hidden channel resolved against the live
