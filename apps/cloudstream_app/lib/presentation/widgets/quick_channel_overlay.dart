@@ -44,8 +44,8 @@ class _QuickChannelOverlayState extends ConsumerState<QuickChannelOverlay> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.black.withOpacity(0.9),
-                Colors.black.withOpacity(0.0),
+                Colors.black.withValues(alpha: 0.9),
+                Colors.black.withValues(alpha: 0.0),
               ],
             ),
           ),
@@ -112,7 +112,7 @@ class _RecentChannelChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.appColors.surfaceElevated,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: context.appColors.textMuted.withOpacity(0.3)),
+          border: Border.all(color: context.appColors.textMuted.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -197,7 +197,7 @@ class _ChannelNumberBarState extends State<ChannelNumberBar> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.8),
+        color: Colors.black.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

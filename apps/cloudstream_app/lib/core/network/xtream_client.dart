@@ -255,19 +255,19 @@ class XtreamApiClient {
   /// Build the live stream URL for a given stream_id.
   String buildLiveStreamUrl(int streamId) {
     _requireConfigured();
-    return '${_serverUrl!}/live/${_username}/${_password}/$streamId.m3u8';
+    return '${_serverUrl!}/live/$_username/$_password/$streamId.m3u8';
   }
 
   /// Build the VOD stream URL.
   String buildVodStreamUrl(int streamId) {
     _requireConfigured();
-    return '${_serverUrl!}/movie/${_username}/${_password}/$streamId.m3u8';
+    return '${_serverUrl!}/movie/$_username/$_password/$streamId.m3u8';
   }
 
   /// Build the series episode stream URL.
   String buildSeriesStreamUrl(int episodeStreamId) {
     _requireConfigured();
-    return '${_serverUrl!}/series/${_username}/${_password}/$episodeStreamId.m3u8';
+    return '${_serverUrl!}/series/$_username/$_password/$episodeStreamId.m3u8';
   }
 
   /// Build a catch-up stream URL for a given stream and start timestamp.
@@ -277,7 +277,7 @@ class XtreamApiClient {
   String buildCatchupStreamUrl(int streamId, DateTime startTime) {
     _requireConfigured();
     final startEpoch = startTime.millisecondsSinceEpoch ~/ 1000;
-    return '${_serverUrl!}/live/${_username}/${_password}/$streamId.m3u8?start=$startEpoch';
+    return '${_serverUrl!}/live/$_username/$_password/$streamId.m3u8?start=$startEpoch';
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────

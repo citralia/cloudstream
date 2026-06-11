@@ -169,11 +169,11 @@ class SettingsScreen extends ConsumerWidget {
               child: ElevatedButton.icon(
                 onPressed: () => _confirmLogout(context, ref),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: context.appColors.error.withOpacity(0.15),
+                  backgroundColor: context.appColors.error.withValues(alpha: 0.15),
                   foregroundColor: context.appColors.error,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: context.appColors.error.withOpacity(0.3)),
+                    side: BorderSide(color: context.appColors.error.withValues(alpha: 0.3)),
                   ),
                 ),
                 icon: const Icon(Icons.logout),
@@ -284,7 +284,7 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Row(
           children: [
-            Icon(icon, color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textMuted, size: 20),
+            Icon(icon, color: isDisabled ? context.appColors.textMuted.withValues(alpha: 0.5) : context.appColors.textMuted, size: 20),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -293,14 +293,14 @@ class _SettingsTile extends StatelessWidget {
                   Text(
                     title,
                     style: context.appTypography.body.copyWith(
-                      color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textPrimary,
+                      color: isDisabled ? context.appColors.textMuted.withValues(alpha: 0.5) : context.appColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: context.appTypography.caption.copyWith(
-                      color: isDisabled ? context.appColors.textMuted.withOpacity(0.5) : context.appColors.textSecondary,
+                      color: isDisabled ? context.appColors.textMuted.withValues(alpha: 0.5) : context.appColors.textSecondary,
                     ),
                   ),
                 ],
@@ -322,7 +322,7 @@ class _ComingSoonBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
       decoration: BoxDecoration(
-        color: context.appColors.primary.withOpacity(0.15),
+        color: context.appColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text('Soon', style: context.appTypography.micro.copyWith(color: context.appColors.primary)),
@@ -353,7 +353,7 @@ class _ActiveProfileTile extends ConsumerWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(

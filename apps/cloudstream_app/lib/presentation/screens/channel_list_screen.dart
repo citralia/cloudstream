@@ -694,7 +694,7 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? context.appColors.primary.withOpacity(0.2) : context.appColors.surfaceElevated,
+          color: isSelected ? context.appColors.primary.withValues(alpha: 0.2) : context.appColors.surfaceElevated,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: isSelected ? context.appColors.primary : context.appColors.textMuted),
         ),
@@ -746,7 +746,7 @@ class ChannelTile extends ConsumerWidget {
           return InkWell(
             onTap: onTap,
             onLongPress: onLongPress, // V18: long-press for hide/unhide
-            focusColor: context.appColors.primary.withOpacity(0.1),
+            focusColor: context.appColors.primary.withValues(alpha: 0.1),
             child: Container(
               decoration: BoxDecoration(
                 border: isFocused
