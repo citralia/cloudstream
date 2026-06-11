@@ -63,7 +63,7 @@ class RemindersListScreen extends ConsumerWidget {
                   key: ValueKey(r.id),
                   direction: DismissDirection.endToStart,
                   background: Container(
-                    color: context.appColors.error.withOpacity(0.15),
+                    color: context.appColors.error.withValues(alpha: 0.15),
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.lg,
@@ -118,7 +118,7 @@ class _ReminderRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: context.appColors.primary.withOpacity(0.15),
+              color: context.appColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(

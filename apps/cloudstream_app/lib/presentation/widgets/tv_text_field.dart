@@ -123,7 +123,7 @@ class _TvTextFieldState extends State<TvTextField> {
             boxShadow: _isFocused
                 ? [
                     BoxShadow(
-                      color: colors.primary.withOpacity(0.3),
+                      color: colors.primary.withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 0,
                     )

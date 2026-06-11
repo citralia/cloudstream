@@ -81,7 +81,7 @@ class _DebugLogsScreenState extends ConsumerState<DebugLogsScreen> {
                 const Spacer(),
                 Switch(
                   value: logState.enabled,
-                  activeColor: context.appColors.primary,
+                  activeThumbColor: context.appColors.primary,
                   onChanged: (v) => ref.read(debugLogProvider.notifier).setEnabled(v),
                 ),
               ],

@@ -168,7 +168,7 @@ class _ProfileTile extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       child: Material(
-        color: isActive ? color.withOpacity(0.15) : Colors.transparent,
+        color: isActive ? color.withValues(alpha: 0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -178,7 +178,7 @@ class _ProfileTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: isActive
-                  ? Border.all(color: color.withOpacity(0.4), width: 1)
+                  ? Border.all(color: color.withValues(alpha: 0.4), width: 1)
                   : null,
             ),
             child: Row(
@@ -188,7 +188,7 @@ class _ProfileTile extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
+                    color: color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -218,7 +218,7 @@ class _ProfileTile extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: color.withOpacity(0.2),
+                                color: color.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -370,7 +370,7 @@ class _ProfileFormSheetState extends State<_ProfileFormSheet> {
                             ? Border.all(color: Colors.white, width: 3)
                             : null,
                         boxShadow: isSelected
-                            ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8)]
+                            ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
                             : null,
                       ),
                       child: isSelected
@@ -429,14 +429,14 @@ class _FormButtonState extends State<_FormButton> {
         onTap: widget.onPressed,
         child: Container(
           decoration: BoxDecoration(
-            color: _isFocused ? context.appColors.primary : context.appColors.primary.withOpacity(0.7),
+            color: _isFocused ? context.appColors.primary : context.appColors.primary.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _isFocused ? context.appColors.accent : Colors.transparent,
               width: 2,
             ),
             boxShadow: _isFocused
-                ? [BoxShadow(color: context.appColors.primary.withOpacity(0.4), blurRadius: 10)]
+                ? [BoxShadow(color: context.appColors.primary.withValues(alpha: 0.4), blurRadius: 10)]
                 : null,
           ),
           alignment: Alignment.center,

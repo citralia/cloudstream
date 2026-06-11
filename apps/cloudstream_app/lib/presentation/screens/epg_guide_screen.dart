@@ -327,7 +327,7 @@ class _EpgGridState extends State<_EpgGrid> {
                         pixelsPerMinute: TimelineMetrics.pixelsPerMinute,
                         lineColor: context.appColors.surfaceElevated,
                         textColor: context.appColors.textMuted,
-                        halfLineColor: context.appColors.textMuted.withOpacity(0.3),
+                        halfLineColor: context.appColors.textMuted.withValues(alpha: 0.3),
                       ),
                     ),
                   ),
@@ -748,12 +748,12 @@ class _ProgrammeBlock extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             color: isOnNow
-                ? context.appColors.primary.withOpacity(0.85)
+                ? context.appColors.primary.withValues(alpha: 0.85)
                 : context.appColors.surfaceElevated,
             borderRadius: BorderRadius.circular(4),
             border: isOnNow
                 ? Border.all(color: context.appColors.primary, width: 2)
-                : Border.all(color: context.appColors.textMuted.withOpacity(0.3)),
+                : Border.all(color: context.appColors.textMuted.withValues(alpha: 0.3)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           alignment: Alignment.centerLeft,

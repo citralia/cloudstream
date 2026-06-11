@@ -715,18 +715,18 @@ class _TypeBadge extends StatelessWidget {
     final IconData icon;
     switch (type) {
       case 'series':
-        bg = context.appColors.primary.withOpacity(0.2);
+        bg = context.appColors.primary.withValues(alpha: 0.2);
         fg = context.appColors.primary;
         icon = Icons.tv;
         break;
       case 'vod':
-        bg = context.appColors.accent.withOpacity(0.2);
+        bg = context.appColors.accent.withValues(alpha: 0.2);
         fg = context.appColors.accent;
         icon = Icons.movie;
         break;
       case 'live':
       default:
-        bg = context.appColors.primary.withOpacity(0.2);
+        bg = context.appColors.primary.withValues(alpha: 0.2);
         fg = context.appColors.primary;
         icon = Icons.live_tv;
         break;

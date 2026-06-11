@@ -11,9 +11,8 @@ import 'package:cloudstream_app/presentation/providers/app_providers.dart';
 /// can assert what the notifier asked the OS to do. Lighter than
 /// mocking `flutter_local_notifications` (no platform channel).
 class _FakeScheduler implements ReminderScheduler {
-  _FakeScheduler({this.permissionGranted = true});
+  _FakeScheduler();
 
-  bool permissionGranted;
   bool permissionRequested = false;
   int rehydrateCalls = 0;
   final List<Reminder> scheduled = [];
@@ -22,7 +21,7 @@ class _FakeScheduler implements ReminderScheduler {
   @override
   Future<bool> requestPermission() async {
     permissionRequested = true;
-    return permissionGranted;
+    return true;
   }
 
   @override
