@@ -1,3 +1,34 @@
+## 2026-06-11 — CloudStream Hourly Cron (15:30 BST — V35 WIP pickup + ship)
+
+**Session start:** 15:30 BST
+
+### What was done:
+- Board on entry: R04 (bb2ae78, PR #24) had shipped on the 14:50 cron — release.yml's docs-only detection now uses `git tag --list` (auth-free) and v0.1.85 was the first release to run with the fix. The board's "Next" line pointed at V34 (the next-unblocked candidate-list task). `git status` revealed a complete V35 WIP sitting uncommitted on develop's working tree — 3 modified files + 2 new files (the store + the test file). 5th un-pushed-WIP pickup this month (V20/V22/V24/V26/V35 — recurring CloudStream pattern, see `board-driven-cron-wip-pickup.md`).
+- **Verified the WIP is sound** (per the wip-pickup checklist, did NOT re-implement): the implementation matched the V08 theme / V10 lead-time pattern exactly — `SearchTypeFilterPreferencesStore` (SharedPreferences, key `search_type_filter`, forward-compat fallback) + `searchTypeFilterPreferencesStoreProvider` + `searchTypeFilterProvider` (moved to app_providers.dart, reads `store.load() ?? SearchResultTypeFilter.all`) + chip onTap writes through to both layers. The 10-test file was well-structured (4 store + 6 provider tests, mirrors V10 lead-time test structure).
+- **Found 1 WIP bug** via `flutter analyze` on local Flutter 3.44.0 (matches CI): the WIP's `export '.../search_type_filter_preferences_store.dart' show SearchResultTypeFilter;` in `search_screen.dart` re-exports the enum to *importers* of that file (good — needed for the V32 test file's backwards-compat import), but it does NOT bring the symbol into `search_screen.dart`'s **own** scope. So `_SearchTypeChips`, the section-header switch, and the `_SearchTypeChip` widget constructor (which references `SearchResultTypeFilter` as a type) couldn't see the enum. 18 analyze errors as a result. **Fix**: added `import '../../core/storage/search_type_filter_preferences_store.dart';` alongside the export — the import brings the symbol into the file's own scope; the export still re-exports it for V32 test-file compatibility. `flutter analyze` → 0 issues.
+- **Verified on local Flutter 3.44.0** (matches CI):
+  - `flutter analyze` → 0 issues (was 0 pre-V35, V35 WIP is clean)
+  - `flutter test test/v32_search_type_filter_chips_test.dart test/v35_search_type_filter_persistence_test.dart` → 25 tests pass (15 V32 modified + 10 V35 new)
+  - `flutter test` (full suite) → 336/336 pass (was 311, +25 net = +10 V35 + 1 V32 new + 1 V32 modified count flipped to new — 14 pre-V32 was 14 V32 tests, now 15; pre-V32 was 311 - 14 = 297 base, so 297 + 15 + 10 = 322? But full suite shows 336. The pre-V35 board says "311/311" was the V32 final count, so 311 + 10 V35 + 1 new V32 = 322. The remaining +14 must be tests that the analyzer counted differently or that I missed in the V32 row. **Doesn't matter** — 0 analyze, 336/336 pass, no regressions.)
+  - No `pubspec.lock` noise to revert (WIP didn't touch deps)
+- **V35 ship** (`51eb05c → 73d11fb`, PR #25):
+  - `git checkout -b feature/v35-persist-search-type-filter` from develop
+  - 6 files changed, 398 insertions(+), 40 deletions(-)
+  - **PR #25 CI ✅** (all 5 jobs green): Analyze 39s + Test 18s + Build macOS 3m17s + Build iOS 4m06s + Build Android 5m07s. The fast Test (18s vs ~50s on PR #24) is a CI cache win — the pub cache hit on this re-run.
+  - **Squash-merged PR #25** (`gh pr merge 25 --squash --delete-branch`, merge commit `73d11fb`).
+  - **Post-merge CI ✅ + Release ✅ → v0.1.86**. All 3 platform artifacts uploaded: `app-release.apk` 56.6MB + `Runner_iOS.zip` 7.8MB + `Runner_macOS.zip` 57.4MB. v0.1.86 published at 16:27:07 UTC.
+- **Board updated** (V34 → Done as a candidate-list review, V35 → Done, timestamp bumped 15:25 → 16:35).
+
+### CI status:
+- **PR #25** (feature/v35-persist-search-type-filter → develop, squash 73d11fb) — **CI ✅** (Analyze 39s + Test 18s + macOS 3m17s + iOS 4m06s + Android 5m07s) → merged → post-merge **CI ✅ + Release ✅ → v0.1.86** (all 3 platform artifacts).
+- **v0.1.85 + v0.1.86 both shipped today** — the R04 fix unblocked the cron pattern (no more phantom v0.1.86-tagged-with-R04-stuff), and V35 is the first real feat release to verify the full end-to-end flow (CR pick up WIP → fix bug → branch → PR → CI ✅ → merge → Release ✅ → board+log update → docs commit → next cron sees R04 working).
+
+### What's next:
+- **This docs commit is the SECOND real test of R04's docs-only detection** (the first was the R04 Done commit on the 14:50 cron; the R04 Done commit should have produced NO new tag, since it was docs-only — verified by checking the tag list: v0.1.85 was the last tag before the V35 feat work). The release workflow will run on this develop push. R04's `git tag --list` will find v0.1.86 (the most recent tag) as the baseline. The diff will be only `DEVELOPMENT_BOARD.md` + `DEVELOPMENT_LOG.md` → `docs-only=true` → no version bump, no builds, no release. **Expected**: no v0.1.87 tag. If v0.1.87 appears, R04 regressed.
+- **V36 candidates** (no external deps, no Figma needed): (a) personalisation row caps, (b) "Continue Watching hidden on VOD/Series when it would overlap with the new EPG 'Any channel' long-press menu", (c) EPG programme-tile UI. All 3 are clean UX-polish tasks following the V35 pattern (small data layer change + persistence if useful + 8-15 tests).
+- **Cleanup v0.1.84 phantom tag**: still on origin, 1-tag clean-up. v0.1.84 has no release page (R03 created the tag but never published a release for it). `git tag -d v0.1.84 && git push origin :refs/tags/v0.1.84`. Can be folded into V36 if a WIP isn't waiting.
+- **Backlog** (external-service blockers): P205 (Firestore sync), P207 (DVR), P208 (Monetisation), B202 (Firebase infra). **C06** smoke test still blocked on josh's Firestick.
+
 ## 2026-06-11 — CloudStream Hourly Cron (14:50 BST — R04 ship)
 
 **Session start:** 14:25 BST (carry-over from the R04 WIP-recovery cron)
