@@ -1648,3 +1648,69 @@ Future<List<XtreamEpgEntry>> _readEpgSafe(Ref ref, XtreamStream s) async {
 /// [searchQueryProvider] still drives the instant in-memory
 /// live/VOD/series search results.
 final debouncedEpgQueryProvider = StateProvider<String>((ref) => '');
+
+// ── V29 — "Remind me on any channel" ─────────────────────────────────────
+
+/// Maximum number of cross-channel airings we'll surface (and schedule
+/// reminders for) per programme title from the "Any channel" affordance.
+/// Beyond this cap the user is probably searching for a programme that
+/// airs too many times in a single day (e.g. rolling news on the hour
+/// every hour across 20 channels) — we'd flood the OS notification
+/// queue. The cap is higher than the V27 search cap (20) because a
+/// single-day news programme may have 5+ future airings; for most
+/// non-news programmes 1–2 airings is the norm.
+const int kCrossChannelReminderCap = 20;
+
+/// Returns the future airings of [title] (exact, case-insensitive,
+/// trimmed match) across ALL loaded live channels' EPG, sorted by
+/// start-time asc. Used by the V29 "Remind me on any channel"
+/// snackbar action to schedule reminders for every future airing
+/// of the same programme title on other channels — a user
+/// searching for "Match of the Day" sees N hits across BBC One /
+/// BBC Two / ITV; V28 schedules a reminder for the tapped hit;
+/// V29 lets them schedule reminders for the rest with one tap.
+///
+/// Differs from V27's [programmeTitleSearchProvider] in two ways:
+/// (1) match is **exact** (case-insensitive, trimmed), not substring
+/// — we don't want to schedule reminders for "Match of the Day
+/// Replay" when the user asked for "Match of the Day"; (2) the
+/// result is future-only (a programme that has already started is
+/// not a valid reminder target).
+///
+/// Capped at [kCrossChannelReminderCap]. Returns `[]` for an empty
+/// title, no active connection, no live streams loaded, or no
+/// matches.
+final programmeAiringsAcrossChannelsProvider =
+    FutureProvider.family<List<EpgProgrammeHit>, String>((
+  ref,
+  title,
+) async {
+  final t = title.trim().toLowerCase();
+  if (t.isEmpty) return const [];
+  // Mirror the V22/V25/V26/V27 pattern: no active connection → degrade
+  // to empty. Without this gate a no-creds user would fire N EPG
+  // network round-trips per tap.
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final live = await ref.watch(liveStreamsProvider.future);
+  if (live.isEmpty) return const [];
+  final perStream = await Future.wait(
+    live.map(
+      (s) => _readEpgSafe(ref, s).then((entries) => (stream: s, entries: entries)),
+    ),
+  );
+  final now = DateTime.now().toUtc();
+  final hits = <EpgProgrammeHit>[];
+  for (final row in perStream) {
+    for (final p in row.entries) {
+      if (p.title.trim().toLowerCase() == t && now.isBefore(p.startTime)) {
+        hits.add(EpgProgrammeHit(channel: row.stream, programme: p));
+      }
+    }
+  }
+  hits.sort((a, b) => a.programme.start.compareTo(b.programme.start));
+  if (hits.length > kCrossChannelReminderCap) {
+    return hits.sublist(0, kCrossChannelReminderCap);
+  }
+  return hits;
+});
