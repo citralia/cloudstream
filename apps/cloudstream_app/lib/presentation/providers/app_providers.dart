@@ -1562,3 +1562,89 @@ final searchResultsProvider = Provider<List<SearchResult>>((ref) {
   final index = ref.read(searchServiceProvider);
   return index.search(query);
 });
+
+// ── V27 — EPG programme-title search ──────────────────────────────────────
+
+/// Maximum number of EPG programme-title search hits surfaced per query.
+/// Beyond this cap the user is probably searching for something
+/// too generic to be useful; the rest of the result list (live/VOD/series
+/// names) is unaffected.
+const int kEpgProgrammeSearchCap = 20;
+
+/// A single programme-title search hit: the matched programme together
+/// with its parent channel (used to render the channel logo + name and
+/// to navigate to the EPG guide at the right time on tap).
+class EpgProgrammeHit {
+  final XtreamStream channel;
+  final XtreamEpgEntry programme;
+  const EpgProgrammeHit({required this.channel, required this.programme});
+}
+
+/// Searches programme titles (and descriptions) across the active
+/// connection's loaded live channels' EPG. Returns hits sorted by
+/// programme start-time asc, capped at [kEpgProgrammeSearchCap].
+///
+/// Re-runs on every change of the debounced query (the search screen
+/// debounces keystrokes — see `debouncedEpgQueryProvider` + the timer
+/// in `SearchScreen.onChanged` — so we don't fire N network round-trips
+/// per keystroke). Awaits `liveStreamsProvider.future` directly (not
+/// `valueOrNull`) to avoid the first-tick-null trap the V20/V22/V26
+/// personalisation rows learned. Per-channel EPG fetches use
+/// `ref.read(epgProvider(id).future)` — `read` deliberately, so the
+/// parent's lifetime is governed by the debounced query, not by every
+/// EPG refresh; the EPG cache (Riverpod's own) still means subsequent
+/// runs of the same query re-use in-memory data. Each EPG fetch is
+/// wrapped in try/catch so one channel's failure doesn't poison the
+/// whole result. Returns `[]` for empty query, no active connection,
+/// or no live streams loaded yet.
+final programmeTitleSearchProvider =
+    FutureProvider.family<List<EpgProgrammeHit>, String>((ref, query) async {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  // Mirror the V22/V25/V26 pattern: no active connection → degrade to
+  // empty. Without this gate a user with no creds would fire N EPG
+  // network round-trips per keystroke (the live-streams catalogue is
+  // populated regardless of whether anyone is signed in).
+  final creds = await ref.watch(activeCredentialsProvider.future);
+  if (creds == null) return const [];
+  final live = await ref.watch(liveStreamsProvider.future);
+  if (live.isEmpty) return const [];
+  final perStream = await Future.wait(
+    live.map(
+      (s) => _readEpgSafe(ref, s).then((entries) => (stream: s, entries: entries)),
+    ),
+  );
+  final hits = <EpgProgrammeHit>[];
+  for (final row in perStream) {
+    for (final p in row.entries) {
+      if (p.title.toLowerCase().contains(q) ||
+          (p.description?.toLowerCase().contains(q) ?? false)) {
+        hits.add(EpgProgrammeHit(channel: row.stream, programme: p));
+      }
+    }
+  }
+  hits.sort((a, b) => a.programme.start.compareTo(b.programme.start));
+  if (hits.length > kEpgProgrammeSearchCap) {
+    return hits.sublist(0, kEpgProgrammeSearchCap);
+  }
+  return hits;
+});
+
+/// Reads an `epgProvider` future without establishing a parent-provider
+/// dependency on it (so EPG refreshes don't re-fire the search), and
+/// returns `[]` on any failure (a flaky channel must not poison the
+/// whole result list).
+Future<List<XtreamEpgEntry>> _readEpgSafe(Ref ref, XtreamStream s) async {
+  try {
+    return await ref.read(epgProvider(s.streamId).future);
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// Debounced query used by [programmeTitleSearchProvider]. Updated by
+/// the `SearchScreen` 350ms after the user stops typing, so we don't
+/// fire N EPG network round-trips per keystroke. The unsynced
+/// [searchQueryProvider] still drives the instant in-memory
+/// live/VOD/series search results.
+final debouncedEpgQueryProvider = StateProvider<String>((ref) => '');

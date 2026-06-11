@@ -11,8 +11,19 @@ import 'player_screen.dart';
 /// P105 — Full EPG guide screen.
 /// TV-style grid: channel column on the left, programme blocks on a timeline.
 /// Accessible via the "Guide" tab in the bottom navigation bar.
+///
+/// V27: optional [initialProgrammeStartMs] lets a caller (e.g. an
+/// EPG search hit) open the guide centred on a specific programme's
+/// start time, instead of "now". Pass `null` (the default) to keep
+/// the original "now-centred" behaviour — the bottom-nav entry point
+/// doesn't need to specify this.
 class EpgGuideScreen extends ConsumerStatefulWidget {
-  const EpgGuideScreen({super.key});
+  const EpgGuideScreen({super.key, this.initialProgrammeStartMs});
+
+  /// Epoch-ms of the programme the guide should centre on. If null,
+  /// the guide centres on "now" (original behaviour). Used by the
+  /// V27 EPG programme search result tile.
+  final int? initialProgrammeStartMs;
 
   @override
   ConsumerState<EpgGuideScreen> createState() => _EpgGuideScreenState();
@@ -33,6 +44,23 @@ class _EpgGuideScreenState extends ConsumerState<EpgGuideScreen> {
   }
 
   void _initWindow() {
+    // V27: if a caller passed an initial programme start time, centre
+    // the 6-hour window on that programme. Otherwise fall back to the
+    // original "now-centred" behaviour (start of the current or
+    // previous half-hour, minus 30 min, plus 6 hours).
+    final ts = widget.initialProgrammeStartMs;
+    if (ts != null) {
+      final centre = DateTime.fromMillisecondsSinceEpoch(ts, isUtc: true);
+      // Round the centre down to the nearest half-hour so the timeline
+      // grid lines up with the programme blocks.
+      final rounded = DateTime.utc(
+        centre.year, centre.month, centre.day,
+        centre.hour, centre.minute >= 30 ? 30 : 0,
+      );
+      _windowStart = rounded.subtract(const Duration(hours: 2));
+      _windowEnd = _windowStart.add(const Duration(hours: 6));
+      return;
+    }
     final now = DateTime.now().toUtc();
     _windowStart = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute >= 30 ? 30 : 0)
         .subtract(const Duration(minutes: 30));
