@@ -13,6 +13,80 @@ import 'player_screen.dart';
 import 'series_detail_screen.dart';
 import 'vod_detail_screen.dart';
 
+/// V32: filter chip selected on the search results screen. Mirrors the
+/// V18 hidden-filters / V22 row-dedupe pattern: a per-session mode that
+/// hides subsets of the result list. Not persisted — closing the
+/// screen resets to [SearchResultTypeFilter.all].
+enum SearchResultTypeFilter {
+  /// Default — render every section (in-memory channels/VOD/series +
+  /// EPG programmes). Equivalent to "no filter applied".
+  all,
+
+  /// Show only live TV channels.
+  live,
+
+  /// Show only VOD movies.
+  vod,
+
+  /// Show only series.
+  series,
+
+  /// Show only EPG programme search results (the V27 column).
+  epg,
+}
+
+/// V32: the currently selected search-result type filter. Module-level
+/// so widget tests can override it; per-session (not persisted) like
+/// the channel-list `hiddenOnly` toggle. Defaults to [all] so first
+/// open of the screen renders the full result list (no behaviour
+/// change vs pre-V32).
+final searchTypeFilterProvider =
+    StateProvider<SearchResultTypeFilter>((ref) => SearchResultTypeFilter.all);
+
+/// V32: pure function that partitions the in-memory result list and
+/// the EPG hits into the pair to render, given a [filter]. Lives at
+/// module scope so the V32 test file can drive it directly without
+/// pumping the search screen widget (which depends on a real
+/// `xtreamClientProvider` for the search index rebuilder). The
+/// 'all' filter is the identity — returns both lists unchanged,
+/// matching the pre-V32 behaviour. Any single-type filter returns an
+/// empty list for the other side. Filters that match the kind
+/// (`'live' | 'vod' | 'series'`) drop results whose `result.type`
+/// doesn't match; the EPG filter drops all in-memory results
+/// regardless of type. An unknown filter falls through to the 'all'
+/// path (forward-compat).
+({List<SearchResult> inMemory, List<EpgProgrammeHit> epg})
+    filterSearchResults({
+  required SearchResultTypeFilter filter,
+  required List<SearchResult> inMemory,
+  required List<EpgProgrammeHit> epg,
+}) {
+  switch (filter) {
+    case SearchResultTypeFilter.all:
+      return (inMemory: inMemory, epg: epg);
+    case SearchResultTypeFilter.live:
+      return (
+        inMemory: inMemory.where((r) => r.type == 'live').toList(),
+        epg: const <EpgProgrammeHit>[],
+      );
+    case SearchResultTypeFilter.vod:
+      return (
+        inMemory: inMemory.where((r) => r.type == 'vod').toList(),
+        epg: const <EpgProgrammeHit>[],
+      );
+    case SearchResultTypeFilter.series:
+      return (
+        inMemory: inMemory.where((r) => r.type == 'series').toList(),
+        epg: const <EpgProgrammeHit>[],
+      );
+    case SearchResultTypeFilter.epg:
+      return (
+        inMemory: const <SearchResult>[],
+        epg: epg,
+      );
+  }
+}
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -142,6 +216,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
 
+            // V32: type filter chips. Only shown while the user has
+            // typed something — the empty-query idle state shows the
+            // "Search for something" empty state below, and a chip
+            // row in front of it would be pointless. The chip row
+            // also renders nothing when there are zero results
+            // across all types (an empty state takes over below).
+            if (query.isNotEmpty) const _SearchTypeChips(key: Key('searchTypeChips')),
+
             // Results.
             Expanded(
               child: _buildBody(query, results, indexBuilt, epgAsync),
@@ -174,12 +256,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     }
 
-    final epgHits = epgAsync.maybeWhen(
+    final allEpgHits = epgAsync.maybeWhen(
       data: (h) => h,
       orElse: () => const <EpgProgrammeHit>[],
     );
 
-    if (results.isEmpty && epgHits.isEmpty && !epgAsync.isLoading) {
+    // V32: apply the selected type filter (default `all` → identity,
+    // matches pre-V32 behaviour). The chip row above drives the
+    // selection; this is a single switch over a 5-value enum so the
+    // cost is one O(n) partition per build.
+    final filter = ref.watch(searchTypeFilterProvider);
+    final filtered = filterSearchResults(
+      filter: filter,
+      inMemory: results,
+      epg: allEpgHits,
+    );
+    final epgHits = filtered.epg;
+    final filteredResults = filtered.inMemory;
+
+    if (filteredResults.isEmpty && epgHits.isEmpty && !epgAsync.isLoading) {
       return _EmptyState(
         icon: Icons.search_off,
         title: 'No results',
@@ -190,17 +285,35 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       children: [
-        if (results.isNotEmpty) ...[
-          const _SectionHeader(label: 'Channels and VOD'),
-          for (final result in results)
+        if (filteredResults.isNotEmpty) ...[
+          // V32: when a non-'all' filter is active the section header
+          // is the singular type name (e.g. "Live TV", "VOD movies",
+          // "Series") so the user sees what scope the result list
+          // represents. With 'all' the original "Channels and VOD"
+          // copy is preserved.
+          _SectionHeader(
+            label: switch (filter) {
+              SearchResultTypeFilter.live => 'Live TV',
+              SearchResultTypeFilter.vod => 'VOD',
+              SearchResultTypeFilter.series => 'Series',
+              SearchResultTypeFilter.epg => 'EPG programmes',
+              SearchResultTypeFilter.all => 'Channels and VOD',
+            },
+          ),
+          for (final result in filteredResults)
             _SearchResultTile(
               result: result,
               onTap: () => _openStream(result),
             ),
         ],
         if (epgHits.isNotEmpty) ...[
-          if (results.isNotEmpty) const SizedBox(height: AppSpacing.lg),
-          const _SectionHeader(label: 'EPG programmes'),
+          if (filteredResults.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+          // V32: hide the EPG section header when the filter is
+          // already `epg` — the single-section header above already
+          // says "EPG programmes", and a duplicate would be visual
+          // noise.
+          if (filter != SearchResultTypeFilter.epg)
+            const _SectionHeader(label: 'EPG programmes'),
           for (final hit in epgHits)
             _EpgResultTile(
               hit: hit,
@@ -209,8 +322,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ],
         // EPG still loading while we already have in-memory results: show
         // an unobtrusive footer spinner so the user knows the EPG
-        // section is in flight.
-        if (epgAsync.isLoading && results.isNotEmpty) ...[
+        // section is in flight. V32: also show it when the user has
+        // selected the `epg` filter and the EPG provider is still
+        // loading (the in-memory list is then empty by design, but
+        // the EPG column is what the user is waiting for).
+        if (epgAsync.isLoading &&
+            (results.isNotEmpty || filter == SearchResultTypeFilter.epg)) ...[
           const SizedBox(height: AppSpacing.lg),
           Center(
             child: Padding(
@@ -739,6 +856,218 @@ class _TypeBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(icon, color: fg, size: 18),
+    );
+  }
+}
+
+/// V32: horizontal row of 5 type filter chips (All / Live / VOD /
+/// Series / EPG) above the search results. Tapping a chip updates
+/// [searchTypeFilterProvider] — the build method watches the same
+/// provider and re-runs `filterSearchResults` to hide the other
+/// sections.
+///
+/// The chip row is the `Expanded`-sibling of the results list, so
+/// it gets a fixed height (`_chipRowHeight`) to match the
+/// channel-list `CategoryFilterChips` row at 52pt — a Firestick-
+/// friendly tap target that doesn't crowd the search bar above or
+/// the result list below. Renders nothing when the underlying
+/// `searchResultsProvider` and `programmeTitleSearchProvider` are
+/// both empty (the body shows the "No results" empty state in that
+/// case, and a chip row in front of "No results" would be visual
+/// noise).
+class _SearchTypeChips extends ConsumerWidget {
+  const _SearchTypeChips({super.key});
+
+  static const double _chipRowHeight = 52;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(searchTypeFilterProvider);
+    final inMemoryResults = ref.watch(searchResultsProvider);
+    // Watch the EPG query state without forcing a re-run — the chip
+    // row only needs to know "is the EPG section empty", not what
+    // it contains. Watching the debounced provider is sufficient
+    // for the cap check; the actual `programmeTitleSearchProvider`
+    // is still watched by the body's `build` for the result list.
+    final debouncedEpgQuery = ref.watch(debouncedEpgQueryProvider);
+    final epgAsync = ref.watch(
+      programmeTitleSearchProvider(debouncedEpgQuery),
+    );
+    final epgHits = epgAsync.maybeWhen(
+      data: (h) => h,
+      orElse: () => const <EpgProgrammeHit>[],
+    );
+
+    // Per-type counts drive the badge suffix on each chip so the
+    // user can see at a glance which filters would yield a result
+    // (e.g. a 3 on VOD vs 0 on Series makes the choice obvious).
+    final counts = <SearchResultTypeFilter, int>{
+      SearchResultTypeFilter.live: inMemoryResults
+          .where((r) => r.type == 'live')
+          .length,
+      SearchResultTypeFilter.vod: inMemoryResults
+          .where((r) => r.type == 'vod')
+          .length,
+      SearchResultTypeFilter.series: inMemoryResults
+          .where((r) => r.type == 'series')
+          .length,
+      SearchResultTypeFilter.epg: epgHits.length,
+    };
+    // 'all' is the sum of the others — pre-filter total.
+    final total =
+        counts[SearchResultTypeFilter.live]! +
+        counts[SearchResultTypeFilter.vod]! +
+        counts[SearchResultTypeFilter.series]! +
+        counts[SearchResultTypeFilter.epg]!;
+    counts[SearchResultTypeFilter.all] = total;
+
+    // Hide the row entirely when there's nothing to filter — saves
+    // a row of dead space and avoids the user tapping a chip that
+    // produces no visible result.
+    if (total == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: SizedBox(
+        height: _chipRowHeight,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          children: [
+            for (final entry in _chipOrder)
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: _SearchTypeChip(
+                  label: entry.label,
+                  icon: entry.icon,
+                  count: counts[entry.filter]!,
+                  isSelected: selected == entry.filter,
+                  onTap: () => ref
+                      .read(searchTypeFilterProvider.notifier)
+                      .state = entry.filter,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Display order + label/icon for the chip row. `all` first so
+  /// the "no filter" default is the leftmost / default-tap position.
+  static const List<_ChipSpec> _chipOrder = [
+    _ChipSpec(
+      filter: SearchResultTypeFilter.all,
+      label: 'All',
+      icon: Icons.all_inclusive,
+    ),
+    _ChipSpec(
+      filter: SearchResultTypeFilter.live,
+      label: 'Live TV',
+      icon: Icons.live_tv,
+    ),
+    _ChipSpec(
+      filter: SearchResultTypeFilter.vod,
+      label: 'VOD',
+      icon: Icons.movie,
+    ),
+    _ChipSpec(
+      filter: SearchResultTypeFilter.series,
+      label: 'Series',
+      icon: Icons.tv,
+    ),
+    _ChipSpec(
+      filter: SearchResultTypeFilter.epg,
+      label: 'EPG',
+      icon: Icons.event_note,
+    ),
+  ];
+}
+
+class _ChipSpec {
+  final SearchResultTypeFilter filter;
+  final String label;
+  final IconData icon;
+  const _ChipSpec({
+    required this.filter,
+    required this.label,
+    required this.icon,
+  });
+}
+
+/// V32: a single chip in the [_SearchTypeChips] row. Mirrors the
+/// channel-list `_FilterChip` (V18) visual language — pill shape,
+/// primary-tint background + border when selected, surfaceElevated +
+/// muted text when not — but adds a count suffix ("Live TV 12") so
+/// the user can see at a glance how many results each filter would
+/// yield.
+class _SearchTypeChip extends StatelessWidget {
+  const _SearchTypeChip({
+    required this.label,
+    required this.icon,
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.appColors.primary.withValues(alpha: 0.2)
+              : context.appColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? context.appColors.primary
+                : context.appColors.textMuted,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected
+                  ? context.appColors.primary
+                  : context.appColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? context.appColors.primary
+                    : context.appColors.textMuted,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: isSelected
+                    ? context.appColors.primary
+                    : context.appColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
